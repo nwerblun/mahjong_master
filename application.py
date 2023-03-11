@@ -15,6 +15,8 @@ class Core(Frame):
         self.placeholder_frame = None
         self.placeholder_frame2 = None
         self.hands_table = None
+        self.canvas_window = None
+        self._after_id = None
         self.create_hand_table()
         self.bind_all_children(self.canvas_container, "<MouseWheel>", self._on_mousewheel)
 
@@ -28,10 +30,16 @@ class Core(Frame):
         self.table_canvas.yview_scroll(-1 * (event.delta // 120), "units")
 
     def _on_canvas_table_config(self, event):
+        if not (self._after_id is None):
+            self.after_cancel(self._after_id)
+        self._after_id = self.after(300, lambda: self.hands_table.repopulate())
         self.table_canvas.itemconfig(self.canvas_window, width=event.width)
 
     def _on_canvas_frame_config(self, event):
         self.table_canvas.configure(scrollregion=self.table_canvas.bbox("all"))
+
+    def _on_mouse_release(self, event):
+        self.hands_table.repopulate()
 
     def create_hand_table(self):
         # Top level frames. Placeholder
@@ -46,34 +54,31 @@ class Core(Frame):
 
         # Create a canvas inside the center frame
         self.table_canvas = Canvas(self.canvas_container, background="green", borderwidth=5, relief=SUNKEN)
-        # Add a scrollbar on the right
+        # Add a scrollbar on the right and bottom
         vbar = Scrollbar(self.canvas_container, orient=VERTICAL)
+        hbar = Scrollbar(self.canvas_container, orient=HORIZONTAL)
         vbar.pack(side=RIGHT, fill=Y)
+        hbar.pack(side=BOTTOM, fill=X)
+        # Set the bars' commands to modify the table's yview
         vbar.config(command=self.table_canvas.yview)
+        hbar.config(command=self.table_canvas.xview)
+        # Set the scroll command to modify the position of the vertical bar
         self.table_canvas.config(yscrollcommand=vbar.set)
-        self.table_canvas.pack(expand=YES, fill=BOTH)
+        self.table_canvas.config(xscrollcommand=hbar.set)
+        self.table_canvas.pack(expand=YES, fill=BOTH, padx=2, pady=2)
 
-        # Test frame full of labels
-        s = Style()
-        s.configure('Test.TFrame', background='maroon')
-        # Don't need to pack a frame in a canvas
-        self.test_frame = Frame(self.table_canvas, style="Test.TFrame")
-        # Add 30 test labels
-        for i in range(30):
-            x = Label(self.test_frame, borderwidth=5, relief=GROOVE, text=str(i)*5)
-            x.grid(row=i, column=i//5)
+        # Don't need to pack a frame inside a canvas if it's going to be windowed.
+        table_frame = Frame(self.table_canvas)
+        self.hands_table = TkinterTable(table_frame)
+        self.hands_table.populate(MahjongHands.hands_info)
 
         x0 = self.table_canvas.winfo_width() / 2
         y0 = self.table_canvas.winfo_height() / 2
-        self.canvas_window = self.table_canvas.create_window((x0, y0), window=self.test_frame)
+        self.canvas_window = self.table_canvas.create_window((x0, y0), window=table_frame)
         # Make sure that when we resize, the scrollable area is updated too and the frame is resized
         self.table_canvas.bind("<Configure>", self._on_canvas_table_config)
-        self.test_frame.bind("<Configure>", self._on_canvas_frame_config)
-        # table_frame = Frame(self.table_canvas, height=300, width=400)
-        # table_frame.pack(fill=BOTH, expand=YES)
-        #
-        # self.hands_table = TkinterTable(table_frame)
-        # self.hands_table.populate(MahjongHands.hands_info)
+        table_frame.bind("<Configure>", self._on_canvas_frame_config)
+
 
 
 
