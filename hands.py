@@ -1,5 +1,9 @@
+import numpy as np
+
+
 class MahjongHands:
-    _hand_titles = [
+    _hand_titles = np.array([
+        "Hand Names",
         "Terminal/non-dragon honor pung",
         "2x identical chows, same suit",
         "2x identical chows, 2 suits",
@@ -81,8 +85,9 @@ class MahjongHands:
         "Four Kongs",
         "Seven Shifted Pairs",
         "Thirteen Orphans"
-    ]
-    _points = [
+    ])
+    _points = np.array([
+        "Point Values",
         1,
         1,
         1,
@@ -164,8 +169,9 @@ class MahjongHands:
         88,
         88,
         88
-    ]
-    _notes = [
+    ])
+    _notes = np.array([
+        "Notes",
         "Not round/seat, no dragons",
         "",
         "",
@@ -203,12 +209,9 @@ class MahjongHands:
         "can be different dragons",
         "Cannot find this anywhere but mahjongsoft.com",
         "suit 1 - 123 suit 2 - 456 suit 3 - 789",
-        "",
         "hand contains tiles from 1234589 of dots 245689 bamboo white dragon",
-        "",
         "each chow must be different suit",
         "3 suits, 3 pungs, each shifted by 1 e.g. 222 333 444",
-        "",
         "a hand worth 0 points otherwise",
         "self draw the final tile and win",
         "take the final tile after it is discarded and win",
@@ -219,7 +222,6 @@ class MahjongHands:
          " Knitted sequence doesn't need to be a complete straight. CAN combine with knitted straight."),
         ("Suit 1: 147 Suit 2: 248 Suit 3: 369 Have ALL 1-9 of the knitted set + "
          "5 unique honors CAN combine with lesser honors + knitted"),
-        "",
         "",
         "",
         "",
@@ -261,8 +263,9 @@ class MahjongHands:
         "",
         "7 pairs each shifted up by 1. Example 22 33 44 55 66 77 88",
         "Singles of all 1,9 from each suit + all honor tiles + 1 duplicate of any"
-    ]
-    _categories = [
+    ])
+    _categories = np.array([
+        "Categories",
         "pung, honor, terminal",
         "chow, suit",
         "chow, mixed",
@@ -344,7 +347,6 @@ class MahjongHands:
         "kong, special",
         "suit, special",
         "special, honor, dragon, terminal"
-    ]
-    hands_info = {}
-    for i in range(len(_hand_titles)):
-        hands_info[_hand_titles[i]] = [_points[i], _categories[i], _notes[i]]
+    ])
+    hands_info = np.vstack((_hand_titles, _points, _categories, _notes)).T
+

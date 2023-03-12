@@ -32,7 +32,7 @@ class Core(Frame):
     def _on_canvas_table_config(self, event):
         if not (self._after_id is None):
             self.after_cancel(self._after_id)
-        self._after_id = self.after(300, lambda: self.hands_table.repopulate())
+        self._after_id = self.after(600, lambda: self.hands_table.repopulate())
         self.table_canvas.itemconfig(self.canvas_window, width=event.width)
 
     def _on_canvas_frame_config(self, event):
@@ -53,7 +53,7 @@ class Core(Frame):
         self.placeholder_frame.pack(fill=X, side=BOTTOM, pady=2, padx=2)
 
         # Create a canvas inside the center frame
-        self.table_canvas = Canvas(self.canvas_container, background="green", borderwidth=5, relief=SUNKEN)
+        self.table_canvas = Canvas(self.canvas_container)
         # Add a scrollbar on the right and bottom
         vbar = Scrollbar(self.canvas_container, orient=VERTICAL)
         hbar = Scrollbar(self.canvas_container, orient=HORIZONTAL)
@@ -65,7 +65,7 @@ class Core(Frame):
         # Set the scroll command to modify the position of the vertical bar
         self.table_canvas.config(yscrollcommand=vbar.set)
         self.table_canvas.config(xscrollcommand=hbar.set)
-        self.table_canvas.pack(expand=YES, fill=BOTH, padx=2, pady=2)
+        self.table_canvas.pack(expand=YES, fill=BOTH)
 
         # Don't need to pack a frame inside a canvas if it's going to be windowed.
         table_frame = Frame(self.table_canvas)
@@ -78,7 +78,6 @@ class Core(Frame):
         # Make sure that when we resize, the scrollable area is updated too and the frame is resized
         self.table_canvas.bind("<Configure>", self._on_canvas_table_config)
         table_frame.bind("<Configure>", self._on_canvas_frame_config)
-
-
+        self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
 
 
