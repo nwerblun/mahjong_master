@@ -6,7 +6,6 @@ from hands import MahjongHands
 
 
 class Core(Frame):
-
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.pack()
@@ -32,14 +31,14 @@ class Core(Frame):
     def _on_canvas_table_config(self, event):
         if not (self._after_id is None):
             self.after_cancel(self._after_id)
-        self._after_id = self.after(600, lambda: self.hands_table.repopulate())
+        self._after_id = self.after(600, lambda: self.hands_table.redraw())
         self.table_canvas.itemconfig(self.canvas_window, width=event.width)
 
     def _on_canvas_frame_config(self, event):
         self.table_canvas.configure(scrollregion=self.table_canvas.bbox("all"))
 
     def _on_mouse_release(self, event):
-        self.hands_table.repopulate()
+        self.hands_table.redraw()
 
     def create_hand_table(self):
         # Top level frames. Placeholder
@@ -78,6 +77,7 @@ class Core(Frame):
         # Make sure that when we resize, the scrollable area is updated too and the frame is resized
         self.table_canvas.bind("<Configure>", self._on_canvas_table_config)
         table_frame.bind("<Configure>", self._on_canvas_frame_config)
+        self.hands_table.add_checkbox_column(0, "Met?")
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
 
 
