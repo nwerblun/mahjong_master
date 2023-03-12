@@ -1,6 +1,8 @@
 from tkinter import *
 from tkinter.ttk import *
 import numpy as np
+from functools import partial
+
 
 class TkinterTable:
     def __init__(self, root, table_data=None):
@@ -67,24 +69,33 @@ class TkinterTable:
             if e.grid_info()["column"] >= index:
                 e.grid(column=e.grid_info()["column"]+1)
 
+    def _checkbox_toggle(self, box_frame):
+        info = box_frame.grid_info()
+        row = info["row"]
+        col = info["column"]
+        val_to_insert = not (self.table_data[row][col] == "True")
+        self.table_data[row][col] = str(val_to_insert)
+
     def add_checkbox_column(self, index, header):
-        # TODO: Set the command (command=func in the constructor)
-        #  of the buttons to something that toggles the state in the array
-        # TODO: Add a frame first, then the button inside the frame so it can have an outline
         self.num_sections += 1
         self._shift_n_columns_right(index)
+        # Header + false for every non-header row. Note these will be strings.
+        data = np.array([header]+[False]*(len(self.table_data)-1))
+        self.table_data = np.insert(self.table_data, index, data, axis=1)
         e = Label(self.root, text=header, borderwidth=1, relief=GROOVE,
                   wraplength=self._get_section_width(), style=self.header_font)
         e.grid(column=index, row=0, sticky=N+E+W)
         # Skip header row. Add 1 to row since we start at row 1
         for i in range(len(self.table_data)-1):
-            e = Checkbutton(self.root)
-            e.grid(column=index, row=i+1, sticky=N+S+E+W)
+            # Add a frame so it can have a border
+            f = Frame(self.root, borderwidth=1, relief=GROOVE)
+            f.grid(column=index, row=i+1, sticky=N+S+E+W)
+            # Cheat to make the lambda store the frm value when instantiated instead of the one at the end of the loop
+            e = Checkbutton(f, command=(lambda frm=f: self._checkbox_toggle(frm)))
+            e.pack(expand=YES)
+            # Invoke twice to set it to off. Probably not the best way.
             e.invoke()
             e.invoke()
-        # Header + false for every non-header row
-        data = np.array([header]+[False]*(len(self.table_data)-1))
-        self.table_data = np.insert(self.table_data, 0, data, axis=1)
         self._configure_resize_weights()
         self.redraw()
 
