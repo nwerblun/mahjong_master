@@ -37,9 +37,6 @@ class Core(Frame):
     def _on_canvas_frame_config(self, event):
         self.table_canvas.configure(scrollregion=self.table_canvas.bbox("all"))
 
-    def _on_mouse_release(self, event):
-        self.hands_table.redraw()
-
     def create_hand_table(self):
         # Top level frames. Placeholder
         self.placeholder_frame2 = Frame(self.master, borderwidth=3, relief=GROOVE, height=50, width=400)

@@ -6,7 +6,7 @@ from application import Core
 if __name__ == "__main__":
     # Frame with no parent makes that frame's master the root
     app = Core()
-    app.master.geometry("1200x800")
+    app.master.geometry("1600x800")
     app.master.title("Mahjong Master")
     app.mainloop()
 
