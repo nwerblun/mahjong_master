@@ -9,6 +9,7 @@ class Core(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
         self.pack()
+        self.image_prefix = "[IMAGE]"
         self.table_canvas = None
         self.canvas_container = None
         self.options_frame = None
@@ -67,7 +68,7 @@ class Core(Frame):
         # Don't need to pack a frame inside a canvas if it's going to be windowed.
         table_frame = Frame(self.table_canvas)
         # Create and populate hand table
-        self.hands_table = TkinterTable(table_frame, MahjongHands.hands_info)
+        self.hands_table = TkinterTable(table_frame, MahjongHands.hands_info, self.image_prefix)
         self.hands_table.populate()
 
         # Set window to the center of the canvas and bind resize events
@@ -79,23 +80,22 @@ class Core(Frame):
         table_frame.bind("<Configure>", self._on_canvas_frame_config)
 
         # Add the checkbox column and image column for hand condition
-        image_col_header = "Show Image Example"
+        image_col_header = MahjongHands.hands_info[0][4][len(self.image_prefix):]
         met_col_header = "Met?"
         self.hands_table.add_checkbox_column(0, met_col_header)
-        self.hands_table.add_label_column(-1, image_col_header)
 
         # Place checkboxes in the options frame
         category_header = MahjongHands.hands_info[0][2]
         e = Checkbutton(self.options_frame, text="Show categories")
         e.pack(side=LEFT, anchor="nw")
-        e.invoke()  # Default to on
+        e.invoke()
         e.configure(command=lambda h=category_header: self.hands_table.toggle_column(h))
+        e.invoke()  # Default to off, toggle after command assigned
 
         e = Checkbutton(self.options_frame, text=image_col_header)
         e.pack(side=LEFT, anchor="sw")
-        e.invoke()
+        e.invoke()  # Default to on
         e.configure(command=lambda h=image_col_header: self.hands_table.toggle_column(h))
-        e.invoke()  # Default to off, assign command so that it's disabled when you turn it on
 
         # Scroll canvas to the top after everything is done
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")

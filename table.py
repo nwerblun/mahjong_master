@@ -5,20 +5,27 @@ from column import *
 
 
 class TkinterTable:
-
-    def __init__(self, root, table_data):
+        # TODO: column hiding is broken. Hide pics -> show categories -> show pics puts pics in the wrong spot.
+        # TODO: show categories -> hide pics -> hide categories -> show pics makes an empty column and then breaks
+    def __init__(self, root, table_data, image_prefix="[IMAGE]"):
         # Assumes table data contains the headers as the first row.
         # Must be text data. Non-text data must be added via functions.
         self.root = root
         self.header_font = "Header.TLabel"
         self.num_rows = len(table_data)
         self.columns = []
+        self.image_prefix = image_prefix
         self.hidden_columns = {}
         header_style = Style()
         header_style.configure("Header.TLabel", font=('Segoe UI', 14, "bold"))
         for i in range(len(table_data[0])):
-            self.columns += [LabelColumn(self.root, table_data[0, i],
-                                         table_data[1:, i], i, header_style="Header.TLabel")]
+            is_image = table_data[0, i][:len(self.image_prefix)] == self.image_prefix
+            if is_image:
+                self.columns += [LabelColumn(self.root, table_data[0, i][len(self.image_prefix):],
+                                             table_data[1:, i], i, header_style="Header.TLabel", img=True)]
+            else:
+                self.columns += [LabelColumn(self.root, table_data[0, i],
+                                             table_data[1:, i], i, header_style="Header.TLabel")]
 
     def get_num_cols(self):
         return len(self.columns)

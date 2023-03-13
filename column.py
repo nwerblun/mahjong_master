@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter.ttk import *
+from PIL import Image, ImageTk
 import numpy as np
 from abc import ABC, abstractmethod
 from functools import partial
@@ -40,22 +41,39 @@ class Column(ABC):
 
 
 class LabelColumn(Column):
-    def __init__(self, parent, header, arr, index, header_style=None):
+    def __init__(self, parent, header, arr, index, header_style=None, img=False):
         super().__init__(parent, header, arr, index, header_style)
         self.header_label = None
         self.data_labels = []
         self.data_locations = []
+        self.is_image = img
+        # Catch numbers -> str. Image paths should be fine.
         for i in range(len(self.data)):
             arr[i] = str(arr[i])
 
     def add_to_parent_grid(self, index):
-        self.header_label = Label(self.parent, text=self.header, style=self.header_style, borderwidth=1, relief=GROOVE)
+        if not self.is_image:
+            self.header_label = Label(self.parent, text=self.header,
+                                      style=self.header_style, borderwidth=1, relief=GROOVE)
+        else:
+            self.header_label = Label(self.parent, text=self.header,
+                                      style=self.header_style, borderwidth=1, relief=GROOVE)
         self.header_label.grid(row=0, column=index, sticky=N+E+S+W)
-        for row_ind, d in enumerate(self.data):
-            lbl = Label(self.parent, text=d, borderwidth=1, relief=GROOVE)
-            self.data_labels += [lbl]
-            lbl.grid(row=row_ind+1, column=index, sticky=N+E+S+W)
-            self.data_locations += [(row_ind+1, index)]
+        if not self.is_image:
+            for row_ind, d in enumerate(self.data):
+                lbl = Label(self.parent, text=d, borderwidth=1, relief=GROOVE)
+                self.data_labels += [lbl]
+                lbl.grid(row=row_ind+1, column=index, sticky=N+E+S+W)
+                self.data_locations += [(row_ind+1, index)]
+        else:
+            for row_ind, d in enumerate(self.data):
+                img = Image.open(d)
+                ph = ImageTk.PhotoImage(img)
+                lbl = Label(self.parent, image=ph, borderwidth=1, relief=GROOVE)
+                lbl.image = ph  # Necessary to avoid garbage collection
+                self.data_labels += [lbl]
+                lbl.grid(row=row_ind+1, column=index, sticky=N+E+S+W)
+                self.data_locations += [(row_ind+1, index)]
 
     def get_max_column_text_width(self):
         max_len = len(self.header) * 6  # Account for headers being larger
@@ -65,8 +83,9 @@ class LabelColumn(Column):
 
     def set_wraptext_width(self, width):
         self.header_label.configure(wraplength=width)
-        for dl in self.data_labels:
-            dl.configure(wraplength=width)
+        if not self.is_image:
+            for dl in self.data_labels:
+                dl.configure(wraplength=width)
 
     def get_num_rows(self):
         return len(self.data)
