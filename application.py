@@ -31,7 +31,7 @@ class Core(Frame):
     def _on_canvas_table_config(self, event):
         if not (self._after_id is None):
             self.after_cancel(self._after_id)
-        self._after_id = self.after(600, lambda: self.hands_table.redraw())
+        self._after_id = self.after(600, lambda w=event.width: self.hands_table.redraw(w))
         self.table_canvas.itemconfig(self.canvas_window, width=event.width)
 
     def _on_canvas_frame_config(self, event):
@@ -87,7 +87,7 @@ class Core(Frame):
         self.table_canvas.bind("<Configure>", self._on_canvas_table_config)
         table_frame.bind("<Configure>", self._on_canvas_frame_config)
         # Add the checkbox column for hand condition
-        # self.hands_table.add_checkbox_column(0, "Met?")
+        self.hands_table.add_checkbox_column(0, "Met?")
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
 
 

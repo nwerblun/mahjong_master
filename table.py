@@ -3,6 +3,7 @@ from tkinter.ttk import *
 import numpy as np
 from column import *
 
+
 class TkinterTable:
 
     def __init__(self, root, table_data):
@@ -16,37 +17,48 @@ class TkinterTable:
         header_style.configure("Header.TLabel", font=('Segoe UI', 14, "bold"))
         for i in range(len(table_data[0])):
             self.columns += [LabelColumn(self.root, table_data[0, i],
-                                         table_data[1:, i], header_style="Header.TLabel")]
+                                         table_data[1:, i], i, header_style="Header.TLabel")]
 
     def get_num_cols(self):
         return len(self.columns)
 
     def get_num_rows(self):
-        return self.num_rows
+        if len(self.columns) > 0:
+            return self.columns[0].get_num_rows()
+        return 0
 
-    def _set_resize_widths(self):
-        col_widths = []
+    def _set_resize_widths(self, width):
+        width = self.root.winfo_width()
+        col_text_widths = []
         for c in self.columns:
-            col_widths += [c.get_max_column_width()]
+            col_text_widths += [c.get_max_column_text_width()]
 
-        total = sum(col_widths)
+        total_text = sum(col_text_widths)
+        screen_text_consumption = [width * col_text_widths[i] / total_text for i in range(len(col_text_widths))]
         for ind, c in enumerate(self.columns):
-            self.root.columnconfigure(ind, weight=int((100 * col_widths[ind] / total)))
-            c.set_wraptext_width(max(int(self.root.winfo_width() * col_widths[ind] / total), col_widths[ind]))
+            # Assign resize weight as direct percentage of the total width it consumes
+            self.root.columnconfigure(ind, weight=int(screen_text_consumption[ind]))
+            c.set_wraptext_width(int(screen_text_consumption[ind]))
 
     def populate(self):
         for ind, c in enumerate(self.columns):
             c.add_to_parent_grid(ind)
+        self.redraw(self.root.winfo_width())
 
-    def redraw(self):
-        self._set_resize_widths()
+    def redraw(self, width):
+        self._set_resize_widths(width)
+        self._configure_rows()
 
     def _configure_rows(self):
         for i in range(self.num_rows):
             self.root.rowconfigure(i, weight=1)
 
-    def _shift_n_columns(self, index, dir=1):
-        pass
-
     def add_checkbox_column(self, index, header):
-        pass
+        for c in self.columns:
+            if c.column_index >= index:
+                c.shift_column(c.column_index + 1)
+        self.columns = self.columns[:index] + [CheckboxColumn(self.root, header,
+                                                              [False]*self.get_num_rows(), index,
+                                                              header_style="Header.TLabel")] + self.columns[index:]
+        self.columns[0].add_to_parent_grid(index)
+        self.redraw(self.root.winfo_width())
