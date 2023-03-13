@@ -13,6 +13,7 @@ class TkinterTable:
         self.header_font = "Header.TLabel"
         self.num_rows = len(table_data)
         self.columns = []
+        self.hidden_columns = {}
         header_style = Style()
         header_style.configure("Header.TLabel", font=('Segoe UI', 14, "bold"))
         for i in range(len(table_data[0])):
@@ -53,12 +54,46 @@ class TkinterTable:
         for i in range(self.num_rows):
             self.root.rowconfigure(i, weight=1)
 
+    def _add_column(self, col, index):
+        self.columns = self.columns[:index] + [col] + self.columns[index:]
+
     def add_checkbox_column(self, index, header):
-        for c in self.columns:
-            if c.column_index >= index:
-                c.shift_column(c.column_index + 1)
-        self.columns = self.columns[:index] + [CheckboxColumn(self.root, header,
-                                                              [False]*self.get_num_rows(), index,
-                                                              header_style="Header.TLabel")] + self.columns[index:]
-        self.columns[0].add_to_parent_grid(index)
+        index = len(self.columns) if index == -1 else index
+        self._shift_columns_right(index)
+        col = CheckboxColumn(self.root, header, [False]*self.get_num_rows(), index, header_style="Header.TLabel")
+        self._add_column(col, index)
+        self.columns[index].add_to_parent_grid(index)
         self.redraw(self.root.winfo_width())
+
+    def add_label_column(self, index, header):
+        index = len(self.columns) if index == -1 else index
+        self._shift_columns_right(index)
+        col = LabelColumn(self.root, header, [""] * self.get_num_rows(), index, header_style="Header.TLabel")
+        self._add_column(col, index)
+        self.columns[index].add_to_parent_grid(index)
+        self.redraw(self.root.winfo_width())
+
+    def toggle_column(self, header):
+        all_cols = self.columns + list(self.hidden_columns.values())
+        for c in all_cols:
+            if c.header == header:
+                index = c.column_index
+                if c.hidden:
+                    self._shift_columns_right(index)
+                    self._add_column(self.hidden_columns[header], index)
+                    del self.hidden_columns[header]
+                    c.unhide()
+                else:
+                    c.hide()
+                    self.hidden_columns[header] = c
+                    self.columns.pop(index)
+                    self._shift_columns_left(index)
+        self.redraw(self.root.winfo_width())
+
+    def _shift_columns_right(self, index):
+        for c in self.columns[index:]:
+            c.shift_column(c.column_index + 1)
+
+    def _shift_columns_left(self, index):
+        for c in self.columns[index:]:
+            c.shift_column(c.column_index - 1)

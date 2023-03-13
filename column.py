@@ -23,11 +23,19 @@ class Column(ABC):
 
     @abstractmethod
     def get_num_rows(self):
-        return len(self.data)
+        pass
 
     @abstractmethod
     def shift_column(self, index):
         self.column_index = index
+
+    @abstractmethod
+    def hide(self):
+        pass
+
+    @abstractmethod
+    def unhide(self):
+        pass
 
 
 class LabelColumn(Column):
@@ -60,7 +68,7 @@ class LabelColumn(Column):
             dl.configure(wraplength=width)
 
     def get_num_rows(self):
-        return super().get_num_rows()
+        return len(self.data)
 
     def shift_column(self, index):
         self.column_index = index
@@ -69,6 +77,18 @@ class LabelColumn(Column):
             d.grid(column=index)
         for i in range(len(self.data_locations)):
             self.data_locations[i] = (i, index)
+
+    def hide(self):
+        self.hidden = True
+        self.header_label.grid_remove()
+        for d in self.data_labels:
+            d.grid_remove()
+
+    def unhide(self):
+        self.hidden = False
+        self.header_label.grid()
+        for d in self.data_labels:
+            d.grid()
 
 
 class CheckboxColumn(Column):
@@ -106,7 +126,7 @@ class CheckboxColumn(Column):
         self.header_label.configure(wraplength=width)
 
     def get_num_rows(self):
-        super().get_num_rows()
+        return len(self.data)
 
     def shift_column(self, index):
         self.column_index = index
@@ -117,3 +137,19 @@ class CheckboxColumn(Column):
             self.frame_locations[i] = (i, index)
         for k in self.checkboxes.keys():
             k.grid(column=index)
+
+    def hide(self):
+        self.hidden = True
+        self.header_label.grid_remove()
+        for b in self.box_frames:
+            b.grid_remove()
+        for k in self.checkboxes.keys():
+            k.grid_remove()
+
+    def unhide(self):
+        self.hidden = False
+        self.header_label.grid()
+        for b in self.box_frames:
+            b.grid()
+        for k in self.checkboxes.keys():
+            k.grid()

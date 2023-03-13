@@ -69,25 +69,36 @@ class Core(Frame):
         # Create and populate hand table
         self.hands_table = TkinterTable(table_frame, MahjongHands.hands_info)
         self.hands_table.populate()
-        # TODO: Refactor the table class
-        # TODO: Check the rest of this
-        # Place checkboxes in the options frame
-        # category_header = MahjongHands.hands_info[0][2]
-        # e = Checkbutton(self.options_frame, text="Show categories",
-        #                 command=lambda h=category_header: self.hands_table.toggle_text_col(h))
-        # e.pack(side=TOP, anchor="nw")
-        # e.invoke()
-        # e.invoke()
 
-        # Set window to the center of the canvas
+        # Set window to the center of the canvas and bind resize events
         x0 = self.table_canvas.winfo_width() / 2
         y0 = self.table_canvas.winfo_height() / 2
         self.canvas_window = self.table_canvas.create_window((x0, y0), window=table_frame)
         # Make sure that when we resize, the scrollable area is updated too and the frame is resized
         self.table_canvas.bind("<Configure>", self._on_canvas_table_config)
         table_frame.bind("<Configure>", self._on_canvas_frame_config)
-        # Add the checkbox column for hand condition
-        self.hands_table.add_checkbox_column(0, "Met?")
+
+        # Add the checkbox column and image column for hand condition
+        image_col_header = "Show Image Example"
+        met_col_header = "Met?"
+        self.hands_table.add_checkbox_column(0, met_col_header)
+        self.hands_table.add_label_column(-1, image_col_header)
+
+        # Place checkboxes in the options frame
+        category_header = MahjongHands.hands_info[0][2]
+        e = Checkbutton(self.options_frame, text="Show categories")
+        e.pack(side=LEFT, anchor="nw")
+        e.invoke()  # Default to on
+        e.configure(command=lambda h=category_header: self.hands_table.toggle_column(h))
+
+        e = Checkbutton(self.options_frame, text=image_col_header)
+        e.pack(side=LEFT, anchor="sw")
+        e.invoke()
+        e.configure(command=lambda h=image_col_header: self.hands_table.toggle_column(h))
+        e.invoke()  # Default to off, assign command so that it's disabled when you turn it on
+
+        # Scroll canvas to the top after everything is done
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
+
 
 
