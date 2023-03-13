@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter.ttk import *
 import numpy as np
 from abc import ABC, abstractmethod
+from functools import partial
 
 
 class Column(ABC):
@@ -117,7 +118,7 @@ class CheckboxColumn(Column):
             self.checkboxes[btn] = row_ind  # No +1 because this will be used to access self.data
             btn.invoke()
             btn.invoke()
-            btn.configure(command=lambda b=btn: self._toggle_state(btn))
+            btn.configure(command=partial(self._toggle_state, btn))
 
     def get_max_column_text_width(self):
         return int(len(self.header) * 6)  # Account for larger font size
