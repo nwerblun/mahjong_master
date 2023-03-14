@@ -350,10 +350,10 @@ class MahjongHands:
     ])
     _example_images = np.array([
         "[IMAGE]Example Images",
-        "./img/examples/pure_double_chow.gif",
-        "./img/examples/empty.gif",
-        "./img/examples/empty.gif",
-        "./img/examples/empty.gif",
+        "./img/examples/pure_double_chow.png",
+        "./img/examples/3b.png",
+        "./img/examples/4b.png",
+        "./img/examples/5b.png",
         "./img/examples/empty.gif",
         "./img/examples/empty.gif",
         "./img/examples/empty.gif",

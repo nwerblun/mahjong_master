@@ -14,11 +14,13 @@ class Core(Frame):
         self.canvas_container = None
         self.options_frame = None
         self.placeholder_frame2 = None
+        self.sort_options_frame = None
         self.hands_table = None
         self.canvas_window = None
+        self.reset_button_frame = None
         self._after_id = None
-        self.create_hand_table()
-        self.bind_all_children(self.canvas_container, "<MouseWheel>", self._on_mousewheel)
+        self.show_hide_frame = None
+        self.create_hand_table()  # Creates canvas container
 
     @staticmethod
     def bind_all_children(parent, event_name, func):
@@ -47,7 +49,7 @@ class Core(Frame):
         self.canvas_container.pack(fill=BOTH, expand=YES, side=TOP, pady=2, padx=2)
         # Options frame
         self.options_frame = LabelFrame(self.master, text="Table Options", labelanchor="n",
-                                        borderwidth=3, relief=GROOVE, height=150, width=400)
+                                        borderwidth=8, relief=GROOVE, height=150, width=400)
         self.options_frame.pack(fill=X, side=BOTTOM, pady=2, padx=2)
 
         # Create a canvas inside the center frame
@@ -84,21 +86,52 @@ class Core(Frame):
         met_col_header = "Met?"
         self.hands_table.add_checkbox_column(0, met_col_header)
 
-        # Place checkboxes in the options frame
+        # Add a frame to hold the reset button
+        self.reset_button_frame = Frame(self.options_frame, borderwidth=1, relief=GROOVE)
+        self.reset_button_frame.pack(side=RIGHT, anchor="e", fill=BOTH)
+
+        # Add a reset button
+        rst_btn = Button(self.reset_button_frame, text="RESET SELECTIONS")
+        rst_btn.pack(expand=YES, fill=BOTH)
+
+        # Add a frame to hold sort options
+        self.sort_options_frame = LabelFrame(self.options_frame, text="Sort Options", labelanchor="n",
+                                             borderwidth=1, relief=GROOVE)
+        self.sort_options_frame.pack(side=RIGHT, expand=YES, fill=BOTH, anchor="w")
+
+        # Add checkbuttons to sort frame based on categories
+        # Combine all categories into one mega string comma separated, no spaces, ultra python syntax, incomprehensible
         category_header = MahjongHands.hands_info[0][2]
-        e = Checkbutton(self.options_frame, text="Show categories")
-        e.pack(side=LEFT, anchor="nw")
+        all_categories_list = [c for s in MahjongHands.hands_info[1:, 2]
+                               for c in map(lambda x: x.strip(), s.split(","))]
+        # Get only unique entries
+        all_categories_list = sorted(list(set(all_categories_list)))
+        for cat in all_categories_list:
+            e = Checkbutton(self.sort_options_frame, text=cat)
+            e.pack(side=LEFT, expand=YES, fill=BOTH)
+            e.invoke()
+            e.invoke()
+            e.configure(command=lambda x=cat: self.hands_table.toggle_sort_option(x, category_header))
+
+        # Add a frame for show/hide options
+        self.show_hide_frame = LabelFrame(self.options_frame, text="Show/Hide", labelanchor="n",
+                                          borderwidth=1, relief=GROOVE)
+        self.show_hide_frame.pack(side=LEFT, anchor="n", fill=BOTH)
+
+        # Place checkboxes in the options frame
+        e = Checkbutton(self.show_hide_frame, text="Show categories")
+        e.pack(side=TOP, anchor="n")
         e.invoke()
         e.configure(command=lambda h=category_header: self.hands_table.toggle_column(h))
         e.invoke()  # Default to off, toggle after command assigned
 
-        e = Checkbutton(self.options_frame, text=image_col_header)
-        e.pack(side=LEFT, anchor="sw")
+        e = Checkbutton(self.show_hide_frame, text=image_col_header)
+        e.pack(side=BOTTOM, anchor="s")
         e.invoke()  # Default to on
         e.configure(command=lambda h=image_col_header: self.hands_table.toggle_column(h))
 
         # Scroll canvas to the top after everything is done
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
-
+        self.bind_all_children(self.canvas_container, "<MouseWheel>", self._on_mousewheel)
 
 

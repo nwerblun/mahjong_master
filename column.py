@@ -14,10 +14,15 @@ class Column(ABC):
         self.data = arr
         self.column_index = index
         self.header_style = header_style
+        self.subset_indices = []
 
     @abstractmethod
     def add_to_parent_grid(self, index):
         return
+
+    @abstractmethod
+    def add_subset_to_parent_grid(self, indices):
+        pass
 
     @abstractmethod
     def get_max_column_text_width(self):
@@ -75,6 +80,18 @@ class LabelColumn(Column):
                 lbl.grid(row=row_ind+1, column=index, sticky=N+E+S+W)
                 self.data_locations += [(row_ind+1, index)]
 
+    def add_subset_to_parent_grid(self, indices):
+        self.subset_indices = indices
+        if not self.hidden:
+            for d in self.data_labels:
+                d.grid_forget()
+            if len(self.subset_indices) == 0:
+                for row, d in enumerate(self.data_labels):
+                    d.grid(row=row, column=self.column_index, sticky=N+E+S+W)
+            else:
+                for row in self.subset_indices:
+                    self.data_labels[row].grid(row=row, column=self.column_index, sticky=N+E+S+W)
+
     def get_max_column_text_width(self):
         max_len = len(self.header) * 6  # Account for headers being larger
         for d in self.data:
@@ -110,9 +127,13 @@ class LabelColumn(Column):
 
     def unhide(self):
         self.hidden = False
-        self.header_label.grid()
-        for d in self.data_labels:
-            d.grid()
+        self.header_label.grid(row=0, column=self.column_index, sticky=N+E+S+W)
+        if len(self.subset_indices) == 0:
+            for row, d in enumerate(self.data_labels):
+                d.grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+        else:
+            for row in self.subset_indices:
+                self.data_labels[row].grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
 
 
 class CheckboxColumn(Column):
@@ -143,6 +164,26 @@ class CheckboxColumn(Column):
             btn.invoke()
             btn.configure(command=partial(self._toggle_state, btn))
 
+    def add_subset_to_parent_grid(self, indices):
+        self.subset_indices = indices
+        if not self.hidden:
+            for f in self.box_frames:
+                f.grid_forget()
+            for b in self.checkboxes.keys():
+                b.grid_forget()
+
+            if len(self.subset_indices) == 0:
+                for row, f in enumerate(self.box_frames):
+                    f.grid(row=row, column=self.column_index)
+                for k in self.checkboxes.keys():
+                    k.grid(row=self.checkboxes[k], column=self.column_index)
+            else:
+                for row in self.subset_indices:
+                    self.box_frames[row].grid(row=row, column=self.column_index)
+                for k in self.checkboxes.keys():
+                    if self.checkboxes[k] in self.subset_indices:
+                        k.grid(row=self.checkboxes[k], column=self.column_index)
+
     def get_max_column_text_width(self):
         return int(len(self.header) * 6)  # Account for larger font size
 
@@ -172,8 +213,16 @@ class CheckboxColumn(Column):
 
     def unhide(self):
         self.hidden = False
-        self.header_label.grid()
-        for b in self.box_frames:
-            b.grid()
-        for k in self.checkboxes.keys():
-            k.grid()
+        self.header_label.grid(row=0, column=self.column_index, sticky=N+E+S+W)
+        if len(self.subset_indices) == 0:
+            for row, f in enumerate(self.box_frames):
+                f.grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+            for k in self.checkboxes.keys():
+                k.grid(row=self.checkboxes[k]+1, column=self.column_index, sticky=N+E+S+W)
+        else:
+            for row in self.subset_indices:
+                self.box_frames[row].grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+            for k in self.checkboxes.keys():
+                if self.checkboxes[k] in self.subset_indices:
+                    k.grid(row=self.checkboxes[k]+1, column=self.column_index, sticky=N+E+S+W)
+

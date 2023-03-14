@@ -14,6 +14,8 @@ class TkinterTable:
         self.columns = []
         self.image_prefix = image_prefix
         self.hidden_columns = {}
+        self.sort_options = []
+        self.sort_header = None
         header_style = Style()
         header_style.configure("Header.TLabel", font=('Segoe UI', 14, "bold"))
         for i in range(len(table_data[0])):
@@ -94,6 +96,27 @@ class TkinterTable:
                     self.columns.pop(index)
                     self._shift_columns_left(index)
         self.redraw(self.root.winfo_width())
+
+    def toggle_sort_option(self, option, header):
+        self.sort_header = header
+        if option in self.sort_options:
+            self.sort_options.pop(self.sort_options.index(option))
+        else:
+            self.sort_options += [option]
+        self._populate_subset()
+
+    def _populate_subset(self):
+        indices = []
+        for c in (self.columns + list(self.hidden_columns.values())):
+            if c.header == self.sort_header:
+                for row, d in enumerate(c.data):
+                    lowered = "".join(list(map(lambda x: x.lower(), d)))
+                    for o in self.sort_options:
+                        if o.lower() in lowered:
+                            indices += [row]
+                            break
+        for c in self.columns:
+            c.add_subset_to_parent_grid(indices)
 
     def _shift_columns_right(self, index):
         for c in self.columns[index:]:
