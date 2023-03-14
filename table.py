@@ -117,6 +117,8 @@ class TkinterTable:
                             break
         for c in self.columns:
             c.add_subset_to_parent_grid(indices)
+        for v in self.hidden_columns.values():
+            v.add_subset_to_parent_grid(indices)
 
     def _shift_columns_right(self, index):
         for c in self.columns[index:]:

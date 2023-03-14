@@ -84,13 +84,13 @@ class LabelColumn(Column):
         self.subset_indices = indices
         if not self.hidden:
             for d in self.data_labels:
-                d.grid_forget()
+                d.grid_remove()
             if len(self.subset_indices) == 0:
                 for row, d in enumerate(self.data_labels):
-                    d.grid(row=row, column=self.column_index, sticky=N+E+S+W)
+                    d.grid()
             else:
                 for row in self.subset_indices:
-                    self.data_labels[row].grid(row=row, column=self.column_index, sticky=N+E+S+W)
+                    self.data_labels[row].grid()
 
     def get_max_column_text_width(self):
         max_len = len(self.header) * 6  # Account for headers being larger
@@ -112,9 +112,9 @@ class LabelColumn(Column):
         self.header_label.grid(column=index)
         if self.hidden:
             self.header_label.grid_remove()
-        for d in self.data_labels:
+        for row, d in enumerate(self.data_labels):
             d.grid(column=index)
-            if self.hidden:
+            if self.hidden or (not (row in self.subset_indices) and len(self.subset_indices) > 0):
                 d.grid_remove()
         for i in range(len(self.data_locations)):
             self.data_locations[i] = (i, index)
@@ -127,13 +127,13 @@ class LabelColumn(Column):
 
     def unhide(self):
         self.hidden = False
-        self.header_label.grid(row=0, column=self.column_index, sticky=N+E+S+W)
+        self.header_label.grid()
         if len(self.subset_indices) == 0:
             for row, d in enumerate(self.data_labels):
-                d.grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+                d.grid()
         else:
             for row in self.subset_indices:
-                self.data_labels[row].grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+                self.data_labels[row].grid()
 
 
 class CheckboxColumn(Column):
@@ -168,21 +168,21 @@ class CheckboxColumn(Column):
         self.subset_indices = indices
         if not self.hidden:
             for f in self.box_frames:
-                f.grid_forget()
+                f.grid_remove()
             for b in self.checkboxes.keys():
-                b.grid_forget()
+                b.grid_remove()
 
             if len(self.subset_indices) == 0:
                 for row, f in enumerate(self.box_frames):
-                    f.grid(row=row, column=self.column_index)
+                    f.grid()
                 for k in self.checkboxes.keys():
-                    k.grid(row=self.checkboxes[k], column=self.column_index)
+                    k.grid()
             else:
                 for row in self.subset_indices:
-                    self.box_frames[row].grid(row=row, column=self.column_index)
+                    self.box_frames[row].grid()
                 for k in self.checkboxes.keys():
                     if self.checkboxes[k] in self.subset_indices:
-                        k.grid(row=self.checkboxes[k], column=self.column_index)
+                        k.grid()
 
     def get_max_column_text_width(self):
         return int(len(self.header) * 6)  # Account for larger font size
@@ -196,12 +196,18 @@ class CheckboxColumn(Column):
     def shift_column(self, index):
         self.column_index = index
         self.header_label.grid(column=index)
-        for f in self.box_frames:
+        if self.hidden:
+            self.header_label.grid_remove()
+        for row, f in enumerate(self.box_frames):
             f.grid(column=index)
+            if self.hidden or (not (row in self.subset_indices) and len(self.subset_indices) > 0):
+                f.grid_remove()
         for i in range(len(self.frame_locations)):
             self.frame_locations[i] = (i, index)
         for k in self.checkboxes.keys():
             k.grid(column=index)
+            if self.hidden or (not (self.checkboxes[k] in self.subset_indices) and len(self.subset_indices) > 0):
+                k.grid_remove()
 
     def hide(self):
         self.hidden = True
@@ -213,16 +219,16 @@ class CheckboxColumn(Column):
 
     def unhide(self):
         self.hidden = False
-        self.header_label.grid(row=0, column=self.column_index, sticky=N+E+S+W)
+        self.header_label.grid()
         if len(self.subset_indices) == 0:
             for row, f in enumerate(self.box_frames):
-                f.grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+                f.grid()
             for k in self.checkboxes.keys():
-                k.grid(row=self.checkboxes[k]+1, column=self.column_index, sticky=N+E+S+W)
+                k.grid()
         else:
             for row in self.subset_indices:
-                self.box_frames[row].grid(row=row+1, column=self.column_index, sticky=N+E+S+W)
+                self.box_frames[row].grid()
             for k in self.checkboxes.keys():
                 if self.checkboxes[k] in self.subset_indices:
-                    k.grid(row=self.checkboxes[k]+1, column=self.column_index, sticky=N+E+S+W)
+                    k.grid()
 

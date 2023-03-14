@@ -432,5 +432,18 @@ class MahjongHands:
         "./img/examples/empty.gif",
         "./img/examples/empty.gif"
     ])
+
+    @staticmethod
+    def sort_list(arr):
+        new_arr = []
+        for cat in arr:
+            cat_list = cat.split(",")
+            cat_list = list(map(lambda x: x.strip(), cat_list))
+            cat_list = sorted(cat_list)
+            cat_list = ", ".join(cat_list)
+            new_arr += [cat_list]
+        return np.array(new_arr)
+
+    _categories = sort_list(_categories)
     hands_info = np.vstack((_hand_titles, _points, _categories, _notes, _example_images)).T
 
