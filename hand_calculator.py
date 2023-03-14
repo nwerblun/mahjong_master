@@ -3,6 +3,7 @@ from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from table import TkinterTable
 from hands import MahjongHands
+from utilities import *
 
 
 class HandCalculator(Frame):
@@ -26,12 +27,6 @@ class HandCalculator(Frame):
         self.show_img_button = None
         self.show_img_button_cv = None
 
-    @staticmethod
-    def bind_all_children(parent, event_name, func):
-        for c in parent.winfo_children():
-            c.bind(event_name, func)
-            HandCalculator.bind_all_children(c, event_name, func)
-
     def _on_mousewheel(self, event):
         self.table_canvas.yview_scroll(-1 * (event.delta // 120), "units")
 
@@ -43,6 +38,21 @@ class HandCalculator(Frame):
 
     def _on_canvas_frame_config(self, event):
         self.table_canvas.configure(scrollregion=self.table_canvas.bbox("all"))
+
+    def _reset_sort_options(self):
+        for i in range(len(self.sort_buttons)):
+            if self.sort_button_cvs[i].get():
+                self.sort_buttons[i].invoke()
+
+    def _reset_all_options(self):
+        recursive_destroy(self.canvas_container)
+        recursive_destroy(self.options_frame)
+        recursive_destroy(self.placeholder_frame2)
+        self.canvas_container = None
+        self.table_canvas = None
+        self.options_frame = None
+        self.placeholder_frame2 = None
+        self.create_hand_table()
 
     def create_hand_table(self):
         # Top level frames. Placeholder
@@ -123,11 +133,12 @@ class HandCalculator(Frame):
 
         # Place checkboxes in the options frame
         self.show_cat_button_cv = IntVar(self.show_hide_frame)
-        self.show_cat_button_cv.set(0)
+        self.show_cat_button_cv.set(1)
         self.show_cat_button = Checkbutton(
             self.show_hide_frame, text="Show categories", variable=self.show_cat_button_cv)
         self.show_cat_button.pack(side=TOP, anchor="n")
         self.show_cat_button.configure(command=lambda h=category_header: self.hands_table.toggle_column(h))
+        self.show_cat_button.invoke()
 
         self.show_img_button_cv = IntVar(self.show_hide_frame)
         self.show_img_button_cv.set(1)
@@ -136,13 +147,13 @@ class HandCalculator(Frame):
         self.show_img_button.pack(side=BOTTOM, anchor="s")
         self.show_img_button.configure(command=lambda h=image_col_header: self.hands_table.toggle_column(h))
 
-        rst_all_btn = Button(self.reset_button_frame, text="Reset All Selections")
+        rst_all_btn = Button(self.reset_button_frame, text="Reset All Selections", command=self._reset_all_options)
         rst_all_btn.pack(side=TOP, expand=YES, fill=BOTH)
-        rst_sort_btn = Button(self.reset_button_frame, text="Reset Sort Selections")
+        rst_sort_btn = Button(self.reset_button_frame, text="Reset Sort Selections", command=self._reset_sort_options)
         rst_sort_btn.pack(side=BOTTOM, expand=YES, fill=BOTH)
 
         # Scroll canvas to the top after everything is done
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
-        self.bind_all_children(self.canvas_container, "<MouseWheel>", self._on_mousewheel)
+        bind_all_children(self.canvas_container, "<MouseWheel>", self._on_mousewheel)
 
 

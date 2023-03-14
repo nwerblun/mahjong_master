@@ -2,6 +2,7 @@ import tkinter
 from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from hand_calculator import HandCalculator
+from utilities import recursive_destroy
 
 
 class Application(Frame):
@@ -22,15 +23,9 @@ class Application(Frame):
         self.hand_calc = HandCalculator(root)
         self.hand_calc.create_hand_table()
 
-    @staticmethod
-    def _recursive_destroy(root):
-        for c in root.winfo_children():
-            Application._recursive_destroy(c)
-        root.destroy()
-
     def destroy_hand_calc(self):
         if self.hand_calc is not None:
-            Application._recursive_destroy(self.hand_calc_frame)
+            recursive_destroy(self.hand_calc_frame)
             self.hand_calc_frame = None
             self.hand_calc = None
 
