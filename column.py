@@ -93,8 +93,12 @@ class LabelColumn(Column):
     def shift_column(self, index):
         self.column_index = index
         self.header_label.grid(column=index)
+        if self.hidden:
+            self.header_label.grid_remove()
         for d in self.data_labels:
             d.grid(column=index)
+            if self.hidden:
+                d.grid_remove()
         for i in range(len(self.data_locations)):
             self.data_locations[i] = (i, index)
 

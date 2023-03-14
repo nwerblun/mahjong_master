@@ -5,8 +5,6 @@ from column import *
 
 
 class TkinterTable:
-        # TODO: column hiding is broken. Hide pics -> show categories -> show pics puts pics in the wrong spot.
-        # TODO: show categories -> hide pics -> hide categories -> show pics makes an empty column and then breaks
     def __init__(self, root, table_data, image_prefix="[IMAGE]"):
         # Assumes table data contains the headers as the first row.
         # Must be text data. Non-text data must be added via functions.
@@ -100,7 +98,13 @@ class TkinterTable:
     def _shift_columns_right(self, index):
         for c in self.columns[index:]:
             c.shift_column(c.column_index + 1)
+        for c in self.hidden_columns.values():
+            if c.column_index > index:
+                c.shift_column(c.column_index + 1)
 
     def _shift_columns_left(self, index):
         for c in self.columns[index:]:
             c.shift_column(c.column_index - 1)
+        for c in self.hidden_columns.values():
+            if c.column_index > index:
+                c.shift_column(c.column_index - 1)
