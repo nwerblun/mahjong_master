@@ -101,6 +101,8 @@ class LabelColumn(Column):
                     self.data_labels[row].grid()
 
     def get_max_column_text_width(self):
+        if self.hidden:
+            return 0
         max_len = len(self.header) * 6  # Account for headers being larger
         for d in self.data:
             max_len = max(max_len, len(d))
@@ -205,6 +207,8 @@ class CheckboxColumn(Column):
                         k.grid()
 
     def get_max_column_text_width(self):
+        if self.hidden:
+            return 0
         return int(len(self.header) * 6)  # Account for larger font size
 
     def set_wraptext_width(self, width):

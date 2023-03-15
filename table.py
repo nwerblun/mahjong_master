@@ -45,7 +45,6 @@ class TkinterTable:
         return 0
 
     def _set_resize_widths(self, width):
-        width = self.root.winfo_width()
         col_text_widths = []
         for c in self.columns:
             col_text_widths += [c.get_max_column_text_width()]
