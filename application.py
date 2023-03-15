@@ -10,6 +10,7 @@ class Application(Frame):
         Frame.__init__(self, root, *args, **kwargs)
         self.hand_calc = None
         self.hand_helper_frame = None
+        self.hand_analyzer_real_time_frame = None
         self.pack(expand=YES, fill=BOTH)
 
         self.tab_text_style = Style()
@@ -27,6 +28,12 @@ class Application(Frame):
         self.temp_lbl = Label(self.hand_helper_frame, text="UNDER CONSTRUCTION")
         self.temp_lbl.pack(fill=BOTH, expand=YES)
         self.notebook.add(self.hand_helper_frame, text="Hand Helper")
+
+        self.hand_analyzer_real_time_frame = Frame(self.notebook)
+        self.hand_analyzer_real_time_frame.pack(fill=BOTH, expand=YES)
+        self.temp_lbl = Label(self.hand_analyzer_real_time_frame, text="UNDER CONSTRUCTION")
+        self.temp_lbl.pack(fill=BOTH, expand=YES)
+        self.notebook.add(self.hand_analyzer_real_time_frame, text="Real-time Hand Analyzer")
 
     def create_hand_calc(self, root):
         self.hand_calc = HandCalculator(root)
