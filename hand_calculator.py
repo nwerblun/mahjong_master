@@ -6,7 +6,6 @@ from hands import MahjongHands
 from utilities import *
 
 
-# TODO: Implement point voiding
 class HandCalculator(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -72,10 +71,19 @@ class HandCalculator(Frame):
             return 0
         point_values = self.hands_table.get_col_data(MahjongHands.hands_info[0][1], search_hidden=True)
         active_cols = self.hands_table.get_col_data("Met?")  # Shouldn't be hidden right??
+        voided_by = self.hands_table.get_col_data(MahjongHands.hands_info[0][5], search_hidden=True)
+        names = self.hands_table.get_col_data(MahjongHands.hands_info[0][0])
         point_sum = 0
         for i in range(len(active_cols)):
             if active_cols[i]:
-                point_sum += int(point_values[i])
+                ignore = False
+                search_terms = voided_by[i].split(", ")
+                for voider in search_terms:
+                    row_ind = get_index_of(names, voider)
+                    if active_cols[row_ind]:
+                        ignore = True
+                if not ignore:
+                    point_sum += int(point_values[i])
         self.points_val_label.configure(text=str(point_sum))
         if point_sum >= 8:
             self.points_val_style.configure("PointsVal.TLabel", foreground="green")
@@ -133,6 +141,7 @@ class HandCalculator(Frame):
         image_col_header = MahjongHands.hands_info[0][4][len(self.image_prefix):]
         met_col_header = "Met?"
         self.hands_table.add_checkbox_column(0, met_col_header)
+        self.hands_table.toggle_column(MahjongHands.hands_info[0][5])
 
         # Add a frame to hold the reset button
         self.reset_button_frame = Frame(self.options_frame, borderwidth=1, relief=GROOVE)
