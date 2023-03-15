@@ -44,6 +44,14 @@ class Column(ABC):
     def unhide(self):
         pass
 
+    @abstractmethod
+    def grid_remove(self):
+        pass
+
+    @abstractmethod
+    def grid_unremove(self):
+        pass
+
 
 class LabelColumn(Column):
     def __init__(self, parent, header, arr, index, header_style=None, img=False):
@@ -135,6 +143,16 @@ class LabelColumn(Column):
             for row in self.subset_indices:
                 self.data_labels[row].grid()
 
+    def grid_remove(self):
+        self.header_label.grid_remove()
+        for d in self.data_labels:
+            d.grid_remove()
+
+    def grid_unremove(self):
+        self.header_label.grid()
+        for d in self.data_labels:
+            d.grid()
+
 
 class CheckboxColumn(Column):
     def __init__(self, parent, header, arr, index, header_style=None):
@@ -159,6 +177,8 @@ class CheckboxColumn(Column):
             self.frame_locations += [(row_ind+1, index)]
             btn = Checkbutton(frm)
             btn.grid(row=0, column=0, sticky=N+E+S+W)
+            frm.rowconfigure("all", weight=1)
+            frm.columnconfigure("all", weight=1)
             self.checkboxes[btn] = row_ind  # No +1 because this will be used to access self.data
             btn.invoke()
             btn.invoke()
@@ -232,3 +252,16 @@ class CheckboxColumn(Column):
                 if self.checkboxes[k] in self.subset_indices:
                     k.grid()
 
+    def grid_remove(self):
+        self.header_label.grid_remove()
+        for f in self.box_frames:
+            f.grid_remove()
+        for k in self.checkboxes.keys():
+            k.grid_remove()
+
+    def grid_unremove(self):
+        self.header_label.grid()
+        for f in self.box_frames:
+            f.grid()
+        for k in self.checkboxes.keys():
+            k.grid()

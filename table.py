@@ -16,6 +16,8 @@ class TkinterTable:
         self.hidden_columns = {}
         self.sort_options = []
         self.sort_header = None
+        self.exact_match_sort = False
+        self.nothing_to_show_lbl = Label(self.root, text="Nothing found!")
         header_style = Style()
         header_style.configure("Header.TLabel", font=('Segoe UI', 14, "bold"))
         for i in range(len(table_data[0])):
@@ -26,6 +28,13 @@ class TkinterTable:
             else:
                 self.columns += [LabelColumn(self.root, table_data[0, i],
                                              table_data[1:, i], i, header_style="Header.TLabel")]
+
+    def get_col_data(self, header, search_hidden=False):
+        total_cols = self.columns + list(self.hidden_columns.values()) if search_hidden else self.columns
+        for c in total_cols:
+            if c.header == header:
+                return c.data
+        return None
 
     def get_num_cols(self):
         return len(self.columns)
@@ -105,16 +114,32 @@ class TkinterTable:
             self.sort_options += [option]
         self._populate_subset()
 
+    def toggle_exact_match_sort(self):
+        self.exact_match_sort = not self.exact_match_sort
+        self._populate_subset()
+
     def _populate_subset(self):
         indices = []
         for c in (self.columns + list(self.hidden_columns.values())):
             if c.header == self.sort_header:
                 for row, d in enumerate(c.data):
                     lowered = "".join(list(map(lambda x: x.lower(), d)))
-                    for o in self.sort_options:
-                        if o.lower() in lowered:
-                            indices += [row]
-                            break
+                    contained_list = [tag in lowered for tag in self.sort_options]
+                    if (not self.exact_match_sort) and any(contained_list):
+                        indices += [row]
+                    elif self.exact_match_sort and all(tag in lowered for tag in self.sort_options):
+                        indices += [row]
+
+        if len(indices) == 0 and self.exact_match_sort:
+            for c in self.columns:
+                c.grid_remove()
+            self.nothing_to_show_lbl.grid(row=0, column=0, columnspan=len(self.columns))
+            return
+        else:
+            self.nothing_to_show_lbl.grid_remove()
+            for c in self.columns:
+                c.grid_unremove()
+
         for c in self.columns:
             c.add_subset_to_parent_grid(indices)
         for v in self.hidden_columns.values():

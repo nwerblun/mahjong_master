@@ -6,6 +6,7 @@ from hands import MahjongHands
 from utilities import *
 
 
+# TODO: Implement point voiding
 class HandCalculator(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -13,7 +14,9 @@ class HandCalculator(Frame):
         self.table_canvas = None
         self.canvas_container = None
         self.options_frame = None
-        self.placeholder_frame2 = None
+        self.point_info_frame = None
+        self.points_text_label = None
+        self.points_val_label = None
         self.sort_options_frame = None
         self.hands_table = None
         self.canvas_window = None
@@ -26,6 +29,12 @@ class HandCalculator(Frame):
         self.show_cat_button_cv = None
         self.show_img_button = None
         self.show_img_button_cv = None
+        self.exact_match_checkbutton = None
+        self.exact_match_checkbutton_cv = None
+        self.points_label_style = Style()
+        self.points_label_style.configure("PointsLabel.TLabel", font=('Segoe UI', 14, "bold"))
+        self.points_val_style = Style()
+        self.points_val_style.configure("PointsVal.TLabel", font=('Segoe UI', 14, "bold"), foreground="red")
 
     def _on_mousewheel(self, event):
         self.table_canvas.yview_scroll(-1 * (event.delta // 120), "units")
@@ -43,21 +52,40 @@ class HandCalculator(Frame):
         for i in range(len(self.sort_buttons)):
             if self.sort_button_cvs[i].get():
                 self.sort_buttons[i].invoke()
+        if self.exact_match_checkbutton_cv.get():
+            self.exact_match_checkbutton.invoke()
 
     def _reset_all_options(self):
         recursive_destroy(self.canvas_container)
         recursive_destroy(self.options_frame)
-        recursive_destroy(self.placeholder_frame2)
+        recursive_destroy(self.point_info_frame)
         self.canvas_container = None
         self.table_canvas = None
         self.options_frame = None
-        self.placeholder_frame2 = None
+        self.hands_table = None
+        self.point_info_frame = None
+        self.points_label = None
         self.create_hand_table()
 
+    def _count_points(self):
+        if self.hands_table is None:
+            return 0
+        point_values = self.hands_table.get_col_data(MahjongHands.hands_info[0][1], search_hidden=True)
+        active_cols = self.hands_table.get_col_data("Met?")  # Shouldn't be hidden right??
+        point_sum = 0
+        for i in range(len(active_cols)):
+            if active_cols[i]:
+                point_sum += int(point_values[i])
+        self.points_val_label.configure(text=str(point_sum))
+        if point_sum >= 8:
+            self.points_val_style.configure("PointsVal.TLabel", foreground="green")
+        else:
+            self.points_val_style.configure("PointsVal.TLabel", foreground="red")
+        
     def create_hand_table(self):
         # Top level frames. Placeholder
-        self.placeholder_frame2 = Frame(self.master, borderwidth=3, relief=GROOVE, height=50, width=400)
-        self.placeholder_frame2.pack(fill=X, side=TOP, pady=2, padx=2)
+        self.point_info_frame = Frame(self.master, borderwidth=3, relief=GROOVE, height=50, width=400)
+        self.point_info_frame.pack(fill=X, side=TOP, pady=2, padx=2)
         # Center frame
         self.canvas_container = Frame(self.master, borderwidth=3, relief=GROOVE, height=300, width=400)
         self.canvas_container.pack(fill=BOTH, expand=YES, side=TOP, pady=2, padx=2)
@@ -65,6 +93,12 @@ class HandCalculator(Frame):
         self.options_frame = LabelFrame(self.master, text="Table Options", labelanchor="n",
                                         borderwidth=8, relief=GROOVE, height=150, width=400)
         self.options_frame.pack(fill=X, side=BOTTOM, pady=2, padx=2)
+
+        # Add a label with point value
+        self.points_text_label = Label(self.point_info_frame, text="Total Hand Value: ", style="PointsLabel.TLabel")
+        self.points_text_label.pack(side=LEFT, fill=BOTH)
+        self.points_val_label = Label(self.point_info_frame, text="0", style="PointsVal.TLabel")
+        self.points_val_label.pack(side=LEFT, fill=BOTH)
 
         # Create a canvas inside the center frame
         self.table_canvas = Canvas(self.canvas_container)
@@ -122,9 +156,19 @@ class HandCalculator(Frame):
             self.sort_button_cvs += [IntVar(self.sort_options_frame)]
             self.sort_button_cvs[ind].set(0)
             self.sort_buttons += [Checkbutton(self.sort_options_frame, text=cat, variable=self.sort_button_cvs[ind])]
-            self.sort_buttons[ind].pack(side=LEFT, expand=YES, fill=BOTH)
+            self.sort_buttons[ind].grid(row=0, column=ind, sticky=N+E+W)
             self.sort_buttons[ind].configure(
                 command=lambda x=cat: self.hands_table.toggle_sort_option(x, category_header))
+
+        # A button for exact matching
+        self.exact_match_checkbutton_cv = IntVar()
+        self.exact_match_checkbutton = Checkbutton(self.sort_options_frame,
+                                                   text="Exact match?", variable=self.exact_match_checkbutton_cv)
+        self.exact_match_checkbutton.grid(row=1, columnspan=len(self.sort_buttons), sticky=S)
+        self.exact_match_checkbutton.configure(command=self.hands_table.toggle_exact_match_sort)
+        # Sticky does nothing unless you configure weights
+        self.sort_options_frame.columnconfigure("all", weight=1)
+        self.sort_options_frame.rowconfigure("all", weight=1)
 
         # Add a frame for show/hide options
         self.show_hide_frame = LabelFrame(self.options_frame, text="Show/Hide", labelanchor="n",
@@ -156,4 +200,8 @@ class HandCalculator(Frame):
         self.table_canvas.after(1000, self.table_canvas.yview_scroll, -1000, "units")
         bind_all_children(self.canvas_container, "<MouseWheel>", self._on_mousewheel)
 
+        def count_points_func(event):
+            self.after(10, self._count_points)
+
+        bind_all_children(self.master, "<ButtonRelease>", count_points_func)
 

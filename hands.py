@@ -387,7 +387,7 @@ class MahjongHands:
         "./img/examples/reversible_tiles.png",
         "./img/examples/mixed_triple_chow.png",
         "./img/examples/mixed_shifted_pungs.png",
-        "./img/examples/empty.gif",
+        "./img/examples/chicken_hand.png",
         "./img/examples/empty.gif",
         "./img/examples/empty.gif",
         "./img/examples/empty.gif",

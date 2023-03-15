@@ -8,7 +8,7 @@ import time
 if __name__ == "__main__":
     root = Tk()
     app = Application(root)
-    root.geometry("1600x800")
+    root.geometry("1800x800")
     root.title("Mahjong Master")
     root.mainloop()
 
