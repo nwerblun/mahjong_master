@@ -11,4 +11,5 @@ class Calculator:
     # class calculator: has a hand, get_current_value() -> figure out how many points it's currently worth
     # ##############instantiates a pathfinder, get_top_n_winners() -> list of tuples of (Hand, points, {})
     # #######################k, v pairs of that {} are hand title: point value
+    # Make a set of special hands for things like knitted seq?
     pass

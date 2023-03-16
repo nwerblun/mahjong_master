@@ -103,6 +103,8 @@ class LabelColumn(Column):
     def get_max_column_text_width(self):
         if self.hidden:
             return 0
+        if self.is_image:
+            return 400  # Cheap hack, assuming a picture is like 400 pixels
         max_len = len(self.header) * 6  # Account for headers being larger
         for d in self.data:
             max_len = max(max_len, len(d))
