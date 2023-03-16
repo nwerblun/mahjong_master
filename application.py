@@ -2,6 +2,7 @@ import tkinter
 from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from hand_calculator import HandCalculator
+from hand_assister import HandAssister
 from utilities import recursive_destroy
 
 
@@ -9,6 +10,7 @@ class Application(Frame):
     def __init__(self, root, *args, **kwargs):
         Frame.__init__(self, root, *args, **kwargs)
         self.hand_calc = None
+        self.hand_assister = None
         self.hand_helper_frame = None
         self.hand_analyzer_real_time_frame = None
         self.pack(expand=YES, fill=BOTH)
@@ -25,8 +27,7 @@ class Application(Frame):
 
         self.hand_helper_frame = Frame(self.notebook)
         self.hand_helper_frame.pack(fill=BOTH, expand=YES)
-        self.temp_lbl = Label(self.hand_helper_frame, text="UNDER CONSTRUCTION")
-        self.temp_lbl.pack(fill=BOTH, expand=YES)
+        self.create_hand_helper(self.hand_helper_frame)
         self.notebook.add(self.hand_helper_frame, text="Hand Helper")
 
         self.hand_analyzer_real_time_frame = Frame(self.notebook)
@@ -38,6 +39,10 @@ class Application(Frame):
     def create_hand_calc(self, root):
         self.hand_calc = HandCalculator(root)
         self.hand_calc.create_hand_table()
+
+    def create_hand_helper(self, root):
+        self.hand_assister = HandAssister(root)
+        self.hand_assister.create_hand_entry()
 
     def destroy_hand_calc(self):
         if self.hand_calc is not None:
