@@ -1,4 +1,5 @@
 import numpy as np
+from utilities import *
 
 
 class MahjongHands:
@@ -562,17 +563,17 @@ class MahjongHands:
     ]
     special_tile_pic_files = [n+".png" for n in special_tile_names]
 
-    @staticmethod
-    def sort_list(arr):
-        new_arr = []
-        for cat in arr:
-            cat_list = cat.split(",")
-            cat_list = list(map(lambda x: x.strip(), cat_list))
-            cat_list = sorted(cat_list)
-            cat_list = ", ".join(cat_list)
-            new_arr += [cat_list]
-        return np.array(new_arr)
-
     _categories = sort_list(_categories)
     hands_info = np.vstack((_hand_titles, _points, _categories, _notes, _example_images, _voided_by)).T
 
+    @staticmethod
+    def get_hand_titles():
+        return MahjongHands._hand_titles[1:]
+
+    @staticmethod
+    def get_point_values():
+        return MahjongHands._points[1:]
+
+    @staticmethod
+    def get_voids():
+        return MahjongHands._voided_by[1:]

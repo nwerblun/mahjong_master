@@ -1,4 +1,3 @@
-import tkinter
 from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from hand_calculator import HandCalculator
@@ -43,6 +42,7 @@ class Application(Frame):
     def create_hand_helper(self, root):
         self.hand_assister = HandAssister(root)
         self.hand_assister.create_hand_entry()
+        self.hand_assister.create_hand_visualizer()
 
     def destroy_hand_calc(self):
         if self.hand_calc is not None:

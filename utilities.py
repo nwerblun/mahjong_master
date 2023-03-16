@@ -20,3 +20,14 @@ def get_index_of(arr, search_key):
     if not len(x):
         return -1
     return x[0]
+
+
+def sort_list(arr):
+    new_arr = []
+    for cat in arr:
+        cat_list = cat.split(",")
+        cat_list = list(map(lambda x: x.strip(), cat_list))
+        cat_list = sorted(cat_list)
+        cat_list = ", ".join(cat_list)
+        new_arr += [cat_list]
+    return np.array(new_arr)

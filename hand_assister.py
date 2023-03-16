@@ -1,11 +1,8 @@
-import tkinter
 from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from hands import MahjongHands
 from utilities import *
-
-# Similar to hand_calculator.
-# Generates the frames and GUI to hold the hand entry, visualizer and nearest hands calculator
+from score_calculator import Calculator
 
 
 class HandAssister(Frame):
@@ -28,10 +25,13 @@ class HandAssister(Frame):
         self.concealed_others_entry_label = None
         self.revealed_others_entry_label = None
         self.revealed_kong_entry_label = None
+        self.drawn_tile_labelframe = None
+        self.drawn_tile_entry = None
+        self.drawn_tile_entry_cv = None
         self.entry_validation = None
+        self.calculator = Calculator()
 
-    @staticmethod
-    def _check_valid_hand_entry(text):
+    def _check_valid_hand_entry(self, text):
         invalid_conds = [
             len(text) == 1 and not (text in [name[:1] for name in MahjongHands.tile_names]),
             len(text) == 2 and not (text in [name[:2] for name in MahjongHands.tile_names]),
@@ -40,24 +40,53 @@ class HandAssister(Frame):
         ]
         if any(invalid_conds):
             return False
+        self._hand_change()
         return True
 
+    def _hand_change(self):
+        concealed = []
+        revealed = []
+        drawn = self.drawn_tile_entry_cv.get()
+        concealed_kongs = []
+        revealed_kongs = []
+        for e in self.concealed_other_entries_cvs:
+            if len(e.get()) == 2 or len(e.get()) == 3:
+                concealed += [e.get()]
+        for e in self.concealed_kong_entries_cvs:
+            if len(e.get()) == 2 or len(e.get()) == 3:
+                concealed_kongs += [e.get()]
+        for e in self.revealed_other_entries_cvs:
+            if len(e.get()) == 2 or len(e.get()) == 3:
+                revealed += [e.get()]
+        for e in self.revealed_kong_entries_cvs:
+            if len(e.get()) == 2 or len(e.get()) == 3:
+                revealed_kongs += [e.get()]
+        self.calculator.on_hand_change(concealed, revealed, drawn, concealed_kongs, revealed_kongs)
+
     def create_hand_entry(self):
-        self.entry_validation = self.register(HandAssister._check_valid_hand_entry)
+        self.entry_validation = self.register(self._check_valid_hand_entry)
+        self.hand_entry_frame.rowconfigure("all", weight=1)
         instructions = "Instructions:\n" \
-                       "Enter your hand, one tile per box (excluding kongs. Just type the tile once for a kong)\n" \
+                       "Enter your hand, one tile per box (Excluding kongs. Just type the tile once for a kong)\n" \
+                       "If you have 4x a tile concealed that is undeclared, enter it in 'others' instead of kong\n" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
                        "d1-9 = Dots. Ex d5 d6\n" \
                        "drw, drr, drg = White/Red/Green Dragon\n" \
                        "wn, we, ws, ww = North/East/South/West Wind\n"
         self.instructions_text = Message(self.hand_entry_frame, text=instructions, aspect=400)
-        self.instructions_text.grid(rowspan=2, column=0, sticky=W+N+S)
+        self.instructions_text.grid(row=0, rowspan=2, column=0, sticky=W+N+S)
 
+        self.drawn_tile_labelframe = Labelframe(self.hand_entry_frame, text="Drawn Tile")
+        self.drawn_tile_labelframe.grid(row=0, rowspan=2, column=1, padx=15, pady=2, sticky=N+S)
+        self.drawn_tile_entry = Entry(self.drawn_tile_labelframe, validate="key", width=4,
+                                      textvariable=self.drawn_tile_entry_cv,
+                                      validatecommand=(self.entry_validation, "%P"))
+        self.drawn_tile_entry.pack(expand=YES)
         self.concealed_entry_labelframe = LabelFrame(self.hand_entry_frame, text="Concealed Tiles")
-        self.concealed_entry_labelframe.grid(row=0, column=1, sticky=N+E+S+W)
+        self.concealed_entry_labelframe.grid(row=0, column=2, pady=8, sticky=N+E+S+W)
         self.revealed_entry_labelframe = Labelframe(self.hand_entry_frame, text="Revealed Tiles")
-        self.revealed_entry_labelframe.grid(row=1, column=1, sticky=N+E+S+W)
+        self.revealed_entry_labelframe.grid(row=1, column=2, pady=8, sticky=N+E+S+W)
 
         self.concealed_kong_entry_label = Label(self.concealed_entry_labelframe, text="Kongs:")
         self.concealed_kong_entry_label.grid(row=0, column=0, sticky=N+S)
@@ -94,5 +123,8 @@ class HandAssister(Frame):
                                                   textvariable=self.revealed_other_entries_cvs[i],
                                                   validatecommand=(self.entry_validation, '%P'))]
             self.revealed_other_entries[i].grid(row=1, column=i+1, pady=2, padx=2, sticky=N+S)
+
+    def create_hand_visualizer(self):
+        pass
 
 

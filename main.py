@@ -1,4 +1,3 @@
-import tkinter
 from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from application import Application

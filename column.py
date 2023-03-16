@@ -65,12 +65,8 @@ class LabelColumn(Column):
             arr[i] = str(arr[i])
 
     def add_to_parent_grid(self, index):
-        if not self.is_image:
-            self.header_label = Label(self.parent, text=self.header,
-                                      style=self.header_style, borderwidth=1, relief=GROOVE)
-        else:
-            self.header_label = Label(self.parent, text=self.header,
-                                      style=self.header_style, borderwidth=1, relief=GROOVE)
+        self.header_label = Label(self.parent, text=self.header,
+                                  style=self.header_style, borderwidth=1, relief=GROOVE)
         self.header_label.grid(row=0, column=index, sticky=N+E+S+W)
         if not self.is_image:
             for row_ind, d in enumerate(self.data):
