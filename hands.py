@@ -553,7 +553,7 @@ class MahjongHands:
         "ws",
         "ww"
     ]
-    tile_pic_files = [n+".png" for n in tile_names]
+    tile_pic_files = ["./img/base_tiles/"+n+".png" for n in tile_names]
     special_tile_names = [
         "f1",
         "f2",
@@ -561,7 +561,7 @@ class MahjongHands:
         "f4",
         "z1"
     ]
-    special_tile_pic_files = [n+".png" for n in special_tile_names]
+    special_tile_pic_files = ["./img/base_tiles/"+n+".png" for n in special_tile_names]
 
     _categories = sort_list(_categories)
     hands_info = np.vstack((_hand_titles, _points, _categories, _notes, _example_images, _voided_by)).T

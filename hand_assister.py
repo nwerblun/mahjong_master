@@ -5,6 +5,8 @@ from utilities import *
 from score_calculator import Calculator
 
 
+# TODO: Add round + seat wind entry
+# TODO: Add a note saying revealed tiles should be in set order
 class HandAssister(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -40,7 +42,7 @@ class HandAssister(Frame):
         ]
         if any(invalid_conds):
             return False
-        self._hand_change()
+        self.after(1, self._hand_change)
         return True
 
     def _hand_change(self):
@@ -61,7 +63,7 @@ class HandAssister(Frame):
         for e in self.revealed_kong_entries_cvs:
             if len(e.get()) == 2 or len(e.get()) == 3:
                 revealed_kongs += [e.get()]
-        self.calculator.on_hand_change(concealed, revealed, drawn, concealed_kongs, revealed_kongs)
+        self.calculator.set_hand(concealed, revealed, drawn, concealed_kongs, revealed_kongs)
 
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
@@ -79,9 +81,10 @@ class HandAssister(Frame):
 
         self.drawn_tile_labelframe = Labelframe(self.hand_entry_frame, text="Drawn Tile")
         self.drawn_tile_labelframe.grid(row=0, rowspan=2, column=1, padx=15, pady=2, sticky=N+S)
+        self.drawn_tile_entry_cv = StringVar()
         self.drawn_tile_entry = Entry(self.drawn_tile_labelframe, validate="key", width=4,
                                       textvariable=self.drawn_tile_entry_cv,
-                                      validatecommand=(self.entry_validation, "%P"))
+                                      validatecommand=(self.entry_validation, '%P'))
         self.drawn_tile_entry.pack(expand=YES)
         self.concealed_entry_labelframe = LabelFrame(self.hand_entry_frame, text="Concealed Tiles")
         self.concealed_entry_labelframe.grid(row=0, column=2, pady=8, sticky=N+E+S+W)

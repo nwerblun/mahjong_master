@@ -24,6 +24,14 @@ class Tile:
         else:
             self.type = "wind"
 
+    @staticmethod
+    def is_valid_name(name):
+        conds = [
+            len(name) < 2,
+            len(name) > 3
+        ]
+        return not any(conds)
+
     def get_picture_link_from_name(self):
         ind = MahjongHands.tile_names.index(self.name)
         return MahjongHands.tile_pic_files[ind]
@@ -79,6 +87,9 @@ class Tile:
     def __eq__(self, other):
         return self.name == other.name
 
+    def __hash__(self):
+        return self.name.__hash__()
+
 
 class Hand:
     def __init__(self):
@@ -107,7 +118,7 @@ class Hand:
         self.num_dragons = 0
         self.num_suits_used = 0
         self.uses_bamboo = self.uses_dots = self.uses_chars = False
-        all_tiles = self.concealed_tiles + self.revealed_tiles
+        all_tiles = self.concealed_tiles + self.revealed_tiles + self.declared_concealed_kongs
         if self.drawn_tile:
             all_tiles += [self.drawn_tile]
 
@@ -126,21 +137,6 @@ class Hand:
                 self.num_suits_used += 1
                 self.uses_dots = True
 
-        for tile in self.declared_concealed_kongs:
-            if tile.is_wind():
-                self.num_winds += 4
-            elif tile.is_dragon():
-                self.num_dragons += 4
-            elif not self.uses_bamboo and tile.is_bamboo():
-                self.num_suits_used += 1
-                self.uses_bamboo = True
-            elif not self.uses_chars and tile.is_char():
-                self.num_suits_used += 1
-                self.uses_chars = True
-            elif not self.uses_dots and tile.is_dot():
-                self.num_suits_used += 1
-                self.uses_dots = True
-
     def _count_potential_concealed_pungs_kongs(self):
         # Revealed tiles must be sets, so it's either a pung, kong or chow guaranteed. Don't need to check.
         self.potential_concealed_pungs = []
@@ -148,8 +144,7 @@ class Hand:
         all_tiles = self.concealed_tiles
         if self.drawn_tile:
             all_tiles += [self.drawn_tile]
-        all_unique_tiles = list(set(all_tiles))  # Don't want to triple count tiles. Only check unique tiles.
-        for tile in all_unique_tiles:
+        for tile in all_tiles:
             amt = all_tiles.count(tile)
             if amt == 3:
                 self.potential_concealed_pungs += [tile]
@@ -166,7 +161,7 @@ class Hand:
             next_tile_name = tile.get_next_sequential_tile_name()
             if next_tile_name in all_tile_names:
                 next_tile = all_tiles[all_tile_names.index(next_tile_name)]
-                next_next_tile_name = next_tile.get_next_sequential_tile()
+                next_next_tile_name = next_tile.get_next_sequential_tile_name()
                 if next_next_tile_name in all_tile_names:
                     next_next_tile = all_tiles[all_tile_names.index(next_next_tile_name)]
                     self.potential_concealed_chows += [[tile, next_tile, next_next_tile]]
@@ -179,19 +174,45 @@ class Hand:
         if discard_draw:
             self.drawn_tile = None
 
-    def draw_tile(self, name):
-        self.drawn_tile = Tile(name)
+    def set_drawn_tile(self, name):
+        if Tile.is_valid_name(name):
+            self.drawn_tile = Tile(name)
+            self._update_hand()
+
+    def _get_num_tiles_in_hand(self):
+        return len(self.declared_concealed_kongs) + len(self.concealed_tiles) + len(self.revealed_tiles)
+
+    def clear_hand(self):
+        self.__init__()
+
+    def sort_hand(self):
+        if len(self.concealed_tiles) > 1:
+            self.concealed_tiles = sorted(self.concealed_tiles)
+        if len(self.declared_concealed_kongs) > 1:
+            self.declared_concealed_kongs = sorted(self.declared_concealed_kongs)
+
+    def _update_hand(self):
+        self.sort_hand()
+        self._update_suits_and_honor_count()
+        self._count_potential_concealed_chows()
+        self._count_potential_concealed_pungs_kongs()
 
     def add_tile_to_hand(self, revealed, tile_name):
+        if self._get_num_tiles_in_hand() > 15:
+            return
         if revealed:
             self.revealed_tiles += [Tile(tile_name)]
         else:
             self.concealed_tiles += [Tile(tile_name)]
+        self._update_hand()
 
-        if len(self.concealed_tiles) > 1:
-            self.concealed_tiles = sorted(self.concealed_tiles)
-        if len(self.revealed_tiles) > 1:
-            self.revealed_tiles = sorted(self.revealed_tiles)
+    def add_declared_concealed_kong_to_hand(self, tile_name):
+        self.declared_concealed_kongs += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
+        self._update_suits_and_honor_count()
+
+    def add_revealed_kong_to_hand(self, tile_name):
+        # Not [Tile(tile_name)] * 4 because I don't want the same reference 4 times, but 4 different objects
+        self.revealed_tiles += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
 
     def declare_concealed_kong(self):
         pass
