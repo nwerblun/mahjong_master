@@ -71,6 +71,10 @@ class HandAssister(Frame):
         instructions = "Instructions:\n" \
                        "Enter your hand, one tile per box (Excluding kongs. Just type the tile once for a kong)\n" \
                        "If you have 4x a tile concealed that is undeclared, enter it in 'others' instead of kong\n" \
+                       "IMPORTANT: Enter revealed tiles in order or things wont work. EX: " \
+                       "if you have 111222333 bamboo then either input it as "\
+                       "b1b2b3 b1b2b3 b1b2b3 or b1b1b1 b2b2b2 b3b3b3. Do not mix up the order or put it in weird." \
+                       "===========================================" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
                        "d1-9 = Dots. Ex d5 d6\n" \
@@ -130,4 +134,45 @@ class HandAssister(Frame):
     def create_hand_visualizer(self):
         pass
 
+    # TODO: Remove this
+    def _debug_func(self):
+        self.drawn_tile_entry.insert(0, "d9")
+        self.concealed_kong_entries[0].insert(0, "b7")
+        self.concealed_kong_entries[1].insert(0, "")
+        self.concealed_kong_entries[2].insert(0, "")
+        self.concealed_kong_entries[3].insert(0, "")
 
+        self.revealed_kong_entries[0].insert(0, "")
+        self.revealed_kong_entries[1].insert(0, "")
+        self.revealed_kong_entries[2].insert(0, "")
+        self.revealed_kong_entries[3].insert(0, "")
+
+        self.concealed_other_entries[0].insert(0, "b1")
+        self.concealed_other_entries[1].insert(0, "b2")
+        self.concealed_other_entries[2].insert(0, "b2")
+        self.concealed_other_entries[3].insert(0, "b2")
+        self.concealed_other_entries[4].insert(0, "b2")
+        self.concealed_other_entries[5].insert(0, "b3")
+        self.concealed_other_entries[6].insert(0, "b4")
+        self.concealed_other_entries[7].insert(0, "")
+        self.concealed_other_entries[8].insert(0, "")
+        self.concealed_other_entries[9].insert(0, "")
+        self.concealed_other_entries[10].insert(0, "")
+        self.concealed_other_entries[11].insert(0, "")
+        self.concealed_other_entries[12].insert(0, "")
+        self.concealed_other_entries[13].insert(0, "")
+
+        self.revealed_other_entries[0].insert(0, "b2")
+        self.revealed_other_entries[1].insert(0, "b3")
+        self.revealed_other_entries[2].insert(0, "b4")
+        self.revealed_other_entries[3].insert(0, "")
+        self.revealed_other_entries[4].insert(0, "")
+        self.revealed_other_entries[5].insert(0, "")
+        self.revealed_other_entries[6].insert(0, "")
+        self.revealed_other_entries[7].insert(0, "")
+        self.revealed_other_entries[8].insert(0, "")
+        self.revealed_other_entries[9].insert(0, "")
+        self.revealed_other_entries[10].insert(0, "")
+        self.revealed_other_entries[11].insert(0, "")
+        self.revealed_other_entries[12].insert(0, "")
+        self.revealed_other_entries[13].insert(0, "")

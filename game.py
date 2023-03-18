@@ -6,23 +6,41 @@ from functools import total_ordering
 # contains stuff that is useful in many files about the game.
 
 
+bamboo_id_ctr = [0] * 9
+char_id_ctr = [0] * 9
+dots_id_ctr = [0] * 9
+dr_id_ctr = {"g": 0, "r": 0, "w": 0}
+wind_id_ctr = {"e": 0, "n": 0, "s": 0, "w": 0}
+
+
 @total_ordering
 class Tile:
     def __init__(self, name):
+        global bamboo_id_ctr, char_id_ctr, dots_id_ctr, dr_id_ctr, wind_id_ctr
         self.name = name
         self.picture_link = self.get_picture_link_from_name()
         self.img = Image.open(self.picture_link)
         self.ph = ImageTk.PhotoImage(self.img)
         if self.name[0] == "b":
             self.type = "bamboo"
+            self.id = bamboo_id_ctr[int(self.name[1])]
+            bamboo_id_ctr[int(self.name[1])-1] += 1
         elif self.name[0] == "c":
             self.type = "character"
+            self.id = char_id_ctr[int(self.name[1])]
+            char_id_ctr[int(self.name[1])-1] += 1
         elif self.name[0] == "d" and (not self.name[1] == "r"):
             self.type = "dot"
+            self.id = dots_id_ctr[int(self.name[1])]
+            dots_id_ctr[int(self.name[1])-1] += 1
         elif self.name[:2] == "dr":
             self.type = "dragon"
+            self.id = dr_id_ctr[self.name[2]]
+            dr_id_ctr[self.name[2]] += 1
         else:
             self.type = "wind"
+            self.id = wind_id_ctr[self.name[1]]
+            wind_id_ctr[self.name[1]] += 1
 
     @staticmethod
     def is_valid_name(name):
@@ -81,14 +99,26 @@ class Tile:
             return None
         return self.name[0] + str(int(self.get_tile_number()) + 1)
 
+    @staticmethod
+    def tile_name_to_next_tile_name(name):
+        if name is None or name[:2] == "dr" or name[0] == "w":
+            return None
+        elif int(name[1]) == 9:
+            return None
+        else:
+            return name[0] + str(int(name[1]) + 1)
+
     def __lt__(self, other):
-        return self.name < other.name
+        return (self.name < other.name) or ((self.name == other.name) and self.id < other.id)
 
     def __eq__(self, other):
-        return self.name == other.name
+        return (self.name == other.name) and (self.id == other.id)
 
     def __hash__(self):
-        return self.name.__hash__()
+        return (self.name + str(self.id)).__hash__()
+
+    def equals(self, other):
+        return self.name == other.name
 
 
 class Hand:
@@ -101,9 +131,6 @@ class Hand:
         self.potential_concealed_pungs = []
         self.potential_concealed_kongs = []
         self.potential_concealed_chows = []
-
-        self.sets = []
-
         self.num_suits_used = 0
         self.uses_bamboo = False
         self.uses_chars = False
@@ -141,45 +168,65 @@ class Hand:
         # Revealed tiles must be sets, so it's either a pung, kong or chow guaranteed. Don't need to check.
         self.potential_concealed_pungs = []
         self.potential_concealed_kongs = []
-        all_tiles = self.concealed_tiles
+        pung_list = []
+        kong_list = []
+        all_tiles = self.concealed_tiles[:]
         if self.drawn_tile:
             all_tiles += [self.drawn_tile]
-        for tile in all_tiles:
-            amt = all_tiles.count(tile)
+        all_tile_names = [t.name for t in all_tiles]
+        for i in range(len(all_tile_names)):
+            amt = all_tile_names.count(all_tile_names[i])
             if amt == 3:
-                self.potential_concealed_pungs += [tile]
+                pung_list += [all_tiles[i]]
             elif amt == 4:
-                self.potential_concealed_kongs += [tile]
+                kong_list += [all_tiles[i]]
+
+        if len(pung_list) >= 3:
+            pung_list = sorted(pung_list)
+            # Pungs must be in groups of 3, and should be sequential after sort
+            for i in range(0, len(pung_list), 3):
+                self.potential_concealed_pungs += [[pung_list[i], pung_list[i+1], pung_list[i+2]]]
+        if len(kong_list) >= 4:
+            kong_list = sorted(kong_list)
+            # Kungs must be in groups of 4, and should be sequential after sort
+            for i in range(0, len(kong_list), 4):
+                # Also need all pung permutations
+                self.potential_concealed_pungs += [[kong_list[i], kong_list[i+1], kong_list[i+2]]]
+                self.potential_concealed_pungs += [[kong_list[i], kong_list[i+1], kong_list[i+3]]]
+                self.potential_concealed_pungs += [[kong_list[i+1], kong_list[i+2], kong_list[i+3]]]
+                self.potential_concealed_kongs += [[kong_list[i], kong_list[i+1], kong_list[i+2], kong_list[i+3]]]
 
     def _count_potential_concealed_chows(self):
         self.potential_concealed_chows = []
-        all_tiles = self.concealed_tiles
+        all_tiles = self.concealed_tiles[:]
         if self.drawn_tile:
             all_tiles += [self.drawn_tile]
         all_tile_names = [t.name for t in all_tiles]
         for tile in all_tiles:
-            next_tile_name = tile.get_next_sequential_tile_name()
-            if next_tile_name in all_tile_names:
-                next_tile = all_tiles[all_tile_names.index(next_tile_name)]
-                next_next_tile_name = next_tile.get_next_sequential_tile_name()
-                if next_next_tile_name in all_tile_names:
-                    next_next_tile = all_tiles[all_tile_names.index(next_next_tile_name)]
-                    self.potential_concealed_chows += [[tile, next_tile, next_next_tile]]
+            if self._hand_contains_concealed_chow_from_starting_tile(tile):
+                next_name = Tile.tile_name_to_next_tile_name(tile.name)
+                next_next_name = Tile.tile_name_to_next_tile_name(next_name)
+                indices_next = [i for i in range(len(all_tile_names)) if all_tile_names[i] == next_name]
+                indices_next_next = [i for i in range(len(all_tile_names)) if all_tile_names[i] == next_next_name]
+                for next_ind in indices_next:
+                    for next_next_ind in indices_next_next:
+                        self.potential_concealed_chows += [[tile, all_tiles[next_ind], all_tiles[next_next_ind]]]
+
+    def _hand_contains_concealed_chow_from_starting_tile(self, start_tile):
+        next_tile_name = Tile.tile_name_to_next_tile_name(start_tile.name)
+        next_next_tile_name = Tile.tile_name_to_next_tile_name(next_tile_name)
+        tile_names = [t.name for t in self.concealed_tiles]
+        return (next_tile_name in tile_names) and (next_next_tile_name in tile_names)
 
     def get_num_honor_tiles(self):
         return self.num_dragons + self.num_winds
 
-    def discard_tile(self, tile_name, discard_draw=False):
-        # If discard draw is true, tile name is ignored
-        if discard_draw:
-            self.drawn_tile = None
-
     def set_drawn_tile(self, name):
         if Tile.is_valid_name(name):
             self.drawn_tile = Tile(name)
-            self._update_hand()
+        self._update_hand()
 
-    def _get_num_tiles_in_hand(self):
+    def get_num_tiles_in_hand(self):
         return len(self.declared_concealed_kongs) + len(self.concealed_tiles) + len(self.revealed_tiles)
 
     def clear_hand(self):
@@ -197,40 +244,63 @@ class Hand:
         self._count_potential_concealed_chows()
         self._count_potential_concealed_pungs_kongs()
 
-    def add_tile_to_hand(self, revealed, tile_name):
-        if self._get_num_tiles_in_hand() > 15:
+    def add_tile_to_hand(self, revealed, tile_name, more=False):
+        # More is an optimization parameter. Set to true if you expect to continue adding pieces.
+        # Setting the drawn tile will force an update, or call add tiles again with tile_name = None
+        if self.get_num_tiles_in_hand() >= 15 or tile_name is None:
+            self._update_hand()
             return
         if revealed:
             self.revealed_tiles += [Tile(tile_name)]
         else:
             self.concealed_tiles += [Tile(tile_name)]
-        self._update_hand()
+        if not more:
+            self._update_hand()
 
     def add_declared_concealed_kong_to_hand(self, tile_name):
-        self.declared_concealed_kongs += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
+        self.declared_concealed_kongs += [[Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]]
         self._update_suits_and_honor_count()
 
     def add_revealed_kong_to_hand(self, tile_name):
         # Not [Tile(tile_name)] * 4 because I don't want the same reference 4 times, but 4 different objects
         self.revealed_tiles += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
 
-    def declare_concealed_kong(self):
-        pass
-
-    def upgrade_revealed_pung(self):
-        pass
-
     def is_fully_concealed(self):
         return len(self.revealed_tiles) == 0
 
-    def get_num_chows(self):
-        pass
+    def get_potential_concealed_chows(self):
+        self._count_potential_concealed_chows()
+        return self.potential_concealed_chows
 
-    def get_num_pungs(self):
-        pass
+    def get_declared_concealed_kongs(self):
+        return self.declared_concealed_kongs
 
-    def get_num_kongs(self):
-        pass
+    def get_potential_concealed_pungs_kongs(self):
+        self._count_potential_concealed_pungs_kongs()
+        return self.potential_concealed_pungs, self.potential_concealed_kongs
 
-    def get_num_sets(self):
-        pass
+    def get_revealed_sets(self):
+        # User is probably still typing
+        if len(self.revealed_tiles) < 3:
+            return [], [], []
+        temp_set = self.revealed_tiles[:]
+        revealed_chows = []
+        revealed_pungs = []
+        revealed_kongs = []
+        if len(temp_set) == 3:
+            t0, t1, t2 = temp_set[0], temp_set[1], temp_set[2]
+            if t2.is_sequential_to(t1) and t1.is_sequential_to(t0):
+                revealed_chows += [[t0, t1, t2]]
+            else:
+                revealed_pungs += [[t0, t1, t2]]
+        elif len(temp_set) > 3:
+            while len(temp_set) > 0:
+                t0, t1, t2, t3 = temp_set[0], temp_set[1], temp_set[2], temp_set[3]
+                if t0.equals(t1) and t1.equals(t2) and t2.equals(t3):
+                    revealed_kongs += [[t0, t1, t2, t3]]
+                    temp_set = temp_set[4:]
+                elif t0.equals(t1) and t1.equals(t2) and not t2.equals(t3):
+                    revealed_pungs += [[t0, t1, t2]]
+                    temp_set = temp_set[3:]
+        return revealed_chows, revealed_pungs, revealed_kongs
+
