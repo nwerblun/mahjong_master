@@ -5,8 +5,6 @@ from utilities import *
 from score_calculator import Calculator
 
 
-# TODO: Add round + seat wind entry
-# TODO: Add a note saying revealed tiles should be in set order
 class HandAssister(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -31,6 +29,11 @@ class HandAssister(Frame):
         self.drawn_tile_entry = None
         self.drawn_tile_entry_cv = None
         self.entry_validation = None
+        self.round_seat_wind_frame = None
+        self.round_wind_dropdown = None
+        self.seat_wind_dropdown = None
+        self.seat_wind_cv = None
+        self.round_wind_cv = None
         self.calculator = Calculator()
 
     def _check_valid_hand_entry(self, text):
@@ -71,10 +74,14 @@ class HandAssister(Frame):
         instructions = "Instructions:\n" \
                        "Enter your hand, one tile per box (Excluding kongs. Just type the tile once for a kong)\n" \
                        "If you have 4x a tile concealed that is undeclared, enter it in 'others' instead of kong\n" \
-                       "IMPORTANT: Enter revealed tiles in order or things wont work. EX: " \
-                       "if you have 111222333 bamboo then either input it as "\
-                       "b1b2b3 b1b2b3 b1b2b3 or b1b1b1 b2b2b2 b3b3b3. Do not mix up the order or put it in weird." \
-                       "===========================================" \
+                       "==========================================\n" \
+                       "IMPORTANT: Enter revealed tiles in order or things wont work.\nEX: " \
+                       "if you have 111222333 bamboo then either input it as\n"\
+                       "b1b2b3 b1b2b3 b1b2b3 or b1b1b1 b2b2b2 b3b3b3\nDo not mix up the order or put it in weird.\n" \
+                       "===========================================\n" \
+                       "If you steal a tile, just put your new set into the revealed section and leave 'drawn tile'\n" \
+                       " blank.\n" \
+                       "===========================================\n" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
                        "d1-9 = Dots. Ex d5 d6\n" \
@@ -130,6 +137,27 @@ class HandAssister(Frame):
                                                   textvariable=self.revealed_other_entries_cvs[i],
                                                   validatecommand=(self.entry_validation, '%P'))]
             self.revealed_other_entries[i].grid(row=1, column=i+1, pady=2, padx=2, sticky=N+S)
+
+        self.round_seat_wind_frame = Frame(self.hand_entry_frame)
+        self.round_seat_wind_frame.grid(row=0, rowspan=2, column=3, padx=15, sticky=N+S)
+        e = Label(self.round_seat_wind_frame, text="Round Wind:")
+        e.pack(side=TOP, pady=4, anchor="w")
+        self.round_wind_cv = StringVar()
+        self.round_wind_dropdown = Combobox(self.round_seat_wind_frame, textvariable=self.round_wind_cv,
+                                            exportselection=False, justify=LEFT,
+                                            values=("North", "East", "South", "West"))
+        self.round_wind_dropdown.pack(side=TOP, expand=YES, fill=X, pady=4, anchor="n")
+        self.round_wind_dropdown.state(['!disabled', 'readonly'])
+        self.round_wind_cv.set("East")
+        e = Label(self.round_seat_wind_frame, text="Seat Wind:")
+        e.pack(side=TOP, pady=4, anchor="w")
+        self.seat_wind_cv = StringVar()
+        self.seat_wind_dropdown = Combobox(self.round_seat_wind_frame, textvariable=self.seat_wind_cv,
+                                           exportselection=False, justify=LEFT,
+                                           values=("North", "East", "South", "West"))
+        self.seat_wind_dropdown.pack(side=TOP, expand=YES, fill=X, pady=4, anchor="n")
+        self.seat_wind_cv.set("East")
+        self.seat_wind_dropdown.state(['!disabled', 'readonly'])
 
     def create_hand_visualizer(self):
         pass
