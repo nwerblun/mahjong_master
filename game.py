@@ -3,6 +3,7 @@ from tkinter.ttk import *  # Automatically replace some widgets with better vers
 from hands import MahjongHands
 from PIL import Image, ImageTk
 from functools import total_ordering
+from utilities import flatten_list
 # contains stuff that is useful in many files about the game.
 
 
@@ -23,15 +24,15 @@ class Tile:
         self.ph = ImageTk.PhotoImage(self.img)
         if self.name[0] == "b":
             self.type = "bamboo"
-            self.id = bamboo_id_ctr[int(self.name[1])]
+            self.id = bamboo_id_ctr[int(self.name[1])-1]
             bamboo_id_ctr[int(self.name[1])-1] += 1
         elif self.name[0] == "c":
             self.type = "character"
-            self.id = char_id_ctr[int(self.name[1])]
+            self.id = char_id_ctr[int(self.name[1])-1]
             char_id_ctr[int(self.name[1])-1] += 1
         elif self.name[0] == "d" and (not self.name[1] == "r"):
             self.type = "dot"
-            self.id = dots_id_ctr[int(self.name[1])]
+            self.id = dots_id_ctr[int(self.name[1])-1]
             dots_id_ctr[int(self.name[1])-1] += 1
         elif self.name[:2] == "dr":
             self.type = "dragon"
@@ -145,7 +146,7 @@ class Hand:
         self.num_dragons = 0
         self.num_suits_used = 0
         self.uses_bamboo = self.uses_dots = self.uses_chars = False
-        all_tiles = self.concealed_tiles + self.revealed_tiles + self.declared_concealed_kongs
+        all_tiles = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
         if self.drawn_tile:
             all_tiles += [self.drawn_tile]
 
@@ -164,56 +165,10 @@ class Hand:
                 self.num_suits_used += 1
                 self.uses_dots = True
 
-    def _count_potential_concealed_pungs_kongs(self):
-        # Revealed tiles must be sets, so it's either a pung, kong or chow guaranteed. Don't need to check.
-        self.potential_concealed_pungs = []
-        self.potential_concealed_kongs = []
-        pung_list = []
-        kong_list = []
-        all_tiles = self.concealed_tiles[:]
-        if self.drawn_tile:
-            all_tiles += [self.drawn_tile]
-        all_tile_names = [t.name for t in all_tiles]
-        for i in range(len(all_tile_names)):
-            amt = all_tile_names.count(all_tile_names[i])
-            if amt == 3:
-                pung_list += [all_tiles[i]]
-            elif amt == 4:
-                kong_list += [all_tiles[i]]
-
-        if len(pung_list) >= 3:
-            pung_list = sorted(pung_list)
-            # Pungs must be in groups of 3, and should be sequential after sort
-            for i in range(0, len(pung_list), 3):
-                self.potential_concealed_pungs += [[pung_list[i], pung_list[i+1], pung_list[i+2]]]
-        if len(kong_list) >= 4:
-            kong_list = sorted(kong_list)
-            # Kungs must be in groups of 4, and should be sequential after sort
-            for i in range(0, len(kong_list), 4):
-                # Also need all pung permutations
-                self.potential_concealed_pungs += [[kong_list[i], kong_list[i+1], kong_list[i+2]]]
-                self.potential_concealed_pungs += [[kong_list[i], kong_list[i+1], kong_list[i+3]]]
-                self.potential_concealed_pungs += [[kong_list[i+1], kong_list[i+2], kong_list[i+3]]]
-                self.potential_concealed_kongs += [[kong_list[i], kong_list[i+1], kong_list[i+2], kong_list[i+3]]]
-
-    def _count_potential_concealed_chows(self):
-        self.potential_concealed_chows = []
-        all_tiles = self.concealed_tiles[:]
-        if self.drawn_tile:
-            all_tiles += [self.drawn_tile]
-        all_tile_names = [t.name for t in all_tiles]
-        for tile in all_tiles:
-            if self._hand_contains_concealed_chow_from_starting_tile(tile):
-                next_name = Tile.tile_name_to_next_tile_name(tile.name)
-                next_next_name = Tile.tile_name_to_next_tile_name(next_name)
-                indices_next = [i for i in range(len(all_tile_names)) if all_tile_names[i] == next_name]
-                indices_next_next = [i for i in range(len(all_tile_names)) if all_tile_names[i] == next_next_name]
-                for next_ind in indices_next:
-                    for next_next_ind in indices_next_next:
-                        self.potential_concealed_chows += [[tile, all_tiles[next_ind], all_tiles[next_next_ind]]]
-
     def _hand_contains_concealed_chow_from_starting_tile(self, start_tile):
         next_tile_name = Tile.tile_name_to_next_tile_name(start_tile.name)
+        if next_tile_name is None:
+            return False
         next_next_tile_name = Tile.tile_name_to_next_tile_name(next_tile_name)
         tile_names = [t.name for t in self.concealed_tiles]
         return (next_tile_name in tile_names) and (next_next_tile_name in tile_names)
@@ -227,7 +182,7 @@ class Hand:
         self._update_hand()
 
     def get_num_tiles_in_hand(self):
-        return len(self.declared_concealed_kongs) + len(self.concealed_tiles) + len(self.revealed_tiles)
+        return len(flatten_list(self.declared_concealed_kongs)) + len(self.concealed_tiles) + len(self.revealed_tiles)
 
     def clear_hand(self):
         self.__init__()
@@ -235,19 +190,17 @@ class Hand:
     def sort_hand(self):
         if len(self.concealed_tiles) > 1:
             self.concealed_tiles = sorted(self.concealed_tiles)
-        if len(self.declared_concealed_kongs) > 1:
+        if len(self.declared_concealed_kongs) >= 1:
             self.declared_concealed_kongs = sorted(self.declared_concealed_kongs)
 
     def _update_hand(self):
         self.sort_hand()
         self._update_suits_and_honor_count()
-        self._count_potential_concealed_chows()
-        self._count_potential_concealed_pungs_kongs()
 
     def add_tile_to_hand(self, revealed, tile_name, more=False):
         # More is an optimization parameter. Set to true if you expect to continue adding pieces.
         # Setting the drawn tile will force an update, or call add tiles again with tile_name = None
-        if self.get_num_tiles_in_hand() >= 15 or tile_name is None:
+        if self.get_num_tiles_in_hand() >= 16 or tile_name is None:
             self._update_hand()
             return
         if revealed:
@@ -267,17 +220,6 @@ class Hand:
 
     def is_fully_concealed(self):
         return len(self.revealed_tiles) == 0
-
-    def get_potential_concealed_chows(self):
-        self._count_potential_concealed_chows()
-        return self.potential_concealed_chows
-
-    def get_declared_concealed_kongs(self):
-        return self.declared_concealed_kongs
-
-    def get_potential_concealed_pungs_kongs(self):
-        self._count_potential_concealed_pungs_kongs()
-        return self.potential_concealed_pungs, self.potential_concealed_kongs
 
     def get_revealed_sets(self):
         # User is probably still typing

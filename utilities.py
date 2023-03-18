@@ -31,3 +31,7 @@ def sort_list(arr):
         cat_list = ", ".join(cat_list)
         new_arr += [cat_list]
     return np.array(new_arr)
+
+
+def flatten_list(lst):
+    return [item for sublist in lst for item in sublist]

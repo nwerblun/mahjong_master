@@ -162,9 +162,9 @@ class HandAssister(Frame):
         self.concealed_other_entries[12].insert(0, "")
         self.concealed_other_entries[13].insert(0, "")
 
-        self.revealed_other_entries[0].insert(0, "b2")
-        self.revealed_other_entries[1].insert(0, "b3")
-        self.revealed_other_entries[2].insert(0, "b4")
+        self.revealed_other_entries[0].insert(0, "c2")
+        self.revealed_other_entries[1].insert(0, "c3")
+        self.revealed_other_entries[2].insert(0, "c4")
         self.revealed_other_entries[3].insert(0, "")
         self.revealed_other_entries[4].insert(0, "")
         self.revealed_other_entries[5].insert(0, "")
