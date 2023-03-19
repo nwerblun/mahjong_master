@@ -26,3 +26,4 @@ class Calculator:
         for k in revealed_kongs:
             self.hand.add_revealed_kong_to_hand(k)
         self.hand.set_drawn_tile(drawn_tile)
+        idk = PossibleWinningHand(self.hand)

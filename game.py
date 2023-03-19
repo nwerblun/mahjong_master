@@ -4,71 +4,88 @@ from hands import MahjongHands
 from PIL import Image, ImageTk
 from functools import total_ordering
 from utilities import flatten_list
+from copy import deepcopy
+from itertools import permutations
 # contains stuff that is useful in many files about the game.
-
-
-bamboo_id_ctr = [0] * 9
-char_id_ctr = [0] * 9
-dots_id_ctr = [0] * 9
-dr_id_ctr = {"g": 0, "r": 0, "w": 0}
-wind_id_ctr = {"e": 0, "n": 0, "s": 0, "w": 0}
 
 
 @total_ordering
 class Tile:
+    valid_tile_names = [
+        "b1",
+        "b2",
+        "b3",
+        "b4",
+        "b5",
+        "b6",
+        "b7",
+        "b8",
+        "b9",
+        "c1",
+        "c2",
+        "c3",
+        "c4",
+        "c5",
+        "c6",
+        "c7",
+        "c8",
+        "c9",
+        "d1",
+        "d2",
+        "d3",
+        "d4",
+        "d5",
+        "d6",
+        "d7",
+        "d8",
+        "d9",
+        "drg",
+        "drr",
+        "drw",
+        "we",
+        "wn",
+        "ws",
+        "ww"
+    ]
+
     def __init__(self, name):
-        global bamboo_id_ctr, char_id_ctr, dots_id_ctr, dr_id_ctr, wind_id_ctr
         self.name = name
         self.picture_link = self.get_picture_link_from_name()
         self.img = Image.open(self.picture_link)
         self.ph = ImageTk.PhotoImage(self.img)
         if self.name[0] == "b":
             self.type = "bamboo"
-            self.id = bamboo_id_ctr[int(self.name[1])-1]
-            bamboo_id_ctr[int(self.name[1])-1] += 1
         elif self.name[0] == "c":
             self.type = "character"
-            self.id = char_id_ctr[int(self.name[1])-1]
-            char_id_ctr[int(self.name[1])-1] += 1
         elif self.name[0] == "d" and (not self.name[1] == "r"):
             self.type = "dot"
-            self.id = dots_id_ctr[int(self.name[1])-1]
-            dots_id_ctr[int(self.name[1])-1] += 1
         elif self.name[:2] == "dr":
             self.type = "dragon"
-            self.id = dr_id_ctr[self.name[2]]
-            dr_id_ctr[self.name[2]] += 1
         else:
             self.type = "wind"
-            self.id = wind_id_ctr[self.name[1]]
-            wind_id_ctr[self.name[1]] += 1
 
     @staticmethod
     def is_valid_name(name):
-        conds = [
-            len(name) < 2,
-            len(name) > 3
-        ]
-        return not any(conds)
+        return name in Tile.valid_tile_names
 
     def get_picture_link_from_name(self):
         ind = MahjongHands.tile_names.index(self.name)
         return MahjongHands.tile_pic_files[ind]
 
     def is_wind(self):
-        return self.name[0] == "w"
+        return self.type == "wind"
 
     def is_dragon(self):
-        return self.name[:2] == "dr"
+        return self.type == "dragon"
 
     def is_bamboo(self):
-        return self.name[0] == "b"
+        return self.type == "bamboo"
 
     def is_char(self):
-        return self.name[0] == "c"
+        return self.type == "character"
 
     def is_dot(self):
-        return self.name[0] == "d" and (not self.name[1] == "r")
+        return self.type == "dot"
 
     def get_dragon_type(self):
         if not self.is_dragon():
@@ -110,16 +127,19 @@ class Tile:
             return name[0] + str(int(name[1]) + 1)
 
     def __lt__(self, other):
-        return (self.name < other.name) or ((self.name == other.name) and self.id < other.id)
+        return self.name < other.name
 
     def __eq__(self, other):
-        return (self.name == other.name) and (self.id == other.id)
+        return self.name == other.name
 
     def __hash__(self):
-        return (self.name + str(self.id)).__hash__()
+        return self.name.__hash__()
 
-    def equals(self, other):
-        return self.name == other.name
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.name
 
 
 class Hand:
@@ -128,10 +148,6 @@ class Hand:
         self.concealed_tiles = []
         self.revealed_tiles = []
         self.declared_concealed_kongs = []
-        # Concealed tile "sets." It is potential because 111-222-333 would show up in both chow/pung lists.
-        self.potential_concealed_pungs = []
-        self.potential_concealed_kongs = []
-        self.potential_concealed_chows = []
         self.num_suits_used = 0
         self.uses_bamboo = False
         self.uses_chars = False
@@ -187,14 +203,14 @@ class Hand:
     def clear_hand(self):
         self.__init__()
 
-    def sort_hand(self):
+    def _sort_hand(self):
         if len(self.concealed_tiles) > 1:
             self.concealed_tiles = sorted(self.concealed_tiles)
         if len(self.declared_concealed_kongs) >= 1:
             self.declared_concealed_kongs = sorted(self.declared_concealed_kongs)
 
     def _update_hand(self):
-        self.sort_hand()
+        self._sort_hand()
         self._update_suits_and_honor_count()
 
     def add_tile_to_hand(self, revealed, tile_name, more=False):
@@ -219,9 +235,9 @@ class Hand:
         self.revealed_tiles += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
 
     def is_fully_concealed(self):
-        return len(self.revealed_tiles) == 0
+        return not len(self.revealed_tiles)
 
-    def get_revealed_sets(self):
+    def _get_revealed_sets(self):
         # User is probably still typing
         if len(self.revealed_tiles) < 3:
             return [], [], []
@@ -238,11 +254,142 @@ class Hand:
         elif len(temp_set) > 3:
             while len(temp_set) > 0:
                 t0, t1, t2, t3 = temp_set[0], temp_set[1], temp_set[2], temp_set[3]
-                if t0.equals(t1) and t1.equals(t2) and t2.equals(t3):
+                if t0 == t1 and t1 == t2 and t2 == t3:
                     revealed_kongs += [[t0, t1, t2, t3]]
                     temp_set = temp_set[4:]
-                elif t0.equals(t1) and t1.equals(t2) and not t2.equals(t3):
+                elif t0 == t1 and t1 == t2 and t2 != t3:
                     revealed_pungs += [[t0, t1, t2]]
                     temp_set = temp_set[3:]
         return revealed_chows, revealed_pungs, revealed_kongs
+
+    def get_num_revealed_sets(self, kind="all"):
+        revealed_sets = self._get_revealed_sets()
+        if kind == "all":
+            return len(revealed_sets[0]) + len(revealed_sets[1]) + len(revealed_sets[2])
+        elif kind == "chow":
+            return len(revealed_sets[0])
+        elif kind == "pung":
+            return len(revealed_sets[1])
+        elif kind == "kong":
+            return len(revealed_sets[2])
+        else:
+            return -1
+
+
+class PossibleWinningHand(Hand):
+    def __init__(self, hand):
+        super().__init__()
+        self.revealed_tiles = hand.revealed_tiles[:]
+        self.concealed_tiles = hand.concealed_tiles[:]
+        self.declared_concealed_kongs = hand.declared_concealed_kongs[:]
+        self.drawn_tile = hand.drawn_tile
+        self.four_pair_base_dict = {}
+        self.four_set_pair_hands = []
+        self.special_hands = []
+        self._update_hand()
+        self._format_dict()
+        self._construct_four_set_pair_hands()
+
+    def _format_dict(self):
+        rc, rp, rk = self._get_revealed_sets()
+        self.four_pair_base_dict = {
+            "revealed_chows": rc,
+            "revealed_pungs": rp,
+            "revealed_kongs": rk,
+            "concealed_chows": [],
+            "concealed_pungs": [],
+            "concealed_kongs": [],
+            "declared_concealed_kongs": self.declared_concealed_kongs,
+            "pair": [],
+            "discard": []
+        }
+
+    def _group_into_sets(self, tiles):
+        if len(tiles) < 3:
+            return [[]]
+        t0 = tiles[0]
+        t0_next = Tile(t0.get_next_sequential_tile_name())
+        t0_third = Tile(t0_next.get_next_sequential_tile_name())
+        sets_and_remainders = []
+        if tiles.count(t0_next) >= 1 and tiles.count(t0_third) >= 1:
+            ind_next = tiles.index(t0_next)
+            ind_third = tiles.index(t0_third)
+            remainder = tiles[:]
+            remainder.pop(ind_third)
+            remainder.pop(ind_next)
+            remainder.pop(0)
+            sets_and_remainders += [[
+                [t0, tiles[ind_next], tiles[ind_third]],
+                remainder
+            ]]
+        if tiles.count(t0) >= 3:
+            temp_tiles = tiles[1:]
+            ind_next = temp_tiles.index(t0)
+            t0_1 = temp_tiles.pop(ind_next)
+            ind_third = temp_tiles.index(t0)
+            t0_2 = temp_tiles.pop(ind_third)
+            sets_and_remainders += [[
+                [t0, t0_1, t0_2],
+                temp_tiles
+            ]]
+        if tiles.count(t0) == 4:
+            temp_tiles = tiles[1:]
+            ind_next = temp_tiles.index(t0)
+            t0_1 = temp_tiles.pop(ind_next)
+            ind_third = temp_tiles.index(t0)
+            t0_2 = temp_tiles.pop(ind_third)
+            ind_fourth = temp_tiles.index(t0)
+            t0_3 = temp_tiles.pop(ind_fourth)
+            sets_and_remainders += [[
+                [t0, t0_1, t0_2, t0_3],
+                temp_tiles
+            ]]
+
+        if not len(sets_and_remainders):
+            return [[]]
+        to_be_returned = []
+        for starting in sets_and_remainders:
+            for result in self._group_into_sets(starting[1]):
+                to_be_returned += [[starting[0]] + result]
+        return to_be_returned
+
+    def _construct_four_set_pair_hands(self):
+        self.four_set_pair_hands = []
+        sets_remaining = 4 - self.get_num_revealed_sets("all") - len(self.declared_concealed_kongs)
+        # Can we construct this many sets with the concealed tiles + drawn tile?
+        all_tiles = self.concealed_tiles + [self.drawn_tile] if self.drawn_tile else self.concealed_tiles
+        # Generate all possible pairs, and the remaining lists if you take out those pairs
+        pairs_list = []
+        tiles_minus_pairs = []
+        for i in range(len(all_tiles)):
+            temp_all_tiles = all_tiles[:]
+            if all_tiles.count(all_tiles[i]) >= 2:
+                t0 = temp_all_tiles.pop(i)
+                if temp_all_tiles.index(all_tiles[i]) == i:
+                    t1 = temp_all_tiles.pop(i)
+                    pairs_list += [[t0, t1]]
+                    tiles_minus_pairs += [temp_all_tiles]
+        # Can't make a hand without a pair
+        if len(pairs_list) == 0:
+            return
+
+        for i, leftover in enumerate(tiles_minus_pairs):
+            s = self._group_into_sets(leftover)
+            for combination in s:
+                if len(combination) == sets_remaining:
+                    tile_to_discard = list(set(leftover) - set(flatten_list(combination)))
+                    temp_dict = deepcopy(self.four_pair_base_dict)
+                    temp_dict["discard"] += tile_to_discard
+                    for complete_set in combination:
+                        if len(complete_set) == 4:
+                            temp_dict["concealed_kongs"] += [complete_set]
+                        elif complete_set[0] == complete_set[1]:
+                            temp_dict["concealed_pungs"] += [complete_set]
+                        else:
+                            temp_dict["concealed_chows"] += [complete_set]
+                    temp_dict["pair"] = pairs_list[i][:]
+                    self.four_set_pair_hands += [temp_dict]
+        return
+
+
 
