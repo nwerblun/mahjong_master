@@ -577,3 +577,7 @@ class MahjongHands:
     @staticmethod
     def get_voids():
         return MahjongHands._voided_by[1:]
+
+    @staticmethod
+    def get_void_tile_photo():
+        return MahjongHands.special_tile_pic_files[-1]

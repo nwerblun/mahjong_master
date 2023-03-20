@@ -4,9 +4,6 @@ from hands import MahjongHands
 from PIL import Image, ImageTk
 from functools import total_ordering
 from utilities import flatten_list
-from copy import deepcopy
-from itertools import permutations
-# contains stuff that is useful in many files about the game.
 
 
 @total_ordering
@@ -153,6 +150,13 @@ class VoidTile(Tile):
     def get_next_sequential_tile_name(self):
         return None
 
+    @staticmethod
+    def tile_name_to_next_tile_name(name):
+        return None
+
+    def is_sequential_to(self, other):
+        return False
+
 
 class Hand:
     def __init__(self):
@@ -254,7 +258,7 @@ class Hand:
     def is_fully_concealed(self):
         return not len(self.revealed_tiles)
 
-    def _get_revealed_sets(self):
+    def get_revealed_sets(self):
         # Assume
         # User is probably still typing
         if len(self.revealed_tiles) < 3:
@@ -284,7 +288,7 @@ class Hand:
         return revealed_chows, revealed_pungs, revealed_kongs
 
     def get_num_revealed_sets(self, kind="all"):
-        revealed_sets = self._get_revealed_sets()
+        revealed_sets = self.get_revealed_sets()
         if kind == "all":
             return len(revealed_sets[0]) + len(revealed_sets[1]) + len(revealed_sets[2])
         elif kind == "chow":
@@ -310,7 +314,7 @@ class PossibleWinningHand(Hand):
         self._construct_four_set_pair_hands()
 
     def _get_base_dict(self):
-        rc, rp, rk = self._get_revealed_sets()
+        rc, rp, rk = self.get_revealed_sets()
         d = {
             "revealed_chows": rc,
             "revealed_pungs": rp,
