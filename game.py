@@ -113,7 +113,7 @@ class Tile:
     def get_next_sequential_tile_name(self):
         if self.is_dragon() or self.is_wind():
             return None
-        elif self.get_tile_number() == 9:
+        elif self.get_tile_number() == "9":
             return None
         return self.name[0] + str(int(self.get_tile_number()) + 1)
 
@@ -142,6 +142,18 @@ class Tile:
         return self.name
 
 
+class VoidTile(Tile):
+    def __init__(self):
+        super().__init__("z1")
+        self.type = "void"
+
+    def get_picture_link_from_name(self):
+        return "./img/base_tiles/z1.png"
+
+    def get_next_sequential_tile_name(self):
+        return None
+
+
 class Hand:
     def __init__(self):
         # Total set of tiles to be given from some other source
@@ -155,6 +167,17 @@ class Hand:
         self.num_winds = 0
         self.num_dragons = 0
         self.drawn_tile = None
+
+    def _hand_is_legal(self):
+        if self.get_num_tiles_in_hand() < 14 or self.get_num_tiles_in_hand() > 18:
+            return False
+        total_tile_list = self.concealed_tiles + self.revealed_tiles + self.declared_concealed_kongs
+        total_tile_list = total_tile_list + [self.drawn_tile] if self.drawn_tile is not None else total_tile_list
+        total_tile_list = flatten_list(total_tile_list)
+        for t in total_tile_list:
+            if total_tile_list.count(t) > 4:
+                return False
+        return True
 
     def _update_suits_and_honor_count(self):
         # Assume lists are sorted
@@ -181,14 +204,6 @@ class Hand:
                 self.num_suits_used += 1
                 self.uses_dots = True
 
-    def _hand_contains_concealed_chow_from_starting_tile(self, start_tile):
-        next_tile_name = Tile.tile_name_to_next_tile_name(start_tile.name)
-        if next_tile_name is None:
-            return False
-        next_next_tile_name = Tile.tile_name_to_next_tile_name(next_tile_name)
-        tile_names = [t.name for t in self.concealed_tiles]
-        return (next_tile_name in tile_names) and (next_next_tile_name in tile_names)
-
     def get_num_honor_tiles(self):
         return self.num_dragons + self.num_winds
 
@@ -198,7 +213,9 @@ class Hand:
         self._update_hand()
 
     def get_num_tiles_in_hand(self):
-        return len(flatten_list(self.declared_concealed_kongs)) + len(self.concealed_tiles) + len(self.revealed_tiles)
+        modifier = 1 if self.drawn_tile else 0
+        return modifier + len(flatten_list(self.declared_concealed_kongs))\
+            + len(self.concealed_tiles) + len(self.revealed_tiles)
 
     def clear_hand(self):
         self.__init__()
@@ -219,9 +236,9 @@ class Hand:
         if self.get_num_tiles_in_hand() >= 16 or tile_name is None:
             self._update_hand()
             return
-        if revealed:
+        if revealed and (tile_name in Tile.valid_tile_names):
             self.revealed_tiles += [Tile(tile_name)]
-        else:
+        elif tile_name in Tile.valid_tile_names:
             self.concealed_tiles += [Tile(tile_name)]
         if not more:
             self._update_hand()
@@ -238,6 +255,7 @@ class Hand:
         return not len(self.revealed_tiles)
 
     def _get_revealed_sets(self):
+        # Assume
         # User is probably still typing
         if len(self.revealed_tiles) < 3:
             return [], [], []
@@ -245,21 +263,24 @@ class Hand:
         revealed_chows = []
         revealed_pungs = []
         revealed_kongs = []
-        if len(temp_set) == 3:
+        while len(temp_set) >= 3:
             t0, t1, t2 = temp_set[0], temp_set[1], temp_set[2]
-            if t2.is_sequential_to(t1) and t1.is_sequential_to(t0):
-                revealed_chows += [[t0, t1, t2]]
+            if len(temp_set) > 3:
+                t3 = temp_set[3]
             else:
+                t3 = VoidTile()
+            if t0 == t1 and t1 == t2 and t2 != t3:
                 revealed_pungs += [[t0, t1, t2]]
-        elif len(temp_set) > 3:
-            while len(temp_set) > 0:
-                t0, t1, t2, t3 = temp_set[0], temp_set[1], temp_set[2], temp_set[3]
-                if t0 == t1 and t1 == t2 and t2 == t3:
-                    revealed_kongs += [[t0, t1, t2, t3]]
-                    temp_set = temp_set[4:]
-                elif t0 == t1 and t1 == t2 and t2 != t3:
-                    revealed_pungs += [[t0, t1, t2]]
-                    temp_set = temp_set[3:]
+                temp_set = temp_set[3:]
+            elif t2.is_sequential_to(t1) and t1.is_sequential_to(t0):
+                revealed_chows += [[t0, t1, t2]]
+                temp_set = temp_set[3:]
+            elif t0 == t1 and t1 == t2 and t2 == t3:
+                revealed_kongs += [[t0, t1, t2, t3]]
+                temp_set = temp_set[4:]
+            else:
+                return [], [], []
+
         return revealed_chows, revealed_pungs, revealed_kongs
 
     def get_num_revealed_sets(self, kind="all"):
@@ -283,16 +304,14 @@ class PossibleWinningHand(Hand):
         self.concealed_tiles = hand.concealed_tiles[:]
         self.declared_concealed_kongs = hand.declared_concealed_kongs[:]
         self.drawn_tile = hand.drawn_tile
-        self.four_pair_base_dict = {}
         self.four_set_pair_hands = []
         self.special_hands = []
         self._update_hand()
-        self._format_dict()
         self._construct_four_set_pair_hands()
 
-    def _format_dict(self):
+    def _get_base_dict(self):
         rc, rp, rk = self._get_revealed_sets()
-        self.four_pair_base_dict = {
+        d = {
             "revealed_chows": rc,
             "revealed_pungs": rp,
             "revealed_kongs": rk,
@@ -303,16 +322,19 @@ class PossibleWinningHand(Hand):
             "pair": [],
             "discard": []
         }
+        return d
 
     def _group_into_sets(self, tiles):
         if len(tiles) < 3:
             return [[]]
         t0 = tiles[0]
-        t0_next = Tile(t0.get_next_sequential_tile_name())
-        t0_third = Tile(t0_next.get_next_sequential_tile_name())
+        t0_next_name = t0.get_next_sequential_tile_name()
+        t0_second = VoidTile() if t0_next_name is None else Tile(t0_next_name)
+        t0_next_name = t0_second.get_next_sequential_tile_name()
+        t0_third = VoidTile() if t0_next_name is None else Tile(t0_next_name)
         sets_and_remainders = []
-        if tiles.count(t0_next) >= 1 and tiles.count(t0_third) >= 1:
-            ind_next = tiles.index(t0_next)
+        if tiles.count(t0_second) >= 1 and tiles.count(t0_third) >= 1:
+            ind_next = tiles.index(t0_second)
             ind_third = tiles.index(t0_third)
             remainder = tiles[:]
             remainder.pop(ind_third)
@@ -355,9 +377,12 @@ class PossibleWinningHand(Hand):
 
     def _construct_four_set_pair_hands(self):
         self.four_set_pair_hands = []
+        if not self._hand_is_legal():
+            return
         sets_remaining = 4 - self.get_num_revealed_sets("all") - len(self.declared_concealed_kongs)
         # Can we construct this many sets with the concealed tiles + drawn tile?
         all_tiles = self.concealed_tiles + [self.drawn_tile] if self.drawn_tile else self.concealed_tiles
+        all_tiles = sorted(all_tiles)
         # Generate all possible pairs, and the remaining lists if you take out those pairs
         pairs_list = []
         tiles_minus_pairs = []
@@ -378,7 +403,7 @@ class PossibleWinningHand(Hand):
             for combination in s:
                 if len(combination) == sets_remaining:
                     tile_to_discard = list(set(leftover) - set(flatten_list(combination)))
-                    temp_dict = deepcopy(self.four_pair_base_dict)
+                    temp_dict = self._get_base_dict()
                     temp_dict["discard"] += tile_to_discard
                     for complete_set in combination:
                         if len(complete_set) == 4:

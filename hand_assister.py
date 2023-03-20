@@ -34,6 +34,7 @@ class HandAssister(Frame):
         self.seat_wind_dropdown = None
         self.seat_wind_cv = None
         self.round_wind_cv = None
+        self.clear_hand_button = None
         self.calculator = Calculator()
 
     def _check_valid_hand_entry(self, text):
@@ -68,6 +69,17 @@ class HandAssister(Frame):
                 revealed_kongs += [e.get()]
         self.calculator.set_hand(concealed, revealed, drawn, concealed_kongs, revealed_kongs)
 
+    def _clear_hand_entry(self):
+        for e in self.concealed_other_entries:
+            e.delete(0, 3)
+        for e in self.concealed_kong_entries:
+            e.delete(0, 3)
+        for e in self.revealed_other_entries:
+            e.delete(0, 3)
+        for e in self.revealed_kong_entries:
+            e.delete(0, 3)
+        self.drawn_tile_entry.delete(0, 3)
+
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
         self.hand_entry_frame.rowconfigure("all", weight=1)
@@ -88,10 +100,10 @@ class HandAssister(Frame):
                        "drw, drr, drg = White/Red/Green Dragon\n" \
                        "wn, we, ws, ww = North/East/South/West Wind\n"
         self.instructions_text = Message(self.hand_entry_frame, text=instructions, aspect=400)
-        self.instructions_text.grid(row=0, rowspan=2, column=0, sticky=W+N+S)
+        self.instructions_text.grid(row=0, rowspan=3, column=0, sticky=W+N+S)
 
         self.drawn_tile_labelframe = Labelframe(self.hand_entry_frame, text="Drawn Tile")
-        self.drawn_tile_labelframe.grid(row=0, rowspan=2, column=1, padx=15, pady=2, sticky=N+S)
+        self.drawn_tile_labelframe.grid(row=0, rowspan=3, column=1, padx=15, pady=2, sticky=N+S)
         self.drawn_tile_entry_cv = StringVar()
         self.drawn_tile_entry = Entry(self.drawn_tile_labelframe, validate="key", width=4,
                                       textvariable=self.drawn_tile_entry_cv,
@@ -138,8 +150,11 @@ class HandAssister(Frame):
                                                   validatecommand=(self.entry_validation, '%P'))]
             self.revealed_other_entries[i].grid(row=1, column=i+1, pady=2, padx=2, sticky=N+S)
 
+        self.clear_hand_button = Button(self.hand_entry_frame, text="Clear Hand", command=self._clear_hand_entry)
+        self.clear_hand_button.grid(row=2, column=2, pady=4, sticky=N+S+W)
+
         self.round_seat_wind_frame = Frame(self.hand_entry_frame)
-        self.round_seat_wind_frame.grid(row=0, rowspan=2, column=3, padx=15, sticky=N+S)
+        self.round_seat_wind_frame.grid(row=0, rowspan=3, column=3, padx=15, sticky=N+S)
         e = Label(self.round_seat_wind_frame, text="Round Wind:")
         e.pack(side=TOP, pady=4, anchor="w")
         self.round_wind_cv = StringVar()
@@ -164,43 +179,44 @@ class HandAssister(Frame):
 
     # TODO: Remove this
     def _debug_func(self):
-        self.concealed_kong_entries[0].insert(0, "")
-        self.concealed_kong_entries[1].insert(0, "")
-        self.concealed_kong_entries[2].insert(0, "")
-        self.concealed_kong_entries[3].insert(0, "")
-
-        self.revealed_kong_entries[0].insert(0, "")
-        self.revealed_kong_entries[1].insert(0, "")
-        self.revealed_kong_entries[2].insert(0, "")
-        self.revealed_kong_entries[3].insert(0, "")
-
-        self.concealed_other_entries[0].insert(0, "b3")
-        self.concealed_other_entries[1].insert(0, "b3")
-        self.concealed_other_entries[2].insert(0, "d1")
-        self.concealed_other_entries[3].insert(0, "d2")
-        self.concealed_other_entries[4].insert(0, "d2")
-        self.concealed_other_entries[5].insert(0, "d2")
-        self.concealed_other_entries[6].insert(0, "d2")
-        self.concealed_other_entries[7].insert(0, "d3")
-        self.concealed_other_entries[8].insert(0, "d3")
-        self.concealed_other_entries[9].insert(0, "d3")
-        self.concealed_other_entries[10].insert(0, "d3")
-        self.concealed_other_entries[11].insert(0, "d4")
-        self.concealed_other_entries[12].insert(0, "d4")
-        self.concealed_other_entries[13].insert(0, "d4")
-
-        self.revealed_other_entries[0].insert(0, "")
-        self.revealed_other_entries[1].insert(0, "")
-        self.revealed_other_entries[2].insert(0, "")
-        self.revealed_other_entries[3].insert(0, "")
-        self.revealed_other_entries[4].insert(0, "")
-        self.revealed_other_entries[5].insert(0, "")
-        self.revealed_other_entries[6].insert(0, "")
-        self.revealed_other_entries[7].insert(0, "")
-        self.revealed_other_entries[8].insert(0, "")
-        self.revealed_other_entries[9].insert(0, "")
-        self.revealed_other_entries[10].insert(0, "")
-        self.revealed_other_entries[11].insert(0, "")
-        self.revealed_other_entries[12].insert(0, "")
-        self.revealed_other_entries[13].insert(0, "")
-        self.drawn_tile_entry.insert(0, "d9")
+        pass
+        # self.concealed_kong_entries[0].insert(0, "")
+        # self.concealed_kong_entries[1].insert(0, "")
+        # self.concealed_kong_entries[2].insert(0, "")
+        # self.concealed_kong_entries[3].insert(0, "")
+        #
+        # self.revealed_kong_entries[0].insert(0, "")
+        # self.revealed_kong_entries[1].insert(0, "")
+        # self.revealed_kong_entries[2].insert(0, "")
+        # self.revealed_kong_entries[3].insert(0, "")
+        #
+        # self.concealed_other_entries[0].insert(0, "b3")
+        # self.concealed_other_entries[1].insert(0, "b3")
+        # self.concealed_other_entries[2].insert(0, "d1")
+        # self.concealed_other_entries[3].insert(0, "d2")
+        # self.concealed_other_entries[4].insert(0, "d2")
+        # self.concealed_other_entries[5].insert(0, "d2")
+        # self.concealed_other_entries[6].insert(0, "d2")
+        # self.concealed_other_entries[7].insert(0, "d3")
+        # self.concealed_other_entries[8].insert(0, "d3")
+        # self.concealed_other_entries[9].insert(0, "d3")
+        # self.concealed_other_entries[10].insert(0, "d3")
+        # self.concealed_other_entries[11].insert(0, "d4")
+        # self.concealed_other_entries[12].insert(0, "d4")
+        # self.concealed_other_entries[13].insert(0, "d4")
+        #
+        # self.revealed_other_entries[0].insert(0, "")
+        # self.revealed_other_entries[1].insert(0, "")
+        # self.revealed_other_entries[2].insert(0, "")
+        # self.revealed_other_entries[3].insert(0, "")
+        # self.revealed_other_entries[4].insert(0, "")
+        # self.revealed_other_entries[5].insert(0, "")
+        # self.revealed_other_entries[6].insert(0, "")
+        # self.revealed_other_entries[7].insert(0, "")
+        # self.revealed_other_entries[8].insert(0, "")
+        # self.revealed_other_entries[9].insert(0, "")
+        # self.revealed_other_entries[10].insert(0, "")
+        # self.revealed_other_entries[11].insert(0, "")
+        # self.revealed_other_entries[12].insert(0, "")
+        # self.revealed_other_entries[13].insert(0, "")
+        # self.drawn_tile_entry.insert(0, "d9")

@@ -34,4 +34,10 @@ def sort_list(arr):
 
 
 def flatten_list(lst):
-    return [item for sublist in lst for item in sublist]
+    flattened = []
+    for item in lst:
+        if type(item) is list:
+            flattened += flatten_list(item)
+        else:
+            flattened += [item]
+    return flattened
