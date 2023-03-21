@@ -4,6 +4,7 @@ from hands import MahjongHands
 from PIL import Image, ImageTk
 from functools import total_ordering
 from utilities import flatten_list
+from scoring_conditions import *
 
 
 @total_ordering
@@ -308,6 +309,7 @@ class PossibleWinningHand(Hand):
         self.concealed_tiles = hand.concealed_tiles[:]
         self.declared_concealed_kongs = hand.declared_concealed_kongs[:]
         self.drawn_tile = hand.drawn_tile
+        self.point_conditions = [0] * len(MahjongHands.get_hand_titles())
         self.four_set_pair_hands = []
         self.special_hands = []
         self._update_hand()
@@ -324,7 +326,8 @@ class PossibleWinningHand(Hand):
             "concealed_kongs": [],
             "declared_concealed_kongs": self.declared_concealed_kongs,
             "pair": [],
-            "discard": []
+            "discard": [],
+            "point_conditions": self.point_conditions[:]
         }
         return d
 
@@ -419,6 +422,3 @@ class PossibleWinningHand(Hand):
                     temp_dict["pair"] = pairs_list[i][:]
                     self.four_set_pair_hands += [temp_dict]
         return
-
-
-
