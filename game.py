@@ -4,7 +4,6 @@ from hands import MahjongHands
 from PIL import Image, ImageTk
 from functools import total_ordering
 from utilities import flatten_list
-from scoring_conditions import *
 
 
 @total_ordering

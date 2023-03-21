@@ -33,11 +33,14 @@ class Calculator:
         return self
 
     def _score_winning_sets(self):
+        if self.pwh.get_num_tiles_in_hand() < 14:
+            return
         # Format (used=False, excluded=False)
         # if used to make a set, used=True.
         # If used with a set that has used=True, excluded = True.
         # If attempting to use with a set that is excluded, don't.
         # Go through conditions in reverse order so exclusionary rule skips cheap fans.
+        print("======================================")
         for hand_dict in self.pwh.four_set_pair_hands:
             tilesets = {"kongs": [], "chows": [], "pungs": []}
             for s in hand_dict["declared_concealed_kongs"]:
@@ -56,11 +59,17 @@ class Calculator:
                 tilesets["pungs"] += [TileSet(s, "pung")]
 
             amt = mixed_double_chow(tilesets["chows"])
+            print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt
             amt = pure_double_chow(tilesets["chows"])
+            print("Pure double chow: ", str(amt))
             hand_dict["point_conditions"][0] = amt
 
         # check special cases
+        amt = seven_pairs(self.pwh)
+        print("Seven Pairs: ", str(amt))
+        amt = thirteen_orphans(self.pwh)
+        print("Thirteen orphans: ", str(amt))
         # after checking all hands
         # check chicken hand
 
