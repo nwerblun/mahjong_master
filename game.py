@@ -99,8 +99,13 @@ class Tile:
             return None
         return self.name[1]
 
-    def is_sequential_to(self, other):
-        if self.type == other.type:
+    def is_sequential_to(self, other, ignore_suit=False):
+        if self.type == other.type and (not ignore_suit):
+            if self.is_dragon() or self.is_wind():
+                return False
+            else:
+                return int(self.get_tile_number()) == int(other.get_tile_number()) + 1
+        elif ignore_suit:
             if self.is_dragon() or self.is_wind():
                 return False
             else:

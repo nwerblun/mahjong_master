@@ -68,6 +68,8 @@ class Calculator:
         # check special cases
         amt = seven_pairs(self.pwh)
         print("Seven Pairs: ", str(amt))
+        amt = seven_shifted_pairs(self.pwh)
+        print("Seven Shifted Pairs: ", str(amt))
         amt = thirteen_orphans(self.pwh)
         print("Thirteen orphans: ", str(amt))
         # after checking all hands
