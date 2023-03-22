@@ -58,6 +58,11 @@ class Calculator:
             for s in hand_dict["revealed_pungs"]:
                 tilesets["pungs"] += [TileSet(s, "pung")]
 
+            # TODO: Figure out which index
+            if hand_dict["knitted_straight"]:
+                # hand_dict["point_conditions"]
+                print("Knitted Straight: ", str(1))
+
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt
@@ -66,8 +71,12 @@ class Calculator:
             hand_dict["point_conditions"][0] = amt
 
         # check special cases
+        amt = lesser_honors_knitted_seq(self.pwh)
+        print("Lesser Honors + Knitted: ", str(amt))
         amt = seven_pairs(self.pwh)
         print("Seven Pairs: ", str(amt))
+        amt = greater_honors_knitted_tiles(self.pwh)
+        print("Greater Honors + Knitted: ", str(amt))
         amt = seven_shifted_pairs(self.pwh)
         print("Seven Shifted Pairs: ", str(amt))
         amt = thirteen_orphans(self.pwh)

@@ -36,10 +36,12 @@ def lesser_honors_knitted_seq(hand):
         ]
     ]
     all_honor_tiles = [Tile("drg"), Tile("drr"), Tile("drw"), Tile("we"), Tile("wn"), Tile("ws"), Tile("ww")]
-
-
-def knitted_straight(hand):
-    pass
+    for variant in knitted_set_variants:
+        uniques = set(all_tiles)
+        knitted_uniques = set(variant + all_honor_tiles)
+        if len(uniques.intersection(knitted_uniques)) >= 14:
+            return 1
+    return 0
 
 
 def seven_pairs(hand):
@@ -57,10 +59,52 @@ def seven_pairs(hand):
 
 
 def greater_honors_knitted_tiles(hand):
-    pass
+    all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    knitted_set_variants = [
+        [
+            Tile("b1"), Tile("b4"), Tile("b7"),
+            Tile("c2"), Tile("c5"), Tile("c8"),
+            Tile("d3"), Tile("d6"), Tile("d9")
+        ],
+        [
+            Tile("b1"), Tile("b4"), Tile("b7"),
+            Tile("d2"), Tile("d5"), Tile("d8"),
+            Tile("c3"), Tile("c6"), Tile("c9")
+        ],
+        [
+            Tile("c1"), Tile("c4"), Tile("c7"),
+            Tile("d2"), Tile("d5"), Tile("d8"),
+            Tile("b3"), Tile("b6"), Tile("b9")
+        ],
+        [
+            Tile("c1"), Tile("c4"), Tile("c7"),
+            Tile("b2"), Tile("b5"), Tile("b8"),
+            Tile("d3"), Tile("d6"), Tile("d9")
+        ],
+        [
+            Tile("d1"), Tile("d4"), Tile("d7"),
+            Tile("c2"), Tile("c5"), Tile("c8"),
+            Tile("b3"), Tile("b6"), Tile("b9")
+        ],
+        [
+            Tile("d1"), Tile("d4"), Tile("d7"),
+            Tile("b2"), Tile("b5"), Tile("b8"),
+            Tile("c3"), Tile("c6"), Tile("c9")
+        ]
+    ]
+    all_honor_tiles = [Tile("drg"), Tile("drr"), Tile("drw"), Tile("we"), Tile("wn"), Tile("ws"), Tile("ww")]
+    for variant in knitted_set_variants:
+        uniques = set(all_tiles)
+        honor_intersection = uniques.intersection(all_honor_tiles)
+        knitted_uniques = set(all_honor_tiles + variant)
+        if (len(honor_intersection) == len(all_honor_tiles)) and (len(uniques.intersection(knitted_uniques)) >= 14):
+            return 1
+    return 0
 
 
 def seven_shifted_pairs(hand):
+    if hand.get_num_honor_tiles() > 0:
+        return 0
     all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
     all_tiles = sorted(all_tiles)
     counts = [all_tiles.count(t) for t in all_tiles]

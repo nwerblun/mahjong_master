@@ -331,9 +331,54 @@ class PossibleWinningHand(Hand):
             "declared_concealed_kongs": self.declared_concealed_kongs,
             "pair": [],
             "discard": [],
+            "knitted_straight": False,
             "point_conditions": self.point_conditions[:]
         }
         return d
+
+    @staticmethod
+    def _has_knitted_straight(tile_list):
+        all_tiles = tile_list[:]
+        knitted_set_variants = [
+            [
+                Tile("b1"), Tile("b4"), Tile("b7"),
+                Tile("c2"), Tile("c5"), Tile("c8"),
+                Tile("d3"), Tile("d6"), Tile("d9")
+            ],
+            [
+                Tile("b1"), Tile("b4"), Tile("b7"),
+                Tile("d2"), Tile("d5"), Tile("d8"),
+                Tile("c3"), Tile("c6"), Tile("c9")
+            ],
+            [
+                Tile("c1"), Tile("c4"), Tile("c7"),
+                Tile("d2"), Tile("d5"), Tile("d8"),
+                Tile("b3"), Tile("b6"), Tile("b9")
+            ],
+            [
+                Tile("c1"), Tile("c4"), Tile("c7"),
+                Tile("b2"), Tile("b5"), Tile("b8"),
+                Tile("d3"), Tile("d6"), Tile("d9")
+            ],
+            [
+                Tile("d1"), Tile("d4"), Tile("d7"),
+                Tile("c2"), Tile("c5"), Tile("c8"),
+                Tile("b3"), Tile("b6"), Tile("b9")
+            ],
+            [
+                Tile("d1"), Tile("d4"), Tile("d7"),
+                Tile("b2"), Tile("b5"), Tile("b8"),
+                Tile("c3"), Tile("c6"), Tile("c9")
+            ]
+        ]
+        straight_exists = False
+        leftover_concealed = []
+        for variant in knitted_set_variants:
+            uniques = set(all_tiles)
+            if len(uniques.intersection(set(variant))) == len(variant):
+                straight_exists = True
+                leftover_concealed = [t for t in all_tiles if t not in variant]
+        return straight_exists, leftover_concealed
 
     def _group_into_sets(self, tiles):
         if len(tiles) < 3:
@@ -410,11 +455,21 @@ class PossibleWinningHand(Hand):
             return
 
         for i, leftover in enumerate(tiles_minus_pairs):
-            s = self._group_into_sets(leftover)
+            knitted_check, left_after_straight = self._has_knitted_straight(leftover)
+            if knitted_check:
+                knitted_sets_remaining = sets_remaining - 3
+                s = self._group_into_sets(left_after_straight)
+            else:
+                s = self._group_into_sets(leftover)
+                knitted_sets_remaining = sets_remaining
             for combination in s:
-                if len(combination) == sets_remaining:
-                    tile_to_discard = list(set(leftover) - set(flatten_list(combination)))
+                if len(combination) == sets_remaining or (knitted_check and knitted_sets_remaining == 0):
+                    if knitted_check:
+                        tile_to_discard = list(set(left_after_straight) - set(flatten_list(combination)))
+                    else:
+                        tile_to_discard = list(set(leftover) - set(flatten_list(combination)))
                     temp_dict = self._get_base_dict()
+                    temp_dict["knitted_straight"] = knitted_check
                     temp_dict["discard"] += tile_to_discard
                     for complete_set in combination:
                         if len(complete_set) == 4:
