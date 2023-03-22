@@ -159,7 +159,7 @@ class VoidTile(Tile):
     def tile_name_to_next_tile_name(name):
         return None
 
-    def is_sequential_to(self, other):
+    def is_sequential_to(self, other, ignore_suit=False):
         return False
 
 
@@ -253,12 +253,14 @@ class Hand:
             self._update_hand()
 
     def add_declared_concealed_kong_to_hand(self, tile_name):
-        self.declared_concealed_kongs += [[Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]]
-        self._update_suits_and_honor_count()
+        if tile_name in Tile.valid_tile_names:
+            self.declared_concealed_kongs += [[Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]]
+            self._update_suits_and_honor_count()
 
     def add_revealed_kong_to_hand(self, tile_name):
-        # Not [Tile(tile_name)] * 4 because I don't want the same reference 4 times, but 4 different objects
-        self.revealed_tiles += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
+        if tile_name in Tile.valid_tile_names:
+            # Not [Tile(tile_name)] * 4 because I don't want the same reference 4 times, but 4 different objects
+            self.revealed_tiles += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
 
     def is_fully_concealed(self):
         return not len(self.revealed_tiles)

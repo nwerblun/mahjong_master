@@ -433,6 +433,7 @@ class MahjongHands:
         "./img/examples/seven_shifted_pairs.png",
         "./img/examples/thirteen_orphans.png"
     ])
+    # https://playmahjong.io/chinese-official-rules for voiding
     _voided_by = np.array([
         "Voided By",
         ", ".join([_hand_titles[59], _hand_titles[67], _hand_titles[74]]),

@@ -1,8 +1,11 @@
 from game import *
+from utilities import *
 
 
 def lesser_honors_knitted_seq(hand):
     all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+        return 0
     knitted_set_variants = [
         [
             Tile("b1"), Tile("b4"), Tile("b7"),
@@ -46,6 +49,8 @@ def lesser_honors_knitted_seq(hand):
 
 def seven_pairs(hand):
     all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+        return 0
     all_tiles = sorted(all_tiles)
     counts = [all_tiles.count(t) for t in all_tiles]
     fails = [
@@ -60,6 +65,8 @@ def seven_pairs(hand):
 
 def greater_honors_knitted_tiles(hand):
     all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+        return 0
     knitted_set_variants = [
         [
             Tile("b1"), Tile("b4"), Tile("b7"),
@@ -106,6 +113,8 @@ def seven_shifted_pairs(hand):
     if hand.get_num_honor_tiles() > 0:
         return 0
     all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+        return 0
     all_tiles = sorted(all_tiles)
     counts = [all_tiles.count(t) for t in all_tiles]
     if counts.count(1) == 1:
@@ -123,6 +132,8 @@ def seven_shifted_pairs(hand):
 
 def thirteen_orphans(hand):
     all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+        return 0
     hand_size = len(hand.concealed_tiles) + 1 if hand.drawn_tile else len(hand.concealed_tiles)
     tiles_needed = [
         Tile("b1"), Tile("b9"), Tile("c1"),
@@ -166,6 +177,11 @@ class TileSet:
         elif (set_type == "chow") or (set_type == "pung"):
             self.numbers = tile_list[0].get_tile_number() + \
                            tile_list[1].get_tile_number() + tile_list[2].get_tile_number()
+        elif set_type == "kong":
+            self.numbers = tile_list[0].get_tile_number() + \
+                           tile_list[1].get_tile_number() + \
+                           tile_list[2].get_tile_number() + \
+                           tile_list[3].get_tile_number()
 
     @staticmethod
     def update_used_excluded_stats(setlist):
@@ -205,6 +221,8 @@ class TileSet:
 
 
 def pure_double_chow(chows):
+    if not type(chows) == list or len(chows) == 0:
+        return 0
     amt = 0
     # Need 1 fresh + 1 used or 2 fresh. 2 fresh -> both used. 1 fresh + 1 used -> fresh becomes excluded.
     # Priority is 1 fresh 1 used > 2 fresh.
@@ -224,7 +242,7 @@ def pure_double_chow(chows):
         index = fresh_chows[1:].index(fresh_chows[0])
         recursion_list = fresh_chows[1:index+1] + fresh_chows[index+2:]
         TileSet.update_used_excluded_stats([fresh_chows[0], fresh_chows[index+1]])
-        extra, met = pure_double_chow(recursion_list)
+        extra = pure_double_chow(recursion_list)
         amt += 1 + extra
     else:
         return 0
@@ -232,6 +250,8 @@ def pure_double_chow(chows):
 
 
 def mixed_double_chow(chows):
+    if not type(chows) == list or len(chows) == 0:
+        return 0
     amt = 0
     # Need 1 fresh + 1 used or 2 fresh. 2 fresh -> both used. 1 fresh + 1 used -> fresh becomes excluded.
     # Priority is 1 fresh 1 used > 2 fresh.
@@ -543,12 +563,80 @@ def big_three_dragons(pungs, kongs):
 
 
 def all_green(pungs, kongs, chows, pair):
-    pass
+    all_tilesets_list = flatten_list([pungs, kongs, chows])
+    if pair[0].is_dragon() and not (pair[0].get_dragon_type() == "g"):
+        return 0
+    elif pair[0].is_bamboo() and pair[0].get_tile_number() not in ["2", "3", "4", "6", "8"]:
+        return 0
+
+    for ts in all_tilesets_list:
+        if ts.suit == "dragon" and not (ts.numbers == "g"):
+            return 0
+        elif ts.suit == "bamboo" and ts.numbers not in \
+                ["222", "234", "333", "444", "666", "888", "2222", "3333", "4444", "6666", "8888"]:
+            return 0
+    return 1
 
 
-def nine_gates(pungs, kongs, chows, pair):
-    pass
+def nine_gates(pungs, kongs, chows, pair, num_suits, num_honors):
+    if num_suits > 1 or num_honors > 0 or len(kongs) > 0 or len(chows) < 2 or len(pungs) == 0:
+        return 0
+    for p in pungs:
+        if (not p.concealed) or p.declared:
+            return 0
+    for c in chows:
+        if (not c.concealed) or c.declared:
+            return 0
+    if pair[0].get_tile_number() == "1":
+        # 11 123 345 678 999
+        # 11 123 456 678 999
+        # 11 123 456 789 999
+        if pungs[0].numbers == "999" and chows[0].numbers == "123":
+            if chows[1].numbers == "345" and chows[2].numbers == "678":
+                return 1
+            elif chows[1].numbers == "456" and (chows[2].numbers == "678" or chows[2].numbers == "789"):
+                return 1
+        else:
+            return 0
+    elif pair[0].get_tile_number() == "9":
+        # 111 123 456 789 99
+        # 111 234 456 789 99
+        # 111 234 567 789 99
+        if pungs[0].numbers == "111" and chows[2].numbers == "789":
+            if chows[0].numbers == "123" and chows[1].numbers == "456":
+                return 1
+            elif chows[0].numbers == "234" and (chows[2].numbers == "456" or chows[2].numbers == "567"):
+                return 1
+        else:
+            return 0
+    elif pair[0].get_tile_number() == "2":
+        # 111 22 345 678 999
+        if pungs[0].numbers == "111" and pungs[1].numbers == "999" and\
+                chows[0].numbers == "345" and chows[1].numbers == "678":
+            return 1
+        else:
+            return 0
+    elif pair[0].get_tile_number() == "5":
+        # 111 234 55 678 999
+        if pungs[0].numbers == "111" and pungs[1].numbers == "999" and \
+                chows[0].numbers == "234" and chows[1].numbers == "678":
+            return 1
+        else:
+            return 0
+    elif pair[0].get_tile_number() == "8":
+        # 111 234 567 88 999
+        if pungs[0].numbers == "111" and pungs[1].numbers == "999" and \
+                chows[0].numbers == "234" and chows[1].numbers == "567":
+            return 1
+        else:
+            return 0
+    else:
+        return 0
 
 
 def four_kongs(kongs):
-    pass
+    if len(kongs) == 4:
+        for k in kongs:
+            TileSet.update_used_excluded_stats(k)
+        return 1
+    return 0

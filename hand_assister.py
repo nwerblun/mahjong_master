@@ -149,16 +149,22 @@ class HandAssister(Frame):
             e.delete(0, 3)
         self.drawn_tile_entry.delete(0, 3)
 
-    # TODO: add 'final tile from wall/discard button'
+    # TODO: add 'final tile from wall/discard button'??? or a note saying it's ignored
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
         self.hand_entry_frame.rowconfigure("all", weight=1)
+        self.hand_entry_frame.columnconfigure(0, weight=1)
+        self.hand_entry_frame.columnconfigure(1, weight=1)
+        self.hand_entry_frame.columnconfigure(2, weight=3)
+        self.hand_entry_frame.columnconfigure(3, weight=5)
         instructions = "Instructions:\n" \
-                       "Enter your hand, one tile per box (Excluding kongs. Just type the tile once for a kong)\n" \
-                       "If you have 4x of a tile concealed that is undeclared, enter it in 'others' instead of kong\n" \
+                       "Enter your hand, one tile per box\n" \
+                       "(Excluding kongs. Just type the tile once for a kong)\n" \
+                       "If you have 4x of a tile concealed that is undeclared,\n" \
+                       "enter it in 'others' instead of kong\n" \
                        "==========================================\n" \
-                       "If you steal a tile, just put your new set into the revealed section and leave 'drawn tile'\n" \
-                       "blank.\n" \
+                       "If you steal a tile, just put your new set into the revealed section\n" \
+                       "and leave 'drawn tile' blank.\n" \
                        "===========================================\n" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
@@ -280,7 +286,7 @@ class HandAssister(Frame):
 
     # TODO: Remove this
     def _debug_func(self):
-        self.concealed_kong_entries[0].insert(0, "")
+        self.concealed_kong_entries[0].insert(0, "drg")
         self.concealed_kong_entries[1].insert(0, "")
         self.concealed_kong_entries[2].insert(0, "")
         self.concealed_kong_entries[3].insert(0, "")
@@ -290,24 +296,24 @@ class HandAssister(Frame):
         self.revealed_kong_entries[2].insert(0, "")
         self.revealed_kong_entries[3].insert(0, "")
 
-        self.concealed_other_entries[0].insert(0, "b1")
-        self.concealed_other_entries[1].insert(0, "b1")
-        self.concealed_other_entries[2].insert(0, "b1")
-        self.concealed_other_entries[3].insert(0, "b1")
-        self.concealed_other_entries[4].insert(0, "c1")
-        self.concealed_other_entries[5].insert(0, "c1")
-        self.concealed_other_entries[6].insert(0, "c2")
-        self.concealed_other_entries[7].insert(0, "c2")
-        self.concealed_other_entries[8].insert(0, "drw")
-        self.concealed_other_entries[9].insert(0, "drw")
-        self.concealed_other_entries[10].insert(0, "d9")
-        self.concealed_other_entries[11].insert(0, "d9")
-        self.concealed_other_entries[12].insert(0, "ww")
+        self.concealed_other_entries[0].insert(0, "b2")
+        self.concealed_other_entries[1].insert(0, "b3")
+        self.concealed_other_entries[2].insert(0, "b4")
+        self.concealed_other_entries[3].insert(0, "b2")
+        self.concealed_other_entries[4].insert(0, "b3")
+        self.concealed_other_entries[5].insert(0, "b4")
+        self.concealed_other_entries[6].insert(0, "b6")
+        self.concealed_other_entries[7].insert(0, "")
+        self.concealed_other_entries[8].insert(0, "")
+        self.concealed_other_entries[9].insert(0, "")
+        self.concealed_other_entries[10].insert(0, "")
+        self.concealed_other_entries[11].insert(0, "")
+        self.concealed_other_entries[12].insert(0, "")
         self.concealed_other_entries[13].insert(0, "")
 
-        self.revealed_other_entries[0].insert(0, "")
-        self.revealed_other_entries[1].insert(0, "")
-        self.revealed_other_entries[2].insert(0, "")
+        self.revealed_other_entries[0].insert(0, "b8")
+        self.revealed_other_entries[1].insert(0, "b8")
+        self.revealed_other_entries[2].insert(0, "b8")
         self.revealed_other_entries[3].insert(0, "")
         self.revealed_other_entries[4].insert(0, "")
         self.revealed_other_entries[5].insert(0, "")

@@ -63,12 +63,20 @@ class Calculator:
                 # hand_dict["point_conditions"]
                 print("Knitted Straight: ", str(1))
 
+            amt = all_green(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
+            print("All Green: ", str(amt))
+            amt = nine_gates(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"],
+                             self.pwh.num_suits_used, self.pwh.get_num_honor_tiles())
+            print("Nine Gates: ", str(amt))
+            amt = four_kongs(tilesets["kongs"])
+            print("Four Kongs: ", str(amt))
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt
             amt = pure_double_chow(tilesets["chows"])
             print("Pure double chow: ", str(amt))
             hand_dict["point_conditions"][0] = amt
+            print("-----next hand------")
 
         # check special cases
         amt = lesser_honors_knitted_seq(self.pwh)
