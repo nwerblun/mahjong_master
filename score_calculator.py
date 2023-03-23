@@ -142,6 +142,36 @@ class Calculator:
             amt = all_fives(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
             print("All Fives: ", str(amt))
 
+            amt = pure_shifted_chows(tilesets["chows"])
+            print("Pure Shifted Chows: ", str(amt))
+
+            amt = three_suited_terminal_chows(tilesets["chows"], hand_dict["pair"])
+            print("3 Suited Terminal Chows: ", str(amt))
+
+            amt = pure_straight(tilesets["chows"])
+            print("Pure Straight: ", str(amt))
+
+            amt = big_three_winds(tilesets["pungs"], tilesets["kongs"])
+            print("Big Three Winds: ", str(amt))
+
+            amt = lower_four(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
+            print("Lower Four: ", str(amt))
+
+            amt = upper_four(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
+            print("Upper Four: ", str(amt))
+
+            # CHICKEN HAND WOULD GO HERE BUT YOU NEED TO CHECK SPECIAL CASES
+            # SPACE FOR KONG ROB
+            # SPACE FOR REPLACEMENT WIN
+            # SPACE FOR LAST TILE CLAIM
+            # SPACE FOR LAST TILE DRAW
+
+            amt = two_concealed_kongs(tilesets["kongs"])
+            print("Two Concealed Kongs: ", str(amt))
+
+            amt = mixed_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Mixed Shifted Pungs: ", str(amt))
+
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt
