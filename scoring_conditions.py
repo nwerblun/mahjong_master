@@ -160,6 +160,7 @@ def thirteen_orphans(hand):
         return 1
     return 0
 
+
 @total_ordering
 class TileSet:
     def __init__(self, tile_list, set_type, concealed=False, declared=None):
@@ -215,7 +216,7 @@ class TileSet:
         return (self.suit == other.suit) and (self.numbers == other.numbers) and (self.set_type == other.set_type)
 
     def __lt__(self, other):
-        return (self.suit < other.suit) or (self.suit == other.suit and self.numbers < other.numbers)
+        return self.numbers < other.numbers
 
     def __hash__(self):
         return (self.suit + self.numbers + self.set_type).__hash__()
@@ -475,19 +476,86 @@ def pure_shifted_chows(chows):
 
 
 def all_fives(chows, pungs, kongs, pair):
-    pass
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    if pair[0].get_tile_number() != "5":
+        return 0
+    for c in chows:
+        if "5" not in c.numbers:
+            return 0
+    for p in pungs:
+        if "5" not in p.numbers:
+            return 0
+    for k in kongs:
+        if "5" not in k.numbers:
+            return 0
+    return 1
 
 
 def triple_pung(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs) \
+        + len(used_but_not_excluded_pungs)
+    if usable_sets < 3 or len(fresh_pungs) + len(fresh_kongs) == 0:
+        return 0
+    all_ts = sorted(flatten_list(fresh_pungs + used_but_not_excluded_pungs + fresh_kongs + used_but_not_excluded_kongs))
+    numbers_list = [ts.numbers[0] for ts in all_ts]
+    if sorted(numbers_list).count(all_ts[0].numbers[0]) == 3:
+        start_ind = 0
+    elif sorted(numbers_list).count(all_ts[1].numbers[0]) == 3:
+        start_ind = 1
+    else:
+        return 0
+    if not ((all_ts[start_ind+1].suit != all_ts[start_ind].suit) and
+            (all_ts[start_ind+2].suit != all_ts[start_ind+1].suit)):
+        return 0
+    if not ((all_ts[start_ind+1].numbers[0] == all_ts[start_ind].numbers[0]) and
+            (all_ts[start_ind+2].numbers[0] == all_ts[start_ind+1].numbers[0])):
+        return 0
+    for k in kongs:
+        TileSet.update_used_excluded_stats(k)
+    for p in pungs:
+        TileSet.update_used_excluded_stats(p)
+    return 1
 
 
 def three_concealed_pungs(pungs, kongs):
-    pass
+    usable_sets = len(kongs) + len(pungs)
+    if usable_sets < 3:
+        return 0
+    revealed_counter = 0
+    for p in pungs:
+        if not p.concealed:
+            revealed_counter += 1
+    for k in kongs:
+        if not k.concealed:
+            revealed_counter += 1
+    if revealed_counter > 1:
+        return 0
+    return 1
 
 
-def all_even_pungs(pungs, kongs):
-    pass
+def all_even_pungs(pungs, kongs, pair):
+    usable_sets = len(pungs) + len(kongs)
+    if usable_sets != 4:
+        return 0
+    if pair[0].is_dragon() or pair[0].is_wind():
+        return 0
+    if pair[0].get_tile_number() not in ["2", "4", "6", "8"]:
+        return 0
+    all_ts = flatten_list(pungs + kongs)
+    evens = ["222", "2222", "444", "4444", "666", "6666", "888", "8888"]
+    if not (
+            (all_ts[0].numbers in evens) and
+            (all_ts[1].numbers in evens) and
+            (all_ts[2].numbers in evens) and
+            (all_ts[3].numbers in evens)
+    ):
+        return 0
+    return 1
 
 
 def full_flush():
@@ -495,31 +563,139 @@ def full_flush():
 
 
 def pure_triple_chow(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_chows) + len(used_but_not_excluded_chows)
+    if usable_sets < 3 or len(fresh_chows) == 0:
+        return 0
+    if sorted(chows).count(chows[0]) == 3:
+        start_ind = 0
+    elif sorted(chows).count(chows[1]) == 3:
+        start_ind = 1
+    else:
+        return 0
+    if not ((chows[start_ind+2].suit == chows[start_ind+1].suit) and
+            (chows[start_ind+1].suit == chows[start_ind].suit)):
+        return 0
+    for i in range(3):
+        TileSet.update_used_excluded_stats(chows[start_ind+i])
+    return 1
 
 
 def pure_shifted_pungs(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs) \
+        + len(used_but_not_excluded_pungs)
+    if usable_sets < 3 or len(fresh_pungs) + len(fresh_kongs) == 0:
+        return 0
+    all_ts = sorted(flatten_list(fresh_pungs + used_but_not_excluded_pungs + fresh_kongs + used_but_not_excluded_kongs))
+    if not ((all_ts[1].suit == all_ts[0].suit) and (all_ts[2].suit == all_ts[1].suit)):
+        return 0
+    if not ((int(all_ts[1].numbers[0]) == int(all_ts[0].numbers[0]) + 1) and
+            (int(all_ts[2].numbers[0]) == int(all_ts[1].numbers[0]) + 1)):
+        return 0
+    for k in kongs:
+        TileSet.update_used_excluded_stats(k)
+    for p in pungs:
+        TileSet.update_used_excluded_stats(p)
+    return 1
 
 
 def upper_tiles(chows, pungs, kongs, pair):
-    pass
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    if pair[0].get_tile_number() not in ["7", "8", "9"]:
+        return 0
+    for c in chows:
+        if c.numbers != "789":
+            return 0
+    for p in pungs:
+        if p.numbers not in ["777", "888", "999"]:
+            return 0
+    for k in kongs:
+        if k.numbers not in ["7777", "8888", "9999"]:
+            return 0
+    return 1
 
 
 def middle_tiles(chows, pungs, kongs, pair):
-    pass
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    if pair[0].get_tile_number() not in ["4", "5", "6"]:
+        return 0
+    for c in chows:
+        if c.numbers != "456":
+            return 0
+    for p in pungs:
+        if p.numbers not in ["444", "555", "666"]:
+            return 0
+    for k in kongs:
+        if k.numbers not in ["4444", "5555", "6666"]:
+            return 0
+    return 1
 
 
 def lower_tiles(chows, pungs, kongs, pair):
-    pass
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    if pair[0].get_tile_number() not in ["1", "2", "3"]:
+        return 0
+    for c in chows:
+        if c.numbers != "123":
+            return 0
+    for p in pungs:
+        if p.numbers not in ["111", "222", "333"]:
+            return 0
+    for k in kongs:
+        if k.numbers not in ["1111", "2222", "3333"]:
+            return 0
+    return 1
 
 
 def four_shifted_chows(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.excluded and not ts.used)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    usable_chows = len(fresh_chows) + len(used_but_not_excluded_chows)
+    if usable_chows != 4 or len(fresh_chows) == 0:
+        return 0
+    if not ((chows[0].suit == chows[1].suit) and (chows[2].suit == chows[1].suit) and (chows[3].suit == chows[2].suit)):
+        return 0
+    sorted_chows = sorted(chows)
+    c0 = list(map(int, list(sorted_chows[0].numbers)))
+    c1 = list(map(int, list(sorted_chows[1].numbers)))
+    c2 = list(map(int, list(sorted_chows[2].numbers)))
+    c3 = list(map(int, list(sorted_chows[3].numbers)))
+    possibility_one = [
+        [c1[i] - c0[i] for i in range(3)] == [1, 1, 1],
+        [c2[i] - c1[i] for i in range(3)] == [1, 1, 1],
+        [c3[i] - c2[i] for i in range(3)] == [1, 1, 1]
+    ]
+    possibility_two = [
+        [c1[i] - c0[i] for i in range(3)] == [2, 2, 2],
+        [c2[i] - c1[i] for i in range(3)] == [2, 2, 2],
+        [c3[i] - c2[i] for i in range(3)] == [2, 2, 2]
+    ]
+    if all(possibility_one) or all(possibility_two):
+        for c in chows:
+            TileSet.update_used_excluded_stats(c)
+        return 1
+    return 0
 
 
 def three_kongs(kongs):
-    pass
+    fresh_kongs = [ts for ts in kongs if (not ts.excluded and not ts.used)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    if len(fresh_kongs) < 1 or len(kongs) + len(used_but_not_excluded_kongs) < 3:
+        return 0
+
+    for k in fresh_kongs:
+        TileSet.update_used_excluded_stats(k)
+    for k in used_but_not_excluded_kongs:
+        TileSet.update_used_excluded_stats(k)
+    return 1
 
 
 def all_terminals_and_honors(chows, pungs, kongs, pair):
@@ -770,13 +946,8 @@ def little_three_dragons(pungs, kongs, pair):
 
 
 def four_concealed_pungs(pungs, kongs):
-    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
-    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
-    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
-    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
-    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs)\
-        + len(used_but_not_excluded_pungs)
-    if usable_sets != 4 or len(fresh_pungs) + len(fresh_kongs) == 0:
+    usable_sets = len(kongs) + len(pungs)
+    if usable_sets != 4:
         return 0
     for p in pungs:
         if not p.concealed:
@@ -784,11 +955,6 @@ def four_concealed_pungs(pungs, kongs):
     for k in kongs:
         if not k.concealed:
             return 0
-
-    for k in kongs:
-        TileSet.update_used_excluded_stats(k)
-    for p in pungs:
-        TileSet.update_used_excluded_stats(p)
     return 1
 
 

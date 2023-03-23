@@ -106,6 +106,42 @@ class Calculator:
             amt = all_terminals_and_honors(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
             print("All Terminals + Honors: ", str(amt))
 
+            amt = three_kongs(tilesets["kongs"])
+            print("Three Kongs: ", str(amt))
+
+            amt = four_shifted_chows(tilesets["chows"])
+            print("Four Shifted Chows: ", str(amt))
+
+            amt = lower_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Lower Tiles: ", str(amt))
+
+            amt = middle_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Middle Tiles: ", str(amt))
+
+            amt = upper_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Upper Tiles: ", str(amt))
+
+            amt = pure_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Pure Shifted Pungs: ", str(amt))
+
+            amt = pure_triple_chow(tilesets["chows"])
+            print("Pure Triple Chow: ", str(amt))
+
+            amt = 1 if (self.pwh.num_suits_used == 1 and self.pwh.get_num_honor_tiles() == 0) else 0
+            print("Full Flush: ", str(amt))
+
+            amt = all_even_pungs(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("All Even Pungs: ", str(amt))
+
+            amt = three_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Three Concealed Pungs: ", str(amt))
+
+            amt = triple_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Triple Pungs: ", str(amt))
+
+            amt = all_fives(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("All Fives: ", str(amt))
+
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt
