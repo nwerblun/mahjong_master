@@ -59,23 +59,61 @@ class Calculator:
                 tilesets["pungs"] += [TileSet(s, "pung")]
 
             # TODO: Figure out which index
-            if hand_dict["knitted_straight"]:
-                # hand_dict["point_conditions"]
-                print("Knitted Straight: ", str(1))
+            # hand_dict["point_conditions"]
+            print("Knitted Straight: ", str(hand_dict["knitted_straight"]))
+
+            amt = four_kongs(tilesets["kongs"])
+            print("Four Kongs: ", str(amt))
 
             amt = all_green(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
             print("All Green: ", str(amt))
+
             amt = nine_gates(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"],
                              self.pwh.num_suits_used, self.pwh.get_num_honor_tiles())
             print("Nine Gates: ", str(amt))
-            amt = four_kongs(tilesets["kongs"])
-            print("Four Kongs: ", str(amt))
+
+            amt = big_three_dragons(tilesets["pungs"], tilesets["kongs"])
+            print("Big Three Dragons: ", str(amt))
+
+            amt = big_four_winds(tilesets["pungs"], tilesets["kongs"])
+            print("Big Four Winds: ", str(amt))
+
+            amt = pure_terminal_chows(tilesets["chows"],
+                                      self.pwh.num_suits_used, self.pwh.get_num_honor_tiles(), hand_dict["pair"])
+            print("Pure Terminal Chows: ", str(amt))
+
+            amt = four_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Four Concealed Pungs", str(amt))
+
+            amt = little_three_dragons(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Little Three Dragons: ", str(amt))
+
+            amt = little_four_winds(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Little Four Winds: ", str(amt))
+
+            amt = 1 if (self.pwh.num_suits_used == 0) else 0
+            print("All Honors: ", str(amt))
+
+            amt = all_terminals(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("All terminals: ", str(amt))
+
+            amt = four_pure_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Four Pure Shifted Pungs: ", str(amt))
+
+            amt = quad_chow(tilesets["chows"])
+            print("Quad Chow: ", str(amt))
+
+            amt = all_terminals_and_honors(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("All Terminals + Honors: ", str(amt))
+
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt
+
             amt = pure_double_chow(tilesets["chows"])
             print("Pure double chow: ", str(amt))
             hand_dict["point_conditions"][0] = amt
+
             print("-----next hand------")
 
         # check special cases

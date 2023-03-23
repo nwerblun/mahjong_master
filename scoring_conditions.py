@@ -1,5 +1,6 @@
 from game import *
 from utilities import *
+from functools import total_ordering
 
 
 def lesser_honors_knitted_seq(hand):
@@ -159,7 +160,7 @@ def thirteen_orphans(hand):
         return 1
     return 0
 
-
+@total_ordering
 class TileSet:
     def __init__(self, tile_list, set_type, concealed=False, declared=None):
         # Set type = chow pung or kong as a str
@@ -212,6 +213,9 @@ class TileSet:
 
     def __eq__(self, other):
         return (self.suit == other.suit) and (self.numbers == other.numbers) and (self.set_type == other.set_type)
+
+    def __lt__(self, other):
+        return (self.suit < other.suit) or (self.suit == other.suit and self.numbers < other.numbers)
 
     def __hash__(self):
         return (self.suit + self.numbers + self.set_type).__hash__()
@@ -518,48 +522,447 @@ def three_kongs(kongs):
     pass
 
 
-def all_terminals_and_honors():
-    raise NotImplementedError("Do it in score calc.")
+def all_terminals_and_honors(chows, pungs, kongs, pair):
+    if not pair[0].is_wind() and not pair[0].is_dragon():
+        if pair[0].get_tile_number() not in ["1", "9"]:
+            return 0
+    if len(chows) > 0:
+        return 0
+    for ts in pungs:
+        if ts.numbers != "111" and ts.numbers != "999" and ts.suit != "dragon" and ts.suit != "wind":
+            return 0
+    for ts in kongs:
+        if ts.numbers != "1111" and ts.numbers != "9999" and ts.suit != "dragon" and ts.suit != "wind":
+            return 0
+    return 1
 
 
 def quad_chow(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_chows) + len(used_but_not_excluded_chows)
+    if usable_sets != 4 or len(fresh_chows) == 0:
+        return 0
+    if not (chows.count(chows[0])) == 4:
+        return 0
+    if not ((chows[0].suit == chows[1].suit) and (chows[2].suit == chows[1].suit) and (chows[3].suit == chows[2].suit)):
+        return 0
+    for c in chows:
+        TileSet.update_used_excluded_stats(c)
+    return 1
 
 
 def four_pure_shifted_pungs(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs) \
+        + len(used_but_not_excluded_pungs)
+    if usable_sets != 4 or len(fresh_pungs) + len(fresh_kongs) == 0:
+        return 0
+    all_ts = sorted(flatten_list(fresh_pungs + used_but_not_excluded_pungs + fresh_kongs + used_but_not_excluded_kongs))
+    if not ((all_ts[1].suit == all_ts[0].suit) and (all_ts[2].suit == all_ts[1].suit)
+            and (all_ts[3].suit == all_ts[2].suit)):
+        return 0
+    if not ((int(all_ts[1].numbers[0]) == int(all_ts[0].numbers[0]) + 1) and
+            (int(all_ts[2].numbers[0]) == int(all_ts[1].numbers[0]) + 1) and
+            (int(all_ts[3].numbers[0]) == int(all_ts[2].numbers[0]) + 1)):
+        return 0
+    for k in kongs:
+        TileSet.update_used_excluded_stats(k)
+    for p in pungs:
+        TileSet.update_used_excluded_stats(p)
+    return 1
 
 
 def all_terminals(chows, pungs, kongs, pair):
-    pass
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    if pair[0].get_tile_number() not in ["1", "9"]:
+        return 0
+    if len(chows) > 0:
+        return 0
+    for ts in pungs:
+        if ts.numbers != "111" and ts.numbers != "999":
+            return 0
+    for ts in kongs:
+        if ts.numbers != "1111" and ts.numbers != "9999":
+            return 0
+    return 1
 
 
 def all_honors():
     raise NotImplementedError("Do it in score calc.")
 
 
-def little_four_winds(pungs, kongs):
-    pass
+def little_four_winds(pungs, kongs, pair):
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    north_check, east_check, south_check, west_check = False, False, False, False
+    fp_indicies_to_update = []
+    up_indicies_to_update = []
+    fk_indicies_to_update = []
+    uk_indicies_to_update = []
+
+    if not pair[0].is_wind():
+        return 0
+
+    if pair[0].get_wind_direction() == "e":
+        east_check = True
+    elif pair[0].get_wind_direction() == "n":
+        north_check = True
+    elif pair[0].get_wind_direction() == "w":
+        west_check = True
+    elif pair[0].get_wind_direction() == "s":
+        south_check = True
+
+    if not any([west_check, south_check, north_check, east_check]):
+        return 0
+
+    for i in range(len(fresh_pungs)):
+        if fresh_pungs[i].suit == "wind":
+            fp_indicies_to_update += [i]
+            if fresh_pungs[i].numbers == "e" and not east_check:
+                east_check = True
+            elif fresh_pungs[i].numbers == "n" and not north_check:
+                north_check = True
+            elif fresh_pungs[i].numbers == "s" and not south_check:
+                south_check = True
+            elif fresh_pungs[i].numbers == "w" and not west_check:
+                west_check = True
+
+    for i in range(len(fresh_kongs)):
+        if fresh_kongs[i].suit == "wind":
+            fk_indicies_to_update += [i]
+            if fresh_kongs[i].numbers == "e" and not east_check:
+                east_check = True
+            elif fresh_kongs[i].numbers == "s" and not south_check:
+                south_check = True
+            elif fresh_kongs[i].numbers == "n" and not north_check:
+                north_check = True
+            elif fresh_kongs[i].numbers == "w" and not west_check:
+                west_check = True
+
+    if not any([west_check, north_check, west_check, east_check]):
+        # Must have at least one fresh set
+        return 0
+
+    for i in range(len(used_but_not_excluded_pungs)):
+        if used_but_not_excluded_pungs[i].suit == "wind":
+            up_indicies_to_update += [i]
+            if used_but_not_excluded_pungs[i].numbers == "e" and not east_check:
+                east_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "n" and not north_check:
+                north_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "s" and not south_check:
+                south_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "w" and not west_check:
+                west_check = True
+
+    if not all([west_check, east_check, north_check, south_check]):
+        for i in range(len(used_but_not_excluded_kongs)):
+            if used_but_not_excluded_kongs[i].suit == "wind":
+                uk_indicies_to_update += [i]
+                if used_but_not_excluded_kongs[i].numbers == "e" and not east_check:
+                    east_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "s" and not south_check:
+                    south_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "n" and not north_check:
+                    north_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "w" and not west_check:
+                    west_check = True
+
+    if not all([west_check, east_check, south_check, north_check]):
+        return 0
+    for i in fp_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in up_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
+    for i in fk_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_kongs[i])
+    for i in uk_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    return 1
 
 
-def little_three_dragons(pungs, kongs):
-    pass
+def little_three_dragons(pungs, kongs, pair):
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    red_check, green_check, white_check = False, False, False
+    fp_indicies_to_update = []
+    up_indicies_to_update = []
+    fk_indicies_to_update = []
+    uk_indicies_to_update = []
+    if not pair[0].is_dragon():
+        return 0
+
+    if pair[0].get_dragon_type() == "g":
+        green_check = True
+    elif pair[0].get_dragon_type() == "r":
+        red_check = True
+    elif pair[0].get_dragon_type() == "w":
+        white_check = True
+
+    if not any([green_check, white_check, red_check]):
+        return 0
+
+    for i in range(len(fresh_pungs)):
+        if fresh_pungs[i].suit == "dragon":
+            fp_indicies_to_update += [i]
+            if fresh_pungs[i].numbers == "g" and not green_check:
+                green_check = True
+            elif fresh_pungs[i].numbers == "r" and not red_check:
+                red_check = True
+            elif fresh_pungs[i].numbers == "w" and not white_check:
+                white_check = True
+
+    for i in range(len(fresh_kongs)):
+        if fresh_kongs[i].suit == "dragon":
+            fk_indicies_to_update += [i]
+            if fresh_kongs[i].numbers == "g" and not green_check:
+                green_check = True
+            elif fresh_kongs[i].numbers == "r" and not red_check:
+                red_check = True
+            elif fresh_kongs[i].numbers == "w" and not white_check:
+                white_check = True
+
+    if not any([red_check, green_check, white_check]):
+        # Must have at least one unused set
+        return 0
+
+    for i in range(len(used_but_not_excluded_pungs)):
+        if used_but_not_excluded_pungs[i].suit == "dragon":
+            up_indicies_to_update += [i]
+            if used_but_not_excluded_pungs[i].numbers == "g" and not green_check:
+                green_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "r" and not red_check:
+                red_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "w" and not white_check:
+                white_check = True
+
+    if not all([red_check, green_check, white_check]):
+        for i in range(len(used_but_not_excluded_kongs)):
+            if used_but_not_excluded_kongs[i].suit == "dragon":
+                uk_indicies_to_update += [i]
+                if used_but_not_excluded_kongs[i].numbers == "g" and not green_check:
+                    green_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "r" and not red_check:
+                    red_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "w" and not white_check:
+                    white_check = True
+
+    if not all([red_check, green_check, white_check]):
+        return 0
+    for i in fp_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in up_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
+    for i in fk_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_kongs[i])
+    for i in uk_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    return 1
 
 
 def four_concealed_pungs(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs)\
+        + len(used_but_not_excluded_pungs)
+    if usable_sets != 4 or len(fresh_pungs) + len(fresh_kongs) == 0:
+        return 0
+    for p in pungs:
+        if not p.concealed:
+            return 0
+    for k in kongs:
+        if not k.concealed:
+            return 0
+
+    for k in kongs:
+        TileSet.update_used_excluded_stats(k)
+    for p in pungs:
+        TileSet.update_used_excluded_stats(p)
+    return 1
 
 
-def pure_terminal_chows(chows):
-    pass
+def pure_terminal_chows(chows, num_suits, num_honors, pair):
+    fresh_chows = [ts for ts in chows if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    if num_suits > 1 or num_honors > 0 or len(fresh_chows) == 0 or \
+            (len(fresh_chows) + len(used_but_not_excluded_chows)) != 4:
+        return 0
+    if pair[0].get_tile_number() != "5":
+        return 0
+    lows_count = 0
+    highs_count = 0
+    for ts in fresh_chows:
+        if ts.numbers == "123":
+            lows_count += 1
+        elif ts.numbers == "789":
+            highs_count += 1
+
+    for ts in used_but_not_excluded_chows:
+        if ts.numbers == "123":
+            lows_count += 1
+        elif ts.numbers == "789":
+            highs_count += 1
+
+    if lows_count == 2 and highs_count == 2:
+        for ts in chows:
+            TileSet.update_used_excluded_stats(ts)
+        return 1
+    return 0
 
 
 def big_four_winds(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    north_check, east_check, south_check, west_check = False, False, False, False
+    fp_indicies_to_update = []
+    up_indicies_to_update = []
+    fk_indicies_to_update = []
+    uk_indicies_to_update = []
+    for i in range(len(fresh_pungs)):
+        if fresh_pungs[i].suit == "wind":
+            fp_indicies_to_update += [i]
+            if fresh_pungs[i].numbers == "e":
+                east_check = True
+            elif fresh_pungs[i].numbers == "n":
+                north_check = True
+            elif fresh_pungs[i].numbers == "s":
+                south_check = True
+            elif fresh_pungs[i].numbers == "w":
+                west_check = True
+
+    for i in range(len(fresh_kongs)):
+        if fresh_kongs[i].suit == "wind":
+            fk_indicies_to_update += [i]
+            if fresh_kongs[i].numbers == "e" and not east_check:
+                east_check = True
+            elif fresh_kongs[i].numbers == "s" and not south_check:
+                south_check = True
+            elif fresh_kongs[i].numbers == "n" and not north_check:
+                north_check = True
+            elif fresh_kongs[i].numbers == "w" and not west_check:
+                west_check = True
+
+    if not any([west_check, north_check, west_check, east_check]):
+        # Must have at least one fresh set
+        return 0
+
+    for i in range(len(used_but_not_excluded_pungs)):
+        if used_but_not_excluded_pungs[i].suit == "wind":
+            up_indicies_to_update += [i]
+            if used_but_not_excluded_pungs[i].numbers == "e" and not east_check:
+                east_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "n" and not north_check:
+                north_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "s" and not south_check:
+                south_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "w" and not west_check:
+                west_check = True
+
+    if not all([west_check, east_check, north_check, south_check]):
+        for i in range(len(used_but_not_excluded_kongs)):
+            if used_but_not_excluded_kongs[i].suit == "wind":
+                uk_indicies_to_update += [i]
+                if used_but_not_excluded_kongs[i].numbers == "e" and not east_check:
+                    east_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "s" and not south_check:
+                    south_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "n" and not north_check:
+                    north_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "w" and not west_check:
+                    west_check = True
+
+    if not all([west_check, east_check, south_check, north_check]):
+        return 0
+    for i in fp_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in up_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
+    for i in fk_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_kongs[i])
+    for i in uk_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    return 1
 
 
 def big_three_dragons(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    red_check, green_check, white_check = False, False, False
+    fp_indicies_to_update = []
+    up_indicies_to_update = []
+    fk_indicies_to_update = []
+    uk_indicies_to_update = []
+    for i in range(len(fresh_pungs)):
+        if fresh_pungs[i].suit == "dragon":
+            fp_indicies_to_update += [i]
+            if fresh_pungs[i].numbers == "g":
+                green_check = True
+            elif fresh_pungs[i].numbers == "r":
+                red_check = True
+            elif fresh_pungs[i].numbers == "w":
+                white_check = True
+
+    for i in range(len(fresh_kongs)):
+        if fresh_kongs[i].suit == "dragon":
+            fk_indicies_to_update += [i]
+            if fresh_kongs[i].numbers == "g" and not green_check:
+                green_check = True
+            elif fresh_kongs[i].numbers == "r" and not red_check:
+                red_check = True
+            elif fresh_kongs[i].numbers == "w" and not white_check:
+                white_check = True
+
+    if not any([red_check, green_check, white_check]):
+        # Must have at least one unused set
+        return 0
+
+    for i in range(len(used_but_not_excluded_pungs)):
+        if used_but_not_excluded_pungs[i].suit == "dragon":
+            up_indicies_to_update += [i]
+            if used_but_not_excluded_pungs[i].numbers == "g" and not green_check:
+                green_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "r" and not red_check:
+                red_check = True
+            elif used_but_not_excluded_pungs[i].numbers == "w" and not white_check:
+                white_check = True
+
+    if not all([red_check, green_check, white_check]):
+        for i in range(len(used_but_not_excluded_kongs)):
+            if used_but_not_excluded_kongs[i].suit == "dragon":
+                uk_indicies_to_update += [i]
+                if used_but_not_excluded_kongs[i].numbers == "g" and not green_check:
+                    green_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "r" and not red_check:
+                    red_check = True
+                elif used_but_not_excluded_kongs[i].numbers == "w" and not white_check:
+                    white_check = True
+
+    if not all([red_check, green_check, white_check]):
+        return 0
+    for i in fp_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in up_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
+    for i in fk_indicies_to_update:
+        TileSet.update_used_excluded_stats(fresh_kongs[i])
+    for i in uk_indicies_to_update:
+        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    return 1
 
 
 def all_green(pungs, kongs, chows, pair):
@@ -574,6 +977,8 @@ def all_green(pungs, kongs, chows, pair):
             return 0
         elif ts.suit == "bamboo" and ts.numbers not in \
                 ["222", "234", "333", "444", "666", "888", "2222", "3333", "4444", "6666", "8888"]:
+            return 0
+        elif ts.suit != "bamboo":
             return 0
     return 1
 
@@ -635,8 +1040,11 @@ def nine_gates(pungs, kongs, chows, pair, num_suits, num_honors):
 
 
 def four_kongs(kongs):
-    if len(kongs) == 4:
-        for k in kongs:
-            TileSet.update_used_excluded_stats(k)
-        return 1
-    return 0
+    fresh_kongs = [ts for ts in kongs if (not ts.excluded and not ts.used)]
+    excluded_kongs = [ts for ts in kongs if ts.excluded]
+    if len(fresh_kongs) < 1 or len(excluded_kongs) > 0 or len(kongs) != 4:
+        return 0
+
+    for k in kongs:
+        TileSet.update_used_excluded_stats(k)
+    return 1
