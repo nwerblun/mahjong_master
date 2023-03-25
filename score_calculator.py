@@ -172,6 +172,25 @@ class Calculator:
             amt = mixed_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
             print("Mixed Shifted Pungs: ", str(amt))
 
+            amt = mixed_triple_chow(tilesets["chows"])
+            print("Mixed Triple Chow: ", str(amt))
+
+            amt = reversible_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Reversible Tiles: ", str(amt))
+
+            amt = mixed_straight(tilesets["chows"])
+            print("Mixed Straight: ", str(amt))
+
+            amt = two_dragon_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Two Dragon Pungs: ", str(amt))
+
+            # SPACE FOR MELDED HAND
+            # SPACE FOR ALL TYPES
+
+            amt = mixed_shifted_chow(tilesets["chows"])
+            print("Mixed shifted chow: ", str(amt))
+            hand_dict["point_conditions"][1] = amt
+
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
             hand_dict["point_conditions"][1] = amt

@@ -159,12 +159,13 @@ class HandAssister(Frame):
         self.hand_entry_frame.columnconfigure(3, weight=5)
         instructions = "Instructions:\n" \
                        "Enter your hand, one tile per box\n" \
-                       "(Excluding kongs. Just type the tile once for a kong)\n" \
-                       "If you have 4x of a tile concealed that is undeclared,\n" \
+                       "(Excluding kongs. Type the tile once only.)\n" \
+                       "If you have a kong you have not declared,\n" \
                        "enter it in 'others' instead of kong\n" \
                        "==========================================\n" \
-                       "If you steal a tile, just put your new set into the revealed section\n" \
-                       "and leave 'drawn tile' blank.\n" \
+                       "'Drawn Tile' is for self-drawn tile only.\n" \
+                       "If you steal a tile, update your revealed sets\n" \
+                       "and leave 'Drawn Tile' blank.\n" \
                        "===========================================\n" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
@@ -222,11 +223,11 @@ class HandAssister(Frame):
                                                   validatecommand=(self.entry_validation, '%P'))]
             self.revealed_other_entries[i].grid(row=1, column=i+1, pady=2, padx=2, sticky=N+S)
 
-        warning_text = "IMPORTANT: Enter revealed tile sets in order or things wont work." \
+        warning_text = "IMPORTANT: Enter revealed tile sets specifically." \
+                       "EXAMPLE: if you have 111222333 it does matter if you type it as\n" \
+                       "111 222 333 VS. 123 123 123\n" \
                        " Also note that your tiles may" \
                        " disappear while you are typing. This is normal.\n" \
-                       "EXAMPLE: if you have b1 b1 b1 b2 b2 b2 b3 b3 b3 it does matter if you type it as\n" \
-                       "b1b2b3 b1b2b3 b1b2b3 VS. b1b1b1 b2b2b2 b3b3b3\n" \
                        "Try not to mix up the order or put it in weird. :)"
         self.hand_entry_warning_label = Message(self.hand_entry_frame, text=warning_text, aspect=1200)
         self.hand_entry_warning_label.grid(row=2, column=2, sticky=W)
@@ -291,29 +292,29 @@ class HandAssister(Frame):
         self.concealed_kong_entries[2].insert(0, "")
         self.concealed_kong_entries[3].insert(0, "")
 
-        self.revealed_kong_entries[0].insert(0, "d3")
+        self.revealed_kong_entries[0].insert(0, "")
         self.revealed_kong_entries[1].insert(0, "")
         self.revealed_kong_entries[2].insert(0, "")
         self.revealed_kong_entries[3].insert(0, "")
 
-        self.concealed_other_entries[0].insert(0, "b1")
-        self.concealed_other_entries[1].insert(0, "b1")
-        self.concealed_other_entries[2].insert(0, "b1")
-        self.concealed_other_entries[3].insert(0, "drw")
-        self.concealed_other_entries[4].insert(0, "drw")
-        self.concealed_other_entries[5].insert(0, "drw")
-        self.concealed_other_entries[6].insert(0, "c6")
-        self.concealed_other_entries[7].insert(0, "")
-        self.concealed_other_entries[8].insert(0, "")
-        self.concealed_other_entries[9].insert(0, "")
+        self.concealed_other_entries[0].insert(0, "b3")
+        self.concealed_other_entries[1].insert(0, "b4")
+        self.concealed_other_entries[2].insert(0, "b5")
+        self.concealed_other_entries[3].insert(0, "c4")
+        self.concealed_other_entries[4].insert(0, "c5")
+        self.concealed_other_entries[5].insert(0, "c6")
+        self.concealed_other_entries[6].insert(0, "d5")
+        self.concealed_other_entries[7].insert(0, "d6")
+        self.concealed_other_entries[8].insert(0, "d7")
+        self.concealed_other_entries[9].insert(0, "drw")
         self.concealed_other_entries[10].insert(0, "")
         self.concealed_other_entries[11].insert(0, "")
         self.concealed_other_entries[12].insert(0, "")
         self.concealed_other_entries[13].insert(0, "")
 
-        self.revealed_other_entries[0].insert(0, "c2")
-        self.revealed_other_entries[1].insert(0, "c2")
-        self.revealed_other_entries[2].insert(0, "c2")
+        self.revealed_other_entries[0].insert(0, "drw")
+        self.revealed_other_entries[1].insert(0, "drw")
+        self.revealed_other_entries[2].insert(0, "drw")
         self.revealed_other_entries[3].insert(0, "")
         self.revealed_other_entries[4].insert(0, "")
         self.revealed_other_entries[5].insert(0, "")

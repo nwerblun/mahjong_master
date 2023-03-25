@@ -397,7 +397,50 @@ def half_flush(chows, pungs, kongs, pair):
 
 
 def mixed_shifted_chow(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_chows) + len(used_but_not_excluded_chows)
+    if usable_sets < 3 or len(fresh_chows) == 0:
+        return 0
+    suit_one_check, suit_two_check, suit_three_check = False, False, False
+    sorted_used = sorted(used_but_not_excluded_chows)
+    to_be_used = []
+    for p in sorted_used:
+        if p.suit != "wind" and p.suit != "dragon":
+            if not suit_one_check:
+                suit_one_check = True
+                to_be_used += [p]
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[0].numbers[0]) + 1):
+                suit_two_check = True
+                to_be_used += [p]
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit \
+                    and p.suit != to_be_used[1].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[1].numbers[0]) + 1):
+                suit_three_check = True
+                to_be_used += [p]
+
+    sorted_fresh = sorted(fresh_chows)
+    for p in sorted_fresh:
+        if p.suit != "wind" and p.suit != "dragon":
+            if not suit_one_check:
+                suit_one_check = True
+                to_be_used += [p]
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[0].numbers[0]) + 1):
+                suit_two_check = True
+                to_be_used += [p]
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit \
+                    and p.suit != to_be_used[1].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[1].numbers[0]) + 1):
+                suit_three_check = True
+                to_be_used += [p]
+
+    if not all([suit_three_check, suit_two_check, suit_one_check]):
+        return 0
+    for ts in to_be_used:
+        TileSet.update_used_excluded_stats(ts)
+    return 1
 
 
 def all_types():
@@ -409,19 +452,144 @@ def melded_hand():
 
 
 def two_dragon_pungs(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.excluded and not ts.used)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.excluded and not ts.used)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs) \
+        + len(used_but_not_excluded_pungs)
+    if usable_sets < 2 or len(fresh_pungs) + len(fresh_kongs) == 0:
+        return 0
+    first = None
+    second = None
+    fresh_dragons = [ts for ts in fresh_pungs+fresh_kongs if ts.suit == "dragon"]
+    used_dragons = [ts for ts in used_but_not_excluded_pungs+used_but_not_excluded_kongs if ts.suit == "dragon"]
+    if len(used_dragons) > 0:
+        first = (used_but_not_excluded_pungs + used_but_not_excluded_kongs)[0]
+        second = (fresh_pungs + fresh_kongs)[0]
+    elif len(fresh_dragons) > 1:
+        first = (fresh_pungs + fresh_kongs)[0]
+        second = (fresh_pungs + fresh_kongs)[1]
+    else:
+        return 0
+    TileSet.update_used_excluded_stats(first)
+    TileSet.update_used_excluded_stats(second)
+    return 1
 
 
 def mixed_straight(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_chows) + len(used_but_not_excluded_chows)
+    if usable_sets < 3 or len(fresh_chows) == 0:
+        return 0
+    suit_one_check, suit_two_check, suit_three_check = False, False, False
+    sorted_used = sorted(used_but_not_excluded_chows)
+    to_be_used = []
+    for p in sorted_used:
+        if p.suit != "wind" and p.suit != "dragon":
+            if not suit_one_check:
+                suit_one_check = True
+                to_be_used += [p]
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[0].numbers[0]) + 3):
+                suit_two_check = True
+                to_be_used += [p]
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit \
+                    and p.suit != to_be_used[1].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[1].numbers[0]) + 3):
+                suit_three_check = True
+                to_be_used += [p]
+
+    sorted_fresh = sorted(fresh_chows)
+    for p in sorted_fresh:
+        if p.suit != "wind" and p.suit != "dragon":
+            if not suit_one_check:
+                suit_one_check = True
+                to_be_used += [p]
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[0].numbers[0]) + 3):
+                suit_two_check = True
+                to_be_used += [p]
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit \
+                    and p.suit != to_be_used[1].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[1].numbers[0]) + 3):
+                suit_three_check = True
+                to_be_used += [p]
+
+    if not all([suit_three_check, suit_two_check, suit_one_check]):
+        return 0
+    for ts in to_be_used:
+        TileSet.update_used_excluded_stats(ts)
+    return 1
 
 
 def reversible_tiles(chows, pungs, kongs, pair):
-    pass
+    all_tilesets_list = flatten_list([pungs, kongs, chows])
+    if pair[0].is_dragon() and not (pair[0].get_dragon_type() == "w"):
+        return 0
+    elif pair[0].is_bamboo() and pair[0].get_tile_number() not in ["2", "4", "5", "6", "8", "9"]:
+        return 0
+    elif pair[0].is_dot() and pair[0].get_tile_number() not in ["1", "2", "3", "4", "5", "8", "9"]:
+        return 0
+
+    for ts in all_tilesets_list:
+        if ts.suit == "dragon" and not (ts.numbers == "w"):
+            return 0
+        elif ts.suit == "bamboo" and ts.numbers not in \
+                ["222", "444", "456", "555", "666", "888", "999", "2222", "4444", "5555", "6666", "8888", "9999"]:
+            return 0
+        elif ts.suit == "dot" and ts.numbers not in ["111", "123", "222", "234", "333", "345", "444", "555", "888",
+                                                     "999", "1111", "2222", "3333", "4444", "5555", "8888", "9999"]:
+            return 0
+    return 1
 
 
 def mixed_triple_chow(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_chows) + len(used_but_not_excluded_chows)
+    if usable_sets < 3 or len(fresh_chows) == 0:
+        return 0
+    suit_one_check, suit_two_check, suit_three_check = False, False, False
+    sorted_used = sorted(used_but_not_excluded_chows)
+    to_be_used = []
+    for p in sorted_used:
+        if p.suit != "wind" and p.suit != "dragon":
+            if not suit_one_check:
+                suit_one_check = True
+                to_be_used += [p]
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[0].numbers[0])):
+                suit_two_check = True
+                to_be_used += [p]
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit \
+                    and p.suit != to_be_used[1].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[1].numbers[0])):
+                suit_three_check = True
+                to_be_used += [p]
+
+    sorted_fresh = sorted(fresh_chows)
+    for p in sorted_fresh:
+        if p.suit != "wind" and p.suit != "dragon":
+            if not suit_one_check:
+                suit_one_check = True
+                to_be_used += [p]
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[0].numbers[0])):
+                suit_two_check = True
+                to_be_used += [p]
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit \
+                    and p.suit != to_be_used[1].suit and \
+                    (int(p.numbers[0]) == int(to_be_used[1].numbers[0])):
+                suit_three_check = True
+                to_be_used += [p]
+
+    if not all([suit_three_check, suit_two_check, suit_one_check]):
+        return 0
+    for ts in to_be_used:
+        TileSet.update_used_excluded_stats(ts)
+    return 1
 
 
 def mixed_shifted_pungs(pungs, kongs):
@@ -441,11 +609,11 @@ def mixed_shifted_pungs(pungs, kongs):
             if not suit_one_check:
                 suit_one_check = True
                 to_be_used += [p]
-            elif suit_one_check and p.suit != to_be_used[0].suit and \
-                (int(p.numbers[0]) == (int(to_be_used[0].numbers[0]) + 1)):
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
+                    (int(p.numbers[0]) == (int(to_be_used[0].numbers[0]) + 1)):
                 suit_two_check = True
                 to_be_used += [p]
-            elif suit_one_check and suit_two_check and p.suit != to_be_used[0].suit\
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit\
                     and p.suit != to_be_used[1].suit and \
                     (int(p.numbers[0]) == (int(to_be_used[1].numbers[0]) + 1)):
                 suit_three_check = True
@@ -457,11 +625,11 @@ def mixed_shifted_pungs(pungs, kongs):
             if not suit_one_check:
                 suit_one_check = True
                 to_be_used += [p]
-            elif suit_one_check and p.suit != to_be_used[0].suit and \
+            elif suit_one_check and not suit_two_check and p.suit != to_be_used[0].suit and \
                     (int(p.numbers[0]) == (int(to_be_used[0].numbers[0]) + 1)):
                 suit_two_check = True
                 to_be_used += [p]
-            elif suit_one_check and suit_two_check and p.suit != to_be_used[0].suit\
+            elif suit_one_check and suit_two_check and not suit_three_check and p.suit != to_be_used[0].suit\
                     and p.suit != to_be_used[1].suit and \
                     (int(p.numbers[0]) == (int(to_be_used[1].numbers[0]) + 1)):
                 suit_three_check = True
@@ -785,7 +953,7 @@ def three_concealed_pungs(pungs, kongs):
     for k in kongs:
         if not k.concealed:
             revealed_counter += 1
-    if revealed_counter > 1:
+    if (revealed_counter > 1 and usable_sets == 4) or (revealed_counter > 0 and usable_sets == 3):
         return 0
     return 1
 
