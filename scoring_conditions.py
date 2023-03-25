@@ -356,23 +356,68 @@ def tile_hog(pungs, kongs, pair, chows):
 
 
 def mixed_double_pung(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_pungs = [ts for ts in pungs if (ts.used and not ts.excluded)]
+    fresh_kongs = [ts for ts in kongs if (not ts.used and not ts.excluded)]
+    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
+    usable_sets = len(fresh_kongs) + len(fresh_pungs) + len(used_but_not_excluded_kongs) \
+        + len(used_but_not_excluded_pungs)
+    if usable_sets < 2 or len(fresh_pungs) + len(fresh_kongs) == 0:
+        return 0
+    all_ts = sorted(fresh_pungs + used_but_not_excluded_pungs + fresh_kongs + used_but_not_excluded_kongs)
+    numbers_list = [ts.numbers[0] for ts in all_ts]
+    if numbers_list.count(all_ts[0].numbers[0]) >= 2 and (not all_ts[1].used or not all_ts[0].used):
+        start_ind = 0
+    elif numbers_list.count(all_ts[1].numbers[0]) >= 2 and (not all_ts[2].used or not all_ts[1].used):
+        start_ind = 1
+    elif len(numbers_list) > 2 and numbers_list.count(all_ts[2].numbers[0]) >= 2:
+        start_ind = 2
+    else:
+        return 0
+    if all_ts[start_ind + 1].suit == all_ts[start_ind].suit:
+        return 0
+    if all_ts[start_ind + 1].numbers[0] != all_ts[start_ind].numbers[0]:
+        return 0
+    TileSet.update_used_excluded_stats([all_ts[start_ind], all_ts[start_ind+1]])
+    return 1
 
 
 def two_concealed_pungs(pungs, kongs):
-    pass
+    # Don't check kongs since there's a two concealed kongs already
+    concealed = [ts for ts in pungs if ts.concealed]
+    usable_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
+    if len(concealed) >= 2:
+        return 1
+    elif len(concealed) == 1 and len(usable_kongs) >= 1:
+        return 1
+    return 0
 
 
 def one_concealed_kong(kongs):
-    pass
+    if len(kongs) == 0:
+        return 0
+    for k in kongs:
+        if k.concealed:
+            return 1
+    return 0
 
 
 def all_simples(chows, pungs, kongs, pair):
-    pass
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    for ts in (chows + pungs + kongs):
+        if "1" in ts.numbers or "9" in ts.numbers:
+            return 0
+    return 1
 
 
 def outside_hand(chows, pungs, kongs, pair):
-    pass
+    if (not pair[0].is_wind() and not pair[0].is_dragon()) and (pair[0].get_tile_number() not in ["1", "9"]):
+        return 0
+    for ts in (chows + pungs + kongs):
+        if (not ts.suit == "dragon" and not ts.suit == "wind") and ("1" not in ts.numbers and "9" not in ts.numbers):
+            return 0
+    return 1
 
 
 def fully_concealed_self_drawn():
@@ -380,8 +425,13 @@ def fully_concealed_self_drawn():
 
 
 def two_melded_kongs(kongs):
-    # You get 6 points for melded + unmelded. Maybe ignore concealed status here?
-    pass
+    # You get 6 points for melded + unmelded. Maybe ignore concealed status here, so you get 4 + 2 pts?
+    if len(kongs) < 2:
+        return 0
+    for k in kongs:
+        if not k.concealed:
+            return 1
+    return 0
 
 
 def last_tile():
@@ -389,11 +439,11 @@ def last_tile():
 
 
 def all_pungs(chows, kongs, pungs):
-    pass
+    raise NotImplemented("Do it in the score calc")
 
 
 def half_flush(chows, pungs, kongs, pair):
-    pass
+    raise NotImplemented("Do it in the score calc")
 
 
 def mixed_shifted_chow(chows):
@@ -643,17 +693,9 @@ def mixed_shifted_pungs(pungs, kongs):
 
 
 def two_concealed_kongs(kongs):
-    fresh_kongs = [ts for ts in kongs if (not ts.excluded and not ts.used)]
-    used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
-    if len(fresh_kongs) < 1 or len(kongs) + len(used_but_not_excluded_kongs) < 2:
+    ckongs = [ts for ts in kongs if ts.concealed]
+    if len(ckongs) < 2:
         return 0
-    second_to_use = None
-    if len(used_but_not_excluded_kongs) == 0:
-        second_to_use = fresh_kongs[1]
-    else:
-        second_to_use = used_but_not_excluded_kongs[0]
-    TileSet.update_used_excluded_stats(fresh_kongs[0])
-    TileSet.update_used_excluded_stats(second_to_use)
     return 1
 
 
@@ -923,9 +965,9 @@ def triple_pung(pungs, kongs):
         return 0
     all_ts = sorted(flatten_list(fresh_pungs + used_but_not_excluded_pungs + fresh_kongs + used_but_not_excluded_kongs))
     numbers_list = [ts.numbers[0] for ts in all_ts]
-    if sorted(numbers_list).count(all_ts[0].numbers[0]) == 3:
+    if sorted(numbers_list).count(all_ts[0].numbers[0]) >= 3:
         start_ind = 0
-    elif sorted(numbers_list).count(all_ts[1].numbers[0]) == 3:
+    elif sorted(numbers_list).count(all_ts[1].numbers[0]) >= 3:
         start_ind = 1
     else:
         return 0
@@ -935,10 +977,7 @@ def triple_pung(pungs, kongs):
     if not ((all_ts[start_ind+1].numbers[0] == all_ts[start_ind].numbers[0]) and
             (all_ts[start_ind+2].numbers[0] == all_ts[start_ind+1].numbers[0])):
         return 0
-    for k in kongs:
-        TileSet.update_used_excluded_stats(k)
-    for p in pungs:
-        TileSet.update_used_excluded_stats(p)
+    TileSet.update_used_excluded_stats([all_ts[start_ind], all_ts[start_ind+1], all_ts[start_ind+2]])
     return 1
 
 

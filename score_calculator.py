@@ -189,7 +189,30 @@ class Calculator:
 
             amt = mixed_shifted_chow(tilesets["chows"])
             print("Mixed shifted chow: ", str(amt))
-            hand_dict["point_conditions"][1] = amt
+
+            # SPACE FOR HALF FLUSH
+            # SPACE FOR ALL PUNGS
+            # SPACE FOR LAST TILE
+
+            amt = two_melded_kongs(tilesets["kongs"])
+            print("Two Melded Kongs (or 1 melded + 1 concealed): ", str(amt))
+
+            # SPACE FOR FULLY CONCEALED SELF DRAWN
+
+            amt = outside_hand(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("Outside Hand: ", str(amt))
+
+            amt = all_simples(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("All Simples: ", str(amt))
+
+            amt = one_concealed_kong(tilesets["kongs"])
+            print("One Concealed Kong: ", str(amt))
+
+            amt = two_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Two Concealed Pungs: ", str(amt))
+
+            amt = mixed_double_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Mixed Double Pungs: ", str(amt))
 
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))
