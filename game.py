@@ -216,6 +216,12 @@ class Hand:
     def get_num_honor_tiles(self):
         return self.num_dragons + self.num_winds
 
+    def get_num_dragons(self):
+        return self.num_dragons
+
+    def get_num_winds(self):
+        return self.num_winds
+
     def set_drawn_tile(self, name):
         if Tile.is_valid_name(name):
             self.drawn_tile = Tile(name)

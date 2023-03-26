@@ -100,6 +100,7 @@ class Calculator:
             amt = little_four_winds(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
             print("Little Four Winds: ", str(amt))
 
+            # ALL HONORS
             amt = 1 if (self.pwh.num_suits_used == 0) else 0
             print("All Honors: ", str(amt))
 
@@ -136,6 +137,7 @@ class Calculator:
             amt = pure_triple_chow(tilesets["chows"])
             print("Pure Triple Chow: ", str(amt))
 
+            # FULL FLUSH
             amt = 1 if (self.pwh.num_suits_used == 1 and self.pwh.get_num_honor_tiles() == 0) else 0
             print("Full Flush: ", str(amt))
 
@@ -195,12 +197,21 @@ class Calculator:
 
             # SPACE FOR MELDED HAND
             # SPACE FOR ALL TYPES
+            amt = 1 if (self.pwh.get_num_dragons() > 0 and self.pwh.get_num_winds() > 0
+                        and self.pwh.num_suits_used == 3) else 0
+            print("All Types: ", str(amt))
 
             amt = mixed_shifted_chow(tilesets["chows"])
             print("Mixed shifted chow: ", str(amt))
 
-            # SPACE FOR HALF FLUSH
-            # SPACE FOR ALL PUNGS
+            # HALF FLUSH
+            amt = 1 if (self.pwh.num_suits_used == 1 and self.pwh.get_num_honor_tiles() > 0) else 0
+            print("Half Flush: ", str(amt))
+
+            # ALL PUNGS
+            amt = 1 if (len(tilesets["chows"]) == 0) else 0
+            print("All Pungs (or kongs):", str(amt))
+
             # SPACE FOR LAST TILE
 
             amt = two_melded_kongs(tilesets["kongs"])
@@ -222,6 +233,49 @@ class Calculator:
 
             amt = mixed_double_pung(tilesets["pungs"], tilesets["kongs"])
             print("Mixed Double Pungs: ", str(amt))
+
+            amt = tile_hog(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"], tilesets["chows"])
+            print("Tile Hog: ", str(amt))
+
+            amt = all_chow_no_honors(tilesets["chows"])
+            print("All Chows (no honors): ", str(amt))
+
+            # SPACE FOR CONCEALED HAND DISCARD WIN
+
+            amt = seat_wind_pung(tilesets["pungs"], tilesets["kongs"], self.tileset_format_seat_wind)
+            print("Seat Wind Pung: ", str(amt))
+
+            amt = round_wind_pung(tilesets["pungs"], tilesets["kongs"], self.tileset_format_round_wind)
+            print("Round Wind Pung: ", str(amt))
+
+            amt = dragon_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Dragon Pung: ", str(amt))
+
+            # SPACE FOR SINGLE WAIT
+            # SPACE FOR CLOSED WAIT
+            # SPACE FOR EDGE WAIT
+            # SPACE FOR FLOWERS???
+            # SPACE FOR SELF DRAWN
+
+            # NO HONOR TILES
+            amt = 1 if (self.pwh.get_num_honor_tiles() == 0) else 0
+            print("No Honor Tiles:", str(amt))
+
+            # VOIDED SUIT
+            amt = 1 if (self.pwh.num_suits_used <= 2) else 0
+            print("Voided Suit:", str(amt))
+
+            amt = melded_kong(tilesets["kongs"])
+            print("Melded Kong: ", str(amt))
+
+            amt = terminal_non_dragon_honor_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Terminal/Honor Pung (no dragon/seat/round wind): ", str(amt))
+
+            amt = two_terminal_chows(tilesets["chows"])
+            print("Two Terminal Chows: ", str(amt))
+
+            amt = short_straight(tilesets["chows"])
+            print("Short Straight: ", str(amt))
 
             amt = mixed_double_chow(tilesets["chows"])
             print("Mixed double chow: ", str(amt))

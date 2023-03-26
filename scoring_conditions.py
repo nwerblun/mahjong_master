@@ -354,8 +354,16 @@ def terminal_non_dragon_honor_pung(pungs, kongs, seat_wind, round_wind):
             amt += 1
             used_p_indicies += [i]
             TileSet.update_used_excluded_stats(fresh_pungs[i])
+        elif fresh_pungs[i].suit != "dragon" and fresh_pungs[i].numbers in ["111", "999"]:
+            amt += 1
+            used_p_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_pungs[i])
     for i in range(len(kongs)):
         if fresh_kongs[i].suit == "wind" and fresh_kongs[i].numbers not in [round_wind, seat_wind]:
+            amt += 1
+            used_k_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_kongs[i])
+        elif fresh_kongs[i].suit != "dragon" and fresh_kongs[i].numbers in ["1111", "9999"]:
             amt += 1
             used_k_indicies += [i]
             TileSet.update_used_excluded_stats(fresh_kongs[i])
@@ -410,23 +418,14 @@ def dragon_pung(pungs, kongs):
     if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
         return 0
     amt = 0
-    used_p_indicies = []
-    used_k_indicies = []
     for i in range(len(pungs)):
         if fresh_pungs[i].suit == "dragon":
             amt += 1
-            used_p_indicies += [i]
             TileSet.update_used_excluded_stats(fresh_pungs[i])
     for i in range(len(kongs)):
         if fresh_kongs[i].suit == "dragon":
             amt += 1
-            used_k_indicies += [i]
             TileSet.update_used_excluded_stats(fresh_kongs[i])
-    if len(used_p_indicies) == 0 and len(used_k_indicies) == 0:
-        return 0
-    leftover_p = [fresh_pungs[i] for i in range(len(fresh_pungs)) if i not in used_p_indicies]
-    leftover_k = [fresh_kongs[i] for i in range(len(fresh_kongs)) if i not in used_k_indicies]
-    amt += dragon_pung(leftover_p, leftover_k)
     return amt
 
 
@@ -440,23 +439,14 @@ def seat_wind_pung(pungs, kongs, seat_wind):
     if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
         return 0
     amt = 0
-    used_p_indicies = []
-    used_k_indicies = []
     for i in range(len(pungs)):
         if fresh_pungs[i].suit == "wind" and fresh_pungs[i].numbers == seat_wind:
             amt += 1
-            used_p_indicies += [i]
             TileSet.update_used_excluded_stats(fresh_pungs[i])
     for i in range(len(kongs)):
         if fresh_kongs[i].suit == "wind" and fresh_kongs[i].numbers == seat_wind:
             amt += 1
-            used_k_indicies += [i]
             TileSet.update_used_excluded_stats(fresh_kongs[i])
-    if len(used_p_indicies) == 0 and len(used_k_indicies) == 0:
-        return 0
-    leftover_p = [fresh_pungs[i] for i in range(len(fresh_pungs)) if i not in used_p_indicies]
-    leftover_k = [fresh_kongs[i] for i in range(len(fresh_kongs)) if i not in used_k_indicies]
-    amt += seat_wind_pung(leftover_p, leftover_k, seat_wind)
     return amt
 
 
