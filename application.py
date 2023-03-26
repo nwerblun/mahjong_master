@@ -34,8 +34,6 @@ class Application(Frame):
         self.temp_lbl = Label(self.hand_analyzer_real_time_frame, text="UNDER CONSTRUCTION")
         self.temp_lbl.pack(fill=BOTH, expand=YES)
         self.notebook.add(self.hand_analyzer_real_time_frame, text="Real-time Hand Analyzer")
-        # TODO: Remove this
-        self.hand_assister._debug_func()
 
     def create_hand_calc(self, root):
         self.hand_calc = HandCalculator(root)

@@ -293,7 +293,7 @@ def short_straight(chows):
         return 0
     amt = 0
     for i in range(1, len(s_chows)):
-        if (s_chows[i].suit == s_chows[i-1].suit) and (int(s_chows[i].numbers[0]) == int(s_chows[i-1].numbers[0] + 3)):
+        if (s_chows[i].suit == s_chows[i-1].suit) and (int(s_chows[i].numbers[0]) == int(s_chows[i-1].numbers[0]) + 3):
             if (not s_chows[i].used and not s_chows[i].excluded) or\
                     (not s_chows[i-1].used and not s_chows[i-1].excluded):
                 amt += 1
@@ -342,46 +342,31 @@ def two_terminal_chows(chows):
 
 
 def terminal_non_dragon_honor_pung(pungs, kongs, seat_wind, round_wind):
-    fresh_pungs = [ts for ts in pungs if not ts.used and not ts.excluded]
-    fresh_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
-    if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
-        return 0
+    # Apparently not victim to the "used" rule.
     amt = 0
     used_p_indicies = []
     used_k_indicies = []
     for i in range(len(pungs)):
-        if fresh_pungs[i].suit == "wind" and fresh_pungs[i].numbers not in [round_wind, seat_wind]:
+        if pungs[i].suit == "wind" and pungs[i].numbers not in [round_wind, seat_wind]:
             amt += 1
-            used_p_indicies += [i]
-            TileSet.update_used_excluded_stats(fresh_pungs[i])
-        elif fresh_pungs[i].suit != "dragon" and fresh_pungs[i].numbers in ["111", "999"]:
+        elif pungs[i].suit != "dragon" and pungs[i].numbers in ["111", "999"]:
             amt += 1
-            used_p_indicies += [i]
-            TileSet.update_used_excluded_stats(fresh_pungs[i])
     for i in range(len(kongs)):
-        if fresh_kongs[i].suit == "wind" and fresh_kongs[i].numbers not in [round_wind, seat_wind]:
+        if kongs[i].suit == "wind" and kongs[i].numbers not in [round_wind, seat_wind]:
             amt += 1
-            used_k_indicies += [i]
-            TileSet.update_used_excluded_stats(fresh_kongs[i])
-        elif fresh_kongs[i].suit != "dragon" and fresh_kongs[i].numbers in ["1111", "9999"]:
+        elif kongs[i].suit != "dragon" and kongs[i].numbers in ["1111", "9999"]:
             amt += 1
-            used_k_indicies += [i]
-            TileSet.update_used_excluded_stats(fresh_kongs[i])
-    if len(used_p_indicies) == 0 and len(used_k_indicies) == 0:
-        return 0
-    leftover_p = [fresh_pungs[i] for i in range(len(fresh_pungs)) if i not in used_p_indicies]
-    leftover_k = [fresh_kongs[i] for i in range(len(fresh_kongs)) if i not in used_k_indicies]
-    amt += terminal_non_dragon_honor_pung(leftover_p, leftover_k)
     return amt
 
 
 def melded_kong(kongs):
     if len(kongs) == 0:
         return 0
+    amt = 0
     for k in kongs:
         if not k.concealed:
-            return 1
-    return 0
+            amt += 1
+    return amt
 
 
 def voided_suit():
@@ -413,19 +398,14 @@ def single_wait(pair):
 
 
 def dragon_pung(pungs, kongs):
-    fresh_pungs = [ts for ts in pungs if not ts.used and not ts.excluded]
-    fresh_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
-    if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
-        return 0
+    # Apparently doesn't fall victim to the "used" rule
     amt = 0
     for i in range(len(pungs)):
-        if fresh_pungs[i].suit == "dragon":
+        if pungs[i].suit == "dragon":
             amt += 1
-            TileSet.update_used_excluded_stats(fresh_pungs[i])
     for i in range(len(kongs)):
-        if fresh_kongs[i].suit == "dragon":
+        if kongs[i].suit == "dragon":
             amt += 1
-            TileSet.update_used_excluded_stats(fresh_kongs[i])
     return amt
 
 
@@ -434,20 +414,13 @@ def round_wind_pung(pungs, kongs, round_wind):
 
 
 def seat_wind_pung(pungs, kongs, seat_wind):
-    fresh_pungs = [ts for ts in pungs if not ts.used and not ts.excluded]
-    fresh_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
-    if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
-        return 0
-    amt = 0
     for i in range(len(pungs)):
-        if fresh_pungs[i].suit == "wind" and fresh_pungs[i].numbers == seat_wind:
-            amt += 1
-            TileSet.update_used_excluded_stats(fresh_pungs[i])
+        if pungs[i].suit == "wind" and pungs[i].numbers == seat_wind:
+            return 1
     for i in range(len(kongs)):
-        if fresh_kongs[i].suit == "wind" and fresh_kongs[i].numbers == seat_wind:
-            amt += 1
-            TileSet.update_used_excluded_stats(fresh_kongs[i])
-    return amt
+        if kongs[i].suit == "wind" and kongs[i].numbers == seat_wind:
+            return 1
+    return 0
 
 
 def concealed_hand_discard_win():
@@ -463,22 +436,45 @@ def all_chow_no_honors(pungs, kongs, pair):
 
 
 def tile_hog(pungs, kongs, pair, chows):
-    all_ts = pungs+kongs+chows
-    all_ts_nums = flatten_list(list(map(lambda x: list(x.numbers), all_ts)))
+    all_bamboo = [ts for ts in pungs+kongs+chows if ts.suit == "bamboo"]
+    all_dots = [ts for ts in pungs+kongs+chows if ts.suit == "dot"]
+    all_chars = [ts for ts in pungs+kongs+chows if ts.suit == "character"]
+
+    all_bamboo_nums = flatten_list(list(map(lambda x: list(x.numbers), all_bamboo)))
+    all_dot_nums = flatten_list(list(map(lambda x: list(x.numbers), all_dots)))
+    all_char_nums = flatten_list(list(map(lambda x: list(x.numbers), all_chars)))
     pair_num = 0
     if not pair[0].is_wind() and not pair[0].is_dragon():
         pair_num = pair[0].get_tile_number()
+        if pair[0].is_bamboo():
+            all_bamboo_nums += [pair_num]*2
+        elif pair[0].is_dot():
+            all_dot_nums += [pair_num]*2
+        elif pair[0].is_char():
+            all_char_nums += [pair_num]*2
     amt = 0
     include = True
     for i in range(1, 10):
-        if all_ts_nums.count(str(i)) == 4:
-            for k in kongs:
+        if all_bamboo_nums.count(str(i)) == 4:
+            for k in [ts for ts in all_bamboo if ts.set_type == "kong"]:
                 if str(i) in k.numbers:
                     include = False
             if include:
                 amt += 1
-        elif all_ts_nums.count(str(i)) == 2 and str(i) == pair_num:
-            amt += 1
+        include = True
+        if all_dot_nums.count(str(i)) == 4:
+            for k in [ts for ts in all_dots if ts.set_type == "kong"]:
+                if str(i) in k.numbers:
+                    include = False
+            if include:
+                amt += 1
+        include = True
+        if all_char_nums.count(str(i)) == 4:
+            for k in [ts for ts in all_chars if ts.set_type == "kong"]:
+                if str(i) in k.numbers:
+                    include = False
+            if include:
+                amt += 1
         include = True
     return amt
 
@@ -524,17 +520,22 @@ def two_concealed_pungs(pungs, kongs):
 def one_concealed_kong(kongs):
     if len(kongs) == 0:
         return 0
+    amt = 0
     for k in kongs:
         if k.concealed:
-            return 1
-    return 0
+            amt += 1
+    return amt
 
 
 def all_simples(chows, pungs, kongs, pair):
     if pair[0].is_wind() or pair[0].is_dragon():
         return 0
+    elif pair[0].get_tile_number() in ["1", "9"]:
+        return 0
     for ts in (chows + pungs + kongs):
         if "1" in ts.numbers or "9" in ts.numbers:
+            return 0
+        elif ts.suit == "dragon" or ts.suit == "wind":
             return 0
     return 1
 
@@ -554,7 +555,8 @@ def fully_concealed_self_drawn():
 
 def two_melded_kongs(kongs):
     # You get 6 points for melded + unmelded. Maybe ignore concealed status here, so you get 4 + 2 pts?
-    if len(kongs) < 2:
+    # Apparently doesn't combine with 3 kongs, but 1 concealed kong does??
+    if len(kongs) != 2:
         return 0
     for k in kongs:
         if not k.concealed:
@@ -703,6 +705,8 @@ def reversible_tiles(chows, pungs, kongs, pair):
     all_tilesets_list = flatten_list([pungs, kongs, chows])
     if pair[0].is_dragon() and not (pair[0].get_dragon_type() == "w"):
         return 0
+    elif pair[0].is_char():
+        return 0
     elif pair[0].is_bamboo() and pair[0].get_tile_number() not in ["2", "4", "5", "6", "8", "9"]:
         return 0
     elif pair[0].is_dot() and pair[0].get_tile_number() not in ["1", "2", "3", "4", "5", "8", "9"]:
@@ -716,6 +720,8 @@ def reversible_tiles(chows, pungs, kongs, pair):
             return 0
         elif ts.suit == "dot" and ts.numbers not in ["111", "123", "222", "234", "333", "345", "444", "555", "888",
                                                      "999", "1111", "2222", "3333", "4444", "5555", "8888", "9999"]:
+            return 0
+        elif ts.suit == "character":
             return 0
     return 1
 

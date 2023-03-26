@@ -195,8 +195,11 @@ class Calculator:
             amt = two_dragon_pungs(tilesets["pungs"], tilesets["kongs"])
             print("Two Dragon Pungs: ", str(amt))
 
-            # SPACE FOR MELDED HAND
-            # SPACE FOR ALL TYPES
+            # MELDED HAND
+            # amt = 1 if (self.pwh.drawn_tile is None and self.pwh.get_num_revealed_sets() == 4) else 0
+            # print("Melded Hand:", str(amt))
+
+            # ALL TYPES
             amt = 1 if (self.pwh.get_num_dragons() > 0 and self.pwh.get_num_winds() > 0
                         and self.pwh.num_suits_used == 3) else 0
             print("All Types: ", str(amt))
@@ -217,7 +220,9 @@ class Calculator:
             amt = two_melded_kongs(tilesets["kongs"])
             print("Two Melded Kongs (or 1 melded + 1 concealed): ", str(amt))
 
-            # SPACE FOR FULLY CONCEALED SELF DRAWN
+            # FULLY CONCEALED SELF DRAWN
+            # amt = 1 if self.pwh.is_fully_concealed() else 0
+            # print("Fully concealed, self-drawn win:", str(amt))
 
             amt = outside_hand(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
             print("Outside Hand: ", str(amt))
@@ -237,10 +242,12 @@ class Calculator:
             amt = tile_hog(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"], tilesets["chows"])
             print("Tile Hog: ", str(amt))
 
-            amt = all_chow_no_honors(tilesets["chows"])
+            amt = all_chow_no_honors(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
             print("All Chows (no honors): ", str(amt))
 
-            # SPACE FOR CONCEALED HAND DISCARD WIN
+            # CONCEALED HAND DISCARD WIN
+            # amt = 1 if (self.pwh.is_fully_concealed() and self.pwh.drawn_tile is None) else 0
+            # print("Fully concealed, stolen discard win:", str(amt))
 
             amt = seat_wind_pung(tilesets["pungs"], tilesets["kongs"], self.tileset_format_seat_wind)
             print("Seat Wind Pung: ", str(amt))
@@ -255,7 +262,10 @@ class Calculator:
             # SPACE FOR CLOSED WAIT
             # SPACE FOR EDGE WAIT
             # SPACE FOR FLOWERS???
-            # SPACE FOR SELF DRAWN
+
+            # SELF DRAWN
+            # amt = 1 if self.pwh.drawn_tile is not None else 0
+            # print("Self drawn:", str(amt))
 
             # NO HONOR TILES
             amt = 1 if (self.pwh.get_num_honor_tiles() == 0) else 0
@@ -268,7 +278,8 @@ class Calculator:
             amt = melded_kong(tilesets["kongs"])
             print("Melded Kong: ", str(amt))
 
-            amt = terminal_non_dragon_honor_pung(tilesets["pungs"], tilesets["kongs"])
+            amt = terminal_non_dragon_honor_pung(tilesets["pungs"], tilesets["kongs"],
+                                                 self.tileset_format_seat_wind, self.tileset_format_round_wind)
             print("Terminal/Honor Pung (no dragon/seat/round wind): ", str(amt))
 
             amt = two_terminal_chows(tilesets["chows"])

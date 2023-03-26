@@ -151,6 +151,8 @@ class HandAssister(Frame):
         self.drawn_tile_entry.delete(0, 3)
 
     # TODO: add 'final tile from wall/discard button'??? or a note saying it's ignored
+    # TODO: change drawn tile -> last tile
+    # TODO: add checkbox in drawn tile area to 'discard' or 'self-drawn'
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
         self.hand_entry_frame.rowconfigure("all", weight=1)
@@ -167,6 +169,7 @@ class HandAssister(Frame):
                        "'Drawn Tile' is for self-drawn tile only.\n" \
                        "If you steal a tile, update your revealed sets\n" \
                        "and leave 'Drawn Tile' blank.\n" \
+                       "If you win by stealing your pair tile, put them both in concealed, leave drawn tile empty.\n" \
                        "===========================================\n" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
@@ -234,7 +237,7 @@ class HandAssister(Frame):
         self.hand_entry_warning_label.grid(row=2, column=2, sticky=W)
 
         self.clear_hand_button = Button(self.hand_entry_frame, text="Clear Hand", command=self._clear_hand_entry)
-        self.clear_hand_button.grid(row=3, column=2, sticky=W)
+        self.clear_hand_button.grid(row=3, column=2, sticky=W+E)
 
         self.round_seat_wind_frame = Frame(self.hand_entry_frame)
         self.round_seat_wind_frame.grid(row=0, rowspan=3, column=3, padx=15, sticky=W+N+S)
@@ -285,46 +288,3 @@ class HandAssister(Frame):
         for i in range(16):
             self.visualizer_concealed_set_tile_pictures += [Label(self.visualizer_concealed_frame)]
             self.visualizer_revealed_set_tile_pictures += [Label(self.visualizer_revealed_frame)]
-
-    # TODO: Remove this
-    def _debug_func(self):
-        self.concealed_kong_entries[0].insert(0, "b4")
-        self.concealed_kong_entries[1].insert(0, "")
-        self.concealed_kong_entries[2].insert(0, "")
-        self.concealed_kong_entries[3].insert(0, "")
-
-        self.revealed_kong_entries[0].insert(0, "")
-        self.revealed_kong_entries[1].insert(0, "")
-        self.revealed_kong_entries[2].insert(0, "")
-        self.revealed_kong_entries[3].insert(0, "")
-
-        self.concealed_other_entries[0].insert(0, "b7")
-        self.concealed_other_entries[1].insert(0, "b8")
-        self.concealed_other_entries[2].insert(0, "b9")
-        self.concealed_other_entries[3].insert(0, "c2")
-        self.concealed_other_entries[4].insert(0, "c3")
-        self.concealed_other_entries[5].insert(0, "c4")
-        self.concealed_other_entries[6].insert(0, "")
-        self.concealed_other_entries[7].insert(0, "")
-        self.concealed_other_entries[8].insert(0, "")
-        self.concealed_other_entries[9].insert(0, "")
-        self.concealed_other_entries[10].insert(0, "")
-        self.concealed_other_entries[11].insert(0, "")
-        self.concealed_other_entries[12].insert(0, "")
-        self.concealed_other_entries[13].insert(0, "")
-
-        self.revealed_other_entries[0].insert(0, "d4")
-        self.revealed_other_entries[1].insert(0, "d4")
-        self.revealed_other_entries[2].insert(0, "d4")
-        self.revealed_other_entries[3].insert(0, "")
-        self.revealed_other_entries[4].insert(0, "")
-        self.revealed_other_entries[5].insert(0, "")
-        self.revealed_other_entries[6].insert(0, "")
-        self.revealed_other_entries[7].insert(0, "")
-        self.revealed_other_entries[8].insert(0, "")
-        self.revealed_other_entries[9].insert(0, "")
-        self.revealed_other_entries[10].insert(0, "")
-        self.revealed_other_entries[11].insert(0, "")
-        self.revealed_other_entries[12].insert(0, "")
-        self.revealed_other_entries[13].insert(0, "")
-        self.drawn_tile_entry.insert(0, "")
