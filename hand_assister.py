@@ -80,7 +80,8 @@ class HandAssister(Frame):
         for e in self.revealed_kong_entries_cvs:
             if len(e.get()) == 2 or len(e.get()) == 3:
                 revealed_kongs += [e.get()]
-        self.calculator.set_hand(concealed, revealed, drawn, concealed_kongs, revealed_kongs)
+        self.calculator.set_hand(concealed, revealed, drawn, concealed_kongs, revealed_kongs,
+                                 self.round_wind_cv.get(), self.seat_wind_cv.get())
         self._update_visualizer()
 
     def _update_visualizer(self):
@@ -183,9 +184,9 @@ class HandAssister(Frame):
                                       validatecommand=(self.entry_validation, '%P'))
         self.drawn_tile_entry.pack(expand=YES)
         self.concealed_entry_labelframe = LabelFrame(self.hand_entry_frame, text="Concealed Tiles")
-        self.concealed_entry_labelframe.grid(row=0, column=2, pady=8, sticky=N+E+S+W)
+        self.concealed_entry_labelframe.grid(row=0, column=2, pady=8, sticky=N+S+W)
         self.revealed_entry_labelframe = Labelframe(self.hand_entry_frame, text="Revealed Tiles")
-        self.revealed_entry_labelframe.grid(row=1, column=2, pady=8, sticky=N+E+S+W)
+        self.revealed_entry_labelframe.grid(row=1, column=2, pady=8, sticky=N+S+W)
 
         self.concealed_kong_entry_label = Label(self.concealed_entry_labelframe, text="Kongs:")
         self.concealed_kong_entry_label.grid(row=0, column=0, sticky=N+S)
@@ -233,10 +234,10 @@ class HandAssister(Frame):
         self.hand_entry_warning_label.grid(row=2, column=2, sticky=W)
 
         self.clear_hand_button = Button(self.hand_entry_frame, text="Clear Hand", command=self._clear_hand_entry)
-        self.clear_hand_button.grid(row=3, column=2, sticky=W+E)
+        self.clear_hand_button.grid(row=3, column=2, sticky=W)
 
         self.round_seat_wind_frame = Frame(self.hand_entry_frame)
-        self.round_seat_wind_frame.grid(row=0, rowspan=3, column=3, padx=15, sticky=N+S)
+        self.round_seat_wind_frame.grid(row=0, rowspan=3, column=3, padx=15, sticky=W+N+S)
         e = Label(self.round_seat_wind_frame, text="Round Wind:")
         e.pack(side=TOP, pady=4, anchor="w")
         self.round_wind_cv = StringVar()
@@ -258,7 +259,7 @@ class HandAssister(Frame):
 
     def create_hand_visualizer(self):
         self.hand_visualizer_frame = LabelFrame(self.hand_entry_frame, text="Your Hand", labelanchor="n")
-        self.hand_visualizer_frame.grid(row=0, rowspan=3, padx=15, pady=4, column=3, sticky=N+E+S+W)
+        self.hand_visualizer_frame.grid(row=0, rowspan=3, padx=15, pady=4, column=4, sticky=N+E+S+W)
         self.hand_visualizer_frame.rowconfigure("all", weight=1)
 
         self.visualizer_revealed_frame = Frame(self.hand_visualizer_frame)

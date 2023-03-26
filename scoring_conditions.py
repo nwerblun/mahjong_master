@@ -288,19 +288,92 @@ def mixed_double_chow(chows):
 
 
 def short_straight(chows):
-    pass
+    s_chows = sorted([ts for ts in chows if not ts.excluded])
+    if len(s_chows) < 2:
+        return 0
+    amt = 0
+    for i in range(1, len(s_chows)):
+        if (s_chows[i].suit == s_chows[i-1].suit) and (int(s_chows[i].numbers[0]) == int(s_chows[i-1].numbers[0] + 3)):
+            if (not s_chows[i].used and not s_chows[i].excluded) or\
+                    (not s_chows[i-1].used and not s_chows[i-1].excluded):
+                amt += 1
+                TileSet.update_used_excluded_stats([s_chows[i], s_chows[i-1]])
+    return amt
 
 
 def two_terminal_chows(chows):
-    pass
+    fresh_chows = [ts for ts in chows if (not ts.excluded and not ts.used)]
+    used_but_not_excluded_chows = [ts for ts in chows if (ts.used and not ts.excluded)]
+    low_terms_fresh = [ts for ts in fresh_chows if ts.numbers == "123"]
+    high_terms_fresh = [ts for ts in fresh_chows if ts.numbers == "789"]
+    low_terms_used = [ts for ts in used_but_not_excluded_chows if ts.numbers == "123"]
+    high_terms_used = [ts for ts in used_but_not_excluded_chows if ts.numbers == "789"]
+    if len(low_terms_fresh) == 0 or len(high_terms_fresh) == 0:
+        return 0
+    low_terms_fresh = sorted(low_terms_fresh, key=lambda x: x.suit)
+    high_terms_fresh = sorted(high_terms_fresh, key=lambda x: x.suit)
+    low_terms_used = sorted(low_terms_used, key=lambda x: x.suit)
+    high_terms_used = sorted(high_terms_used, key=lambda x: x.suit)
+    low_f_h_u = list(zip(low_terms_fresh, high_terms_used))
+    low_u_h_f = list(zip(low_terms_used, high_terms_fresh))
+    low_f_h_f = list(zip(low_terms_fresh, high_terms_fresh))
+    amt = 0
+    for i in range(len(low_f_h_u)):
+        if low_f_h_u[i][0].suit == low_f_h_u[i][1].suit:
+            amt += 1
+            TileSet.update_used_excluded_stats([low_f_h_u[i][0], low_f_h_u[i][1]])
+    for i in range(len(low_u_h_f)):
+        if low_u_h_f[i][0].suit == low_u_h_f[i][1].suit:
+            amt += 1
+            TileSet.update_used_excluded_stats([low_u_h_f[i][0], low_u_h_f[i][1]])
+    for i in range(len(low_f_h_f)):
+        if low_f_h_f[i][0].suit == low_f_h_f[i][1].suit:
+            # Possibly updated from previous loops
+            if (low_f_h_f[i][0].used or low_f_h_f[i][0].excluded) and\
+                    (low_f_h_f[i][1].used or low_f_h_f[i][1].excluded):
+                continue
+            amt += 1
+            TileSet.update_used_excluded_stats([low_f_h_f[i][0], low_f_h_f[i][1]])
+    if amt == 0:
+        # No pairs possible, stop here
+        return 0
+    amt += two_terminal_chows(chows)
+    return amt
 
 
-def terminal_non_dragon_honor_pung(pungs, kongs):
-    pass
+def terminal_non_dragon_honor_pung(pungs, kongs, seat_wind, round_wind):
+    fresh_pungs = [ts for ts in pungs if not ts.used and not ts.excluded]
+    fresh_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
+    if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
+        return 0
+    amt = 0
+    used_p_indicies = []
+    used_k_indicies = []
+    for i in range(len(pungs)):
+        if fresh_pungs[i].suit == "wind" and fresh_pungs[i].numbers not in [round_wind, seat_wind]:
+            amt += 1
+            used_p_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in range(len(kongs)):
+        if fresh_kongs[i].suit == "wind" and fresh_kongs[i].numbers not in [round_wind, seat_wind]:
+            amt += 1
+            used_k_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_kongs[i])
+    if len(used_p_indicies) == 0 and len(used_k_indicies) == 0:
+        return 0
+    leftover_p = [fresh_pungs[i] for i in range(len(fresh_pungs)) if i not in used_p_indicies]
+    leftover_k = [fresh_kongs[i] for i in range(len(fresh_kongs)) if i not in used_k_indicies]
+    amt += terminal_non_dragon_honor_pung(leftover_p, leftover_k)
+    return amt
 
 
 def melded_kong(kongs):
-    pass
+    if len(kongs) == 0:
+        return 0
+    for k in kongs:
+        if not k.concealed:
+            return 1
+    return 0
 
 
 def voided_suit():
@@ -320,39 +393,104 @@ def flowers():
 
 
 def edge_wait(chows):
-    pass
+    raise NotImplementedError("Only considering winning hands at the moment, can't check pre-win hands.")
 
 
 def closed_wait(chows):
-    pass
+    raise NotImplementedError("Only considering winning hands at the moment, can't check pre-win hands.")
 
 
 def single_wait(pair):
-    pass
+    raise NotImplementedError("Only considering winning hands at the moment, can't check pre-win hands.")
 
 
 def dragon_pung(pungs, kongs):
-    pass
+    fresh_pungs = [ts for ts in pungs if not ts.used and not ts.excluded]
+    fresh_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
+    if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
+        return 0
+    amt = 0
+    used_p_indicies = []
+    used_k_indicies = []
+    for i in range(len(pungs)):
+        if fresh_pungs[i].suit == "dragon":
+            amt += 1
+            used_p_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in range(len(kongs)):
+        if fresh_kongs[i].suit == "dragon":
+            amt += 1
+            used_k_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_kongs[i])
+    if len(used_p_indicies) == 0 and len(used_k_indicies) == 0:
+        return 0
+    leftover_p = [fresh_pungs[i] for i in range(len(fresh_pungs)) if i not in used_p_indicies]
+    leftover_k = [fresh_kongs[i] for i in range(len(fresh_kongs)) if i not in used_k_indicies]
+    amt += dragon_pung(leftover_p, leftover_k)
+    return amt
 
 
-def round_wind_pung(pungs, kongs):
-    pass
+def round_wind_pung(pungs, kongs, round_wind):
+    return seat_wind_pung(pungs, kongs, round_wind)
 
 
-def seat_wind_pung(pungs, kongs):
-    pass
+def seat_wind_pung(pungs, kongs, seat_wind):
+    fresh_pungs = [ts for ts in pungs if not ts.used and not ts.excluded]
+    fresh_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
+    if len(fresh_pungs) == 0 and len(fresh_kongs) == 0:
+        return 0
+    amt = 0
+    used_p_indicies = []
+    used_k_indicies = []
+    for i in range(len(pungs)):
+        if fresh_pungs[i].suit == "wind" and fresh_pungs[i].numbers == seat_wind:
+            amt += 1
+            used_p_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_pungs[i])
+    for i in range(len(kongs)):
+        if fresh_kongs[i].suit == "wind" and fresh_kongs[i].numbers == seat_wind:
+            amt += 1
+            used_k_indicies += [i]
+            TileSet.update_used_excluded_stats(fresh_kongs[i])
+    if len(used_p_indicies) == 0 and len(used_k_indicies) == 0:
+        return 0
+    leftover_p = [fresh_pungs[i] for i in range(len(fresh_pungs)) if i not in used_p_indicies]
+    leftover_k = [fresh_kongs[i] for i in range(len(fresh_kongs)) if i not in used_k_indicies]
+    amt += seat_wind_pung(leftover_p, leftover_k, seat_wind)
+    return amt
 
 
-def concealed_hand_discard_win(pungs, kongs, chows, pair, drawn_or_discarded):
-    pass
+def concealed_hand_discard_win():
+    raise NotImplemented("Do it in the score calc? Maybe?")
 
 
-def all_chow_no_honors(pungs, kongs, pair, chows):
-    pass
+def all_chow_no_honors(pungs, kongs, pair):
+    if len(kongs) != 0 or len(pungs) != 0:
+        return 0
+    if pair[0].is_wind() or pair[0].is_dragon():
+        return 0
+    return 1
 
 
 def tile_hog(pungs, kongs, pair, chows):
-    pass
+    all_ts = pungs+kongs+chows
+    all_ts_nums = flatten_list(list(map(lambda x: list(x.numbers), all_ts)))
+    pair_num = 0
+    if not pair[0].is_wind() and not pair[0].is_dragon():
+        pair_num = pair[0].get_tile_number()
+    amt = 0
+    include = True
+    for i in range(1, 10):
+        if all_ts_nums.count(str(i)) == 4:
+            for k in kongs:
+                if str(i) in k.numbers:
+                    include = False
+            if include:
+                amt += 1
+        elif all_ts_nums.count(str(i)) == 2 and str(i) == pair_num:
+            amt += 1
+        include = True
+    return amt
 
 
 def mixed_double_pung(pungs, kongs):
@@ -488,8 +626,7 @@ def mixed_shifted_chow(chows):
 
     if not all([suit_three_check, suit_two_check, suit_one_check]):
         return 0
-    for ts in to_be_used:
-        TileSet.update_used_excluded_stats(ts)
+    TileSet.update_used_excluded_stats(to_be_used)
     return 1
 
 
@@ -522,8 +659,7 @@ def two_dragon_pungs(pungs, kongs):
         second = (fresh_pungs + fresh_kongs)[1]
     else:
         return 0
-    TileSet.update_used_excluded_stats(first)
-    TileSet.update_used_excluded_stats(second)
+    TileSet.update_used_excluded_stats([first, second])
     return 1
 
 
@@ -569,8 +705,7 @@ def mixed_straight(chows):
 
     if not all([suit_three_check, suit_two_check, suit_one_check]):
         return 0
-    for ts in to_be_used:
-        TileSet.update_used_excluded_stats(ts)
+    TileSet.update_used_excluded_stats(to_be_used)
     return 1
 
 
@@ -637,8 +772,7 @@ def mixed_triple_chow(chows):
 
     if not all([suit_three_check, suit_two_check, suit_one_check]):
         return 0
-    for ts in to_be_used:
-        TileSet.update_used_excluded_stats(ts)
+    TileSet.update_used_excluded_stats(to_be_used)
     return 1
 
 
@@ -687,8 +821,7 @@ def mixed_shifted_pungs(pungs, kongs):
 
     if not all([suit_three_check, suit_two_check, suit_one_check]):
         return 0
-    for ts in to_be_used:
-        TileSet.update_used_excluded_stats(ts)
+    TileSet.update_used_excluded_stats(to_be_used)
     return 1
 
 
@@ -818,14 +951,10 @@ def big_three_winds(pungs, kongs):
 
     if not ([west_check, east_check, south_check, north_check].count(True) >= 3):
         return 0
-    for i in fp_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_pungs[i])
-    for i in up_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
-    for i in fk_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_kongs[i])
-    for i in uk_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    TileSet.update_used_excluded_stats([fresh_pungs[i] for i in fp_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_pungs[i] for i in up_indicies_to_update])
+    TileSet.update_used_excluded_stats([fresh_kongs[i] for i in fk_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_kongs[i] for i in uk_indicies_to_update])
     return 1
 
 
@@ -855,8 +984,7 @@ def pure_straight(chows):
 
     sorted_chows = sorted(to_be_used)
     if sorted_chows[0].numbers == "123" and sorted_chows[1].numbers == "456" and sorted_chows[2].numbers == "789":
-        for c in sorted_chows:
-            TileSet.update_used_excluded_stats(c)
+        TileSet.update_used_excluded_stats(sorted_chows)
         return 1
     return 0
 
@@ -888,8 +1016,7 @@ def three_suited_terminal_chows(chows, pair):
             high_suit_two = True
 
     if all([low_suit_one, low_suit_two, high_suit_one, high_suit_two]):
-        for c in chows:
-            TileSet.update_used_excluded_stats(c)
+        TileSet.update_used_excluded_stats(chows)
         return 1
     return 0
 
@@ -931,8 +1058,7 @@ def pure_shifted_chows(chows):
         [c2[i] - c1[i] for i in range(3)] == [2, 2, 2]
     ]
     if all(possibility_one) or all(possibility_two):
-        for c in sorted_chows:
-            TileSet.update_used_excluded_stats(c)
+        TileSet.update_used_excluded_stats(sorted_chows)
         return 1
     return 0
 
@@ -1036,8 +1162,7 @@ def pure_triple_chow(chows):
     if not ((chows[start_ind+2].suit == chows[start_ind+1].suit) and
             (chows[start_ind+1].suit == chows[start_ind].suit)):
         return 0
-    for i in range(3):
-        TileSet.update_used_excluded_stats(chows[start_ind+i])
+    TileSet.update_used_excluded_stats([chows[start_ind], chows[start_ind+1], chows[start_ind+2]])
     return 1
 
 
@@ -1077,8 +1202,7 @@ def pure_shifted_pungs(pungs, kongs):
     if not ((int(sorted_ts[1].numbers[0]) == int(sorted_ts[0].numbers[0]) + 1) and
             (int(sorted_ts[2].numbers[0]) == int(sorted_ts[1].numbers[0]) + 1)):
         return 0
-    for ts in sorted_ts:
-        TileSet.update_used_excluded_stats(ts)
+    TileSet.update_used_excluded_stats(sorted_ts)
     return 1
 
 
@@ -1157,8 +1281,7 @@ def four_shifted_chows(chows):
         [c3[i] - c2[i] for i in range(3)] == [2, 2, 2]
     ]
     if all(possibility_one) or all(possibility_two):
-        for c in chows:
-            TileSet.update_used_excluded_stats(c)
+        TileSet.update_used_excluded_stats(chows)
         return 1
     return 0
 
@@ -1168,11 +1291,9 @@ def three_kongs(kongs):
     used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
     if len(fresh_kongs) < 1 or len(kongs) + len(used_but_not_excluded_kongs) < 3:
         return 0
-
-    for k in fresh_kongs:
-        TileSet.update_used_excluded_stats(k)
-    for k in used_but_not_excluded_kongs:
-        TileSet.update_used_excluded_stats(k)
+    # If there's 4, 4 kongs will be activated anyways and void this one.
+    TileSet.update_used_excluded_stats(fresh_kongs)
+    TileSet.update_used_excluded_stats(used_but_not_excluded_kongs)
     return 1
 
 
@@ -1201,8 +1322,7 @@ def quad_chow(chows):
         return 0
     if not ((chows[0].suit == chows[1].suit) and (chows[2].suit == chows[1].suit) and (chows[3].suit == chows[2].suit)):
         return 0
-    for c in chows:
-        TileSet.update_used_excluded_stats(c)
+    TileSet.update_used_excluded_stats(chows)
     return 1
 
 
@@ -1226,10 +1346,8 @@ def four_pure_shifted_pungs(pungs, kongs):
             (int(all_ts[2].numbers[0]) == int(all_ts[1].numbers[0]) + 1) and
             (int(all_ts[3].numbers[0]) == int(all_ts[2].numbers[0]) + 1)):
         return 0
-    for k in kongs:
-        TileSet.update_used_excluded_stats(k)
-    for p in pungs:
-        TileSet.update_used_excluded_stats(p)
+    TileSet.update_used_excluded_stats(kongs)
+    TileSet.update_used_excluded_stats(pungs)
     return 1
 
 
@@ -1334,14 +1452,10 @@ def little_four_winds(pungs, kongs, pair):
 
     if not all([west_check, east_check, south_check, north_check]):
         return 0
-    for i in fp_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_pungs[i])
-    for i in up_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
-    for i in fk_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_kongs[i])
-    for i in uk_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    TileSet.update_used_excluded_stats([fresh_pungs[i] for i in fp_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_pungs[i] for i in up_indicies_to_update])
+    TileSet.update_used_excluded_stats([fresh_kongs[i] for i in fk_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_kongs[i] for i in uk_indicies_to_update])
     return 1
 
 
@@ -1415,14 +1529,10 @@ def little_three_dragons(pungs, kongs, pair):
 
     if not all([red_check, green_check, white_check]):
         return 0
-    for i in fp_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_pungs[i])
-    for i in up_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
-    for i in fk_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_kongs[i])
-    for i in uk_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    TileSet.update_used_excluded_stats([fresh_pungs[i] for i in fp_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_pungs[i] for i in up_indicies_to_update])
+    TileSet.update_used_excluded_stats([fresh_kongs[i] for i in fk_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_kongs[i] for i in uk_indicies_to_update])
     return 1
 
 
@@ -1462,8 +1572,7 @@ def pure_terminal_chows(chows, num_suits, num_honors, pair):
             highs_count += 1
 
     if lows_count == 2 and highs_count == 2:
-        for ts in chows:
-            TileSet.update_used_excluded_stats(ts)
+        TileSet.update_used_excluded_stats(chows)
         return 1
     return 0
 
@@ -1533,14 +1642,10 @@ def big_four_winds(pungs, kongs):
 
     if not all([west_check, east_check, south_check, north_check]):
         return 0
-    for i in fp_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_pungs[i])
-    for i in up_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
-    for i in fk_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_kongs[i])
-    for i in uk_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    TileSet.update_used_excluded_stats([fresh_pungs[i] for i in fp_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_pungs[i] for i in up_indicies_to_update])
+    TileSet.update_used_excluded_stats([fresh_kongs[i] for i in fk_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_kongs[i] for i in uk_indicies_to_update])
     return 1
 
 
@@ -1601,14 +1706,10 @@ def big_three_dragons(pungs, kongs):
 
     if not all([red_check, green_check, white_check]):
         return 0
-    for i in fp_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_pungs[i])
-    for i in up_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_pungs[i])
-    for i in fk_indicies_to_update:
-        TileSet.update_used_excluded_stats(fresh_kongs[i])
-    for i in uk_indicies_to_update:
-        TileSet.update_used_excluded_stats(used_but_not_excluded_kongs[i])
+    TileSet.update_used_excluded_stats([fresh_pungs[i] for i in fp_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_pungs[i] for i in up_indicies_to_update])
+    TileSet.update_used_excluded_stats([fresh_kongs[i] for i in fk_indicies_to_update])
+    TileSet.update_used_excluded_stats([used_but_not_excluded_kongs[i] for i in uk_indicies_to_update])
     return 1
 
 
@@ -1691,7 +1792,5 @@ def four_kongs(kongs):
     excluded_kongs = [ts for ts in kongs if ts.excluded]
     if len(fresh_kongs) < 1 or len(excluded_kongs) > 0 or len(kongs) != 4:
         return 0
-
-    for k in kongs:
-        TileSet.update_used_excluded_stats(k)
+    TileSet.update_used_excluded_stats(kongs)
     return 1

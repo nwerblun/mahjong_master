@@ -13,9 +13,18 @@ class Calculator:
         self.hand_titles = MahjongHands.get_hand_titles()
         self.official_point_values = MahjongHands.get_point_values()
         self.voids = MahjongHands.get_voids()
+        self.round_wind = "East"
+        self.seat_wind = "East"
+        self.tileset_format_round_wind = "e"
+        self.tileset_format_seat_wind = "e"
 
-    def set_hand(self, concealed_tile_names, revealed_tile_names, drawn_tile, declared_concealed_kongs, revealed_kongs):
+    def set_hand(self, concealed_tile_names, revealed_tile_names, drawn_tile,
+                 declared_concealed_kongs, revealed_kongs, round_wind, seat_wind):
         # Handle adding/removing tiles typed in by the user
+        self.round_wind = round_wind
+        self.seat_wind = seat_wind
+        self.tileset_format_round_wind = round_wind[0].lower()
+        self.tileset_format_seat_wind = seat_wind[0].lower()
         self.hand.clear_hand()
         for n in concealed_tile_names:
             self.hand.add_tile_to_hand(False, n, more=True)
