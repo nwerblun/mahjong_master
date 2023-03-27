@@ -50,6 +50,8 @@ class Calculator:
         # If attempting to use with a set that is excluded, don't.
         # Go through conditions in reverse order so exclusionary rule skips cheap fans.
         print("======================================")
+        # check special cases
+
         for hand_dict in self.pwh.four_set_pair_hands:
             tilesets = {"kongs": [], "chows": [], "pungs": []}
             for s in hand_dict["declared_concealed_kongs"]:
@@ -67,248 +69,271 @@ class Calculator:
             for s in hand_dict["revealed_pungs"]:
                 tilesets["pungs"] += [TileSet(s, "pung")]
 
-            # TODO: Figure out which index
-            # hand_dict["point_conditions"]
-            print("Knitted Straight: ", str(hand_dict["knitted_straight"]))
+            # 81. Thirteen Orphans, computed separately
+            # 80. Seven Shifted Pairs, computed separately
+            hand_dict["point_conditions"][78] = four_kongs(tilesets["kongs"])
+            print("Four Kongs: ", str(hand_dict["point_conditions"][78]))
 
-            amt = four_kongs(tilesets["kongs"])
-            print("Four Kongs: ", str(amt))
+            hand_dict["point_conditions"][77] = nine_gates(tilesets["pungs"], tilesets["kongs"],
+                                                           tilesets["chows"], hand_dict["pair"],
+                                                           self.pwh.num_suits_used, self.pwh.get_num_honor_tiles())
+            print("Nine Gates: ", str(hand_dict["point_conditions"][77]))
 
-            amt = all_green(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
-            print("All Green: ", str(amt))
+            hand_dict["point_conditions"][76] = all_green(tilesets["pungs"], tilesets["kongs"],
+                                                          tilesets["chows"], hand_dict["pair"])
+            print("All Green: ", str(hand_dict["point_conditions"][76]))
 
-            amt = nine_gates(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"],
-                             self.pwh.num_suits_used, self.pwh.get_num_honor_tiles())
-            print("Nine Gates: ", str(amt))
+            hand_dict["point_conditions"][75] = big_three_dragons(tilesets["pungs"], tilesets["kongs"])
+            print("Big Three Dragons: ", str(hand_dict["point_conditions"][75]))
 
-            amt = big_three_dragons(tilesets["pungs"], tilesets["kongs"])
-            print("Big Three Dragons: ", str(amt))
+            hand_dict["point_conditions"][74] = big_four_winds(tilesets["pungs"], tilesets["kongs"])
+            print("Big Four Winds: ", str(hand_dict["point_conditions"][74]))
 
-            amt = big_four_winds(tilesets["pungs"], tilesets["kongs"])
-            print("Big Four Winds: ", str(amt))
+            hand_dict["point_conditions"][73] = pure_terminal_chows(tilesets["chows"],
+                                                                    self.pwh.num_suits_used,
+                                                                    self.pwh.get_num_honor_tiles(), hand_dict["pair"])
+            print("Pure Terminal Chows: ", str(hand_dict["point_conditions"][73]))
 
-            amt = pure_terminal_chows(tilesets["chows"],
-                                      self.pwh.num_suits_used, self.pwh.get_num_honor_tiles(), hand_dict["pair"])
-            print("Pure Terminal Chows: ", str(amt))
+            hand_dict["point_conditions"][72] = four_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Four Concealed Pungs", str(hand_dict["point_conditions"][72]))
 
-            amt = four_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Four Concealed Pungs", str(amt))
+            hand_dict["point_conditions"][71] = little_three_dragons(tilesets["pungs"], tilesets["kongs"],
+                                                                     hand_dict["pair"])
+            print("Little Three Dragons: ", str(hand_dict["point_conditions"][71]))
 
-            amt = little_three_dragons(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Little Three Dragons: ", str(amt))
-
-            amt = little_four_winds(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Little Four Winds: ", str(amt))
+            hand_dict["point_conditions"][70] = little_four_winds(tilesets["pungs"],
+                                                                  tilesets["kongs"], hand_dict["pair"])
+            print("Little Four Winds: ", str(hand_dict["point_conditions"][70]))
 
             # ALL HONORS
-            amt = 1 if (self.pwh.num_suits_used == 0) else 0
-            print("All Honors: ", str(amt))
+            hand_dict["point_conditions"][69] = 1 if (self.pwh.num_suits_used == 0) else 0
+            print("All Honors: ", str(hand_dict["point_conditions"][69]))
 
-            amt = all_terminals(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("All terminals: ", str(amt))
+            hand_dict["point_conditions"][68] = all_terminals(tilesets["chows"], tilesets["pungs"],
+                                                              tilesets["kongs"], hand_dict["pair"])
+            print("All terminals: ", str(hand_dict["point_conditions"][68]))
 
-            amt = four_pure_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Four Pure Shifted Pungs: ", str(amt))
+            hand_dict["point_conditions"][67] = four_pure_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Four Pure Shifted Pungs: ", str(hand_dict["point_conditions"][67]))
 
-            amt = quad_chow(tilesets["chows"])
-            print("Quad Chow: ", str(amt))
+            hand_dict["point_conditions"][66] = quad_chow(tilesets["chows"])
+            print("Quad Chow: ", str(hand_dict["point_conditions"][66]))
 
-            amt = all_terminals_and_honors(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("All Terminals + Honors: ", str(amt))
+            hand_dict["point_conditions"][65] = all_terminals_and_honors(tilesets["chows"], tilesets["pungs"],
+                                                                         tilesets["kongs"], hand_dict["pair"])
+            print("All Terminals + Honors: ", str(hand_dict["point_conditions"][65]))
 
-            amt = three_kongs(tilesets["kongs"])
-            print("Three Kongs: ", str(amt))
+            hand_dict["point_conditions"][64] = three_kongs(tilesets["kongs"])
+            print("Three Kongs: ", str(hand_dict["point_conditions"][64]))
 
-            amt = four_shifted_chows(tilesets["chows"])
-            print("Four Shifted Chows: ", str(amt))
+            hand_dict["point_conditions"][63] = four_shifted_chows(tilesets["chows"])
+            print("Four Shifted Chows: ", str(hand_dict["point_conditions"][63]))
 
-            amt = lower_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Lower Tiles: ", str(amt))
+            hand_dict["point_conditions"][62] = lower_tiles(tilesets["chows"], tilesets["pungs"],
+                                                            tilesets["kongs"], hand_dict["pair"])
+            print("Lower Tiles: ", str(hand_dict["point_conditions"][62]))
 
-            amt = middle_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Middle Tiles: ", str(amt))
+            hand_dict["point_conditions"][61] = middle_tiles(tilesets["chows"], tilesets["pungs"],
+                                                             tilesets["kongs"], hand_dict["pair"])
+            print("Middle Tiles: ", str(hand_dict["point_conditions"][61]))
 
-            amt = upper_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Upper Tiles: ", str(amt))
+            hand_dict["point_conditions"][60] = upper_tiles(tilesets["chows"], tilesets["pungs"],
+                                                            tilesets["kongs"], hand_dict["pair"])
+            print("Upper Tiles: ", str(hand_dict["point_conditions"][60]))
 
-            amt = pure_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Pure Shifted Pungs: ", str(amt))
+            hand_dict["point_conditions"][59] = pure_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Pure Shifted Pungs: ", str(hand_dict["point_conditions"][59]))
 
-            amt = pure_triple_chow(tilesets["chows"])
-            print("Pure Triple Chow: ", str(amt))
+            hand_dict["point_conditions"][58] = pure_triple_chow(tilesets["chows"])
+            print("Pure Triple Chow: ", str(hand_dict["point_conditions"][58]))
 
-            # FULL FLUSH
-            amt = 1 if (self.pwh.num_suits_used == 1 and self.pwh.get_num_honor_tiles() == 0) else 0
-            print("Full Flush: ", str(amt))
+            # 58. FULL FLUSH
+            hand_dict["point_conditions"][57] = 1 if (self.pwh.num_suits_used == 1 and
+                                                      self.pwh.get_num_honor_tiles() == 0) else 0
+            print("Full Flush: ", str(hand_dict["point_conditions"][57]))
 
-            amt = all_even_pungs(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("All Even Pungs: ", str(amt))
+            hand_dict["point_conditions"][56] = all_even_pungs(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
+            print("All Even Pungs: ", str(hand_dict["point_conditions"][56]))
 
-            amt = three_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Three Concealed Pungs: ", str(amt))
+            # 56. Greater honors + knitted, computed separately
+            # 55. Seven pairs, computed separately
 
-            amt = triple_pung(tilesets["pungs"], tilesets["kongs"])
-            print("Triple Pungs: ", str(amt))
+            hand_dict["point_conditions"][53] = three_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Three Concealed Pungs: ", str(hand_dict["point_conditions"][53]))
 
-            amt = all_fives(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("All Fives: ", str(amt))
+            hand_dict["point_conditions"][52] = triple_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Triple Pungs: ", str(hand_dict["point_conditions"][52]))
 
-            amt = pure_shifted_chows(tilesets["chows"])
-            print("Pure Shifted Chows: ", str(amt))
+            hand_dict["point_conditions"][51] = all_fives(tilesets["chows"], tilesets["pungs"],
+                                                          tilesets["kongs"], hand_dict["pair"])
+            print("All Fives: ", str(hand_dict["point_conditions"][51]))
 
-            amt = three_suited_terminal_chows(tilesets["chows"], hand_dict["pair"])
-            print("3 Suited Terminal Chows: ", str(amt))
+            hand_dict["point_conditions"][50] = pure_shifted_chows(tilesets["chows"])
+            print("Pure Shifted Chows: ", str(hand_dict["point_conditions"][50]))
 
-            amt = pure_straight(tilesets["chows"])
-            print("Pure Straight: ", str(amt))
+            hand_dict["point_conditions"][49] = three_suited_terminal_chows(tilesets["chows"], hand_dict["pair"])
+            print("3 Suited Terminal Chows: ", str(hand_dict["point_conditions"][49]))
 
-            amt = big_three_winds(tilesets["pungs"], tilesets["kongs"])
-            print("Big Three Winds: ", str(amt))
+            hand_dict["point_conditions"][48] = pure_straight(tilesets["chows"])
+            print("Pure Straight: ", str(hand_dict["point_conditions"][48]))
 
-            amt = lower_four(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
-            print("Lower Four: ", str(amt))
+            hand_dict["point_conditions"][47] = big_three_winds(tilesets["pungs"], tilesets["kongs"])
+            print("Big Three Winds: ", str(hand_dict["point_conditions"][47]))
 
-            amt = upper_four(tilesets["pungs"], tilesets["kongs"], tilesets["chows"], hand_dict["pair"])
-            print("Upper Four: ", str(amt))
+            hand_dict["point_conditions"][46] = lower_four(tilesets["pungs"], tilesets["kongs"],
+                                                           tilesets["chows"], hand_dict["pair"])
+            print("Lower Four: ", str(hand_dict["point_conditions"][46]))
 
-            # CHICKEN HAND WOULD GO HERE BUT YOU NEED TO CHECK SPECIAL CASES
-            # SPACE FOR KONG ROB
-            # SPACE FOR REPLACEMENT WIN
-            # SPACE FOR LAST TILE CLAIM
-            # SPACE FOR LAST TILE DRAW
+            hand_dict["point_conditions"][45] = upper_four(tilesets["pungs"], tilesets["kongs"],
+                                                           tilesets["chows"], hand_dict["pair"])
+            print("Upper Four: ", str(hand_dict["point_conditions"][45]))
 
-            amt = two_concealed_kongs(tilesets["kongs"])
-            print("Two Concealed Kongs: ", str(amt))
+            hand_dict["point_conditions"][44] = 1 if hand_dict["knitted_straight"] else 0
+            print("Knitted Straight: ", str(hand_dict["point_conditions"][44]))
 
-            amt = mixed_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Mixed Shifted Pungs: ", str(amt))
+            # 44. Lesser Honors + Knitted Tiles, computed separately
 
-            amt = mixed_triple_chow(tilesets["chows"])
-            print("Mixed Triple Chow: ", str(amt))
+            # 43. CHICKEN HAND WOULD GO HERE BUT YOU NEED TO CHECK SPECIAL CASES
+            # 42. SPACE FOR KONG ROB
+            # 41. SPACE FOR REPLACEMENT WIN
+            # 40. SPACE FOR LAST TILE CLAIM
+            # 39. SPACE FOR LAST TILE DRAW
 
-            amt = reversible_tiles(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Reversible Tiles: ", str(amt))
+            hand_dict["point_conditions"][37] = two_concealed_kongs(tilesets["kongs"])
+            print("Two Concealed Kongs: ", str(hand_dict["point_conditions"][37]))
 
-            amt = mixed_straight(tilesets["chows"])
-            print("Mixed Straight: ", str(amt))
+            hand_dict["point_conditions"][36] = mixed_shifted_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Mixed Shifted Pungs: ", str(hand_dict["point_conditions"][36]))
 
-            amt = two_dragon_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Two Dragon Pungs: ", str(amt))
+            hand_dict["point_conditions"][35] = mixed_triple_chow(tilesets["chows"])
+            print("Mixed Triple Chow: ", str(hand_dict["point_conditions"][35]))
 
-            # MELDED HAND
+            hand_dict["point_conditions"][34] = reversible_tiles(tilesets["chows"], tilesets["pungs"],
+                                                                 tilesets["kongs"], hand_dict["pair"])
+            print("Reversible Tiles: ", str(hand_dict["point_conditions"][34]))
+
+            hand_dict["point_conditions"][33] = mixed_straight(tilesets["chows"])
+            print("Mixed Straight: ", str(hand_dict["point_conditions"][33]))
+
+            hand_dict["point_conditions"][32] = two_dragon_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Two Dragon Pungs: ", str(hand_dict["point_conditions"][32]))
+
+            # 32. MELDED HAND
             # amt = 1 if (self.pwh.drawn_tile is None and self.pwh.get_num_revealed_sets() == 4) else 0
             # print("Melded Hand:", str(amt))
 
-            # ALL TYPES
-            amt = 1 if (self.pwh.get_num_dragons() > 0 and self.pwh.get_num_winds() > 0
-                        and self.pwh.num_suits_used == 3) else 0
-            print("All Types: ", str(amt))
+            # 31. ALL TYPES
+            hand_dict["point_conditions"][30] = 1 if (self.pwh.get_num_dragons() > 0 and self.pwh.get_num_winds() > 0
+                                                      and self.pwh.num_suits_used == 3) else 0
+            print("All Types: ", str(hand_dict["point_conditions"][30]))
 
-            amt = mixed_shifted_chow(tilesets["chows"])
-            print("Mixed shifted chow: ", str(amt))
+            hand_dict["point_conditions"][29] = mixed_shifted_chow(tilesets["chows"])
+            print("Mixed shifted chow: ", str(hand_dict["point_conditions"][29]))
 
-            # HALF FLUSH
-            amt = 1 if (self.pwh.num_suits_used == 1 and self.pwh.get_num_honor_tiles() > 0) else 0
-            print("Half Flush: ", str(amt))
+            # 29. HALF FLUSH
+            hand_dict["point_conditions"][28] = 1 if (self.pwh.num_suits_used == 1 and
+                                                      self.pwh.get_num_honor_tiles() > 0) else 0
+            print("Half Flush: ", str(hand_dict["point_conditions"][28]))
 
-            # ALL PUNGS
-            amt = 1 if (len(tilesets["chows"]) == 0) else 0
-            print("All Pungs (or kongs):", str(amt))
+            # 28. ALL PUNGS
+            hand_dict["point_conditions"][27] = 1 if (len(tilesets["chows"]) == 0) else 0
+            print("All Pungs (or kongs):", str(hand_dict["point_conditions"][27]))
 
-            # SPACE FOR LAST TILE
+            # 27. SPACE FOR LAST TILE
 
-            amt = two_melded_kongs(tilesets["kongs"])
-            print("Two Melded Kongs (or 1 melded + 1 concealed): ", str(amt))
+            hand_dict["point_conditions"][25] = two_melded_kongs(tilesets["kongs"])
+            print("Two Melded Kongs (or 1 melded + 1 concealed): ", str(hand_dict["point_conditions"][25]))
 
-            # FULLY CONCEALED SELF DRAWN
+            # 25. FULLY CONCEALED SELF DRAWN
             # amt = 1 if self.pwh.is_fully_concealed() else 0
             # print("Fully concealed, self-drawn win:", str(amt))
 
-            amt = outside_hand(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("Outside Hand: ", str(amt))
+            hand_dict["point_conditions"][23] = outside_hand(tilesets["chows"], tilesets["pungs"],
+                                                             tilesets["kongs"], hand_dict["pair"])
+            print("Outside Hand: ", str(hand_dict["point_conditions"][23]))
 
-            amt = all_simples(tilesets["chows"], tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("All Simples: ", str(amt))
+            hand_dict["point_conditions"][22] = all_simples(tilesets["chows"], tilesets["pungs"],
+                                                            tilesets["kongs"], hand_dict["pair"])
+            print("All Simples: ", str(hand_dict["point_conditions"][22]))
 
-            amt = one_concealed_kong(tilesets["kongs"])
-            print("One Concealed Kong: ", str(amt))
+            hand_dict["point_conditions"][21] = one_concealed_kong(tilesets["kongs"])
+            print("One Concealed Kong: ", str(hand_dict["point_conditions"][21]))
 
-            amt = two_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
-            print("Two Concealed Pungs: ", str(amt))
+            hand_dict["point_conditions"][20] = two_concealed_pungs(tilesets["pungs"], tilesets["kongs"])
+            print("Two Concealed Pungs: ", str(hand_dict["point_conditions"][20]))
 
-            amt = mixed_double_pung(tilesets["pungs"], tilesets["kongs"])
-            print("Mixed Double Pungs: ", str(amt))
+            hand_dict["point_conditions"][19] = mixed_double_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Mixed Double Pungs: ", str(hand_dict["point_conditions"][19]))
 
-            amt = tile_hog(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"], tilesets["chows"])
-            print("Tile Hog: ", str(amt))
+            hand_dict["point_conditions"][18] = tile_hog(tilesets["pungs"], tilesets["kongs"],
+                                                         hand_dict["pair"], tilesets["chows"])
+            print("Tile Hog: ", str(hand_dict["point_conditions"][18]))
 
-            amt = all_chow_no_honors(tilesets["pungs"], tilesets["kongs"], hand_dict["pair"])
-            print("All Chows (no honors): ", str(amt))
+            hand_dict["point_conditions"][17] = all_chow_no_honors(tilesets["pungs"], tilesets["kongs"],
+                                                                   hand_dict["pair"])
+            print("All Chows (no honors): ", str(hand_dict["point_conditions"][17]))
 
-            # CONCEALED HAND DISCARD WIN
+            # 17. CONCEALED HAND DISCARD WIN
             # amt = 1 if (self.pwh.is_fully_concealed() and self.pwh.drawn_tile is None) else 0
             # print("Fully concealed, stolen discard win:", str(amt))
 
-            amt = seat_wind_pung(tilesets["pungs"], tilesets["kongs"], self.tileset_format_seat_wind)
-            print("Seat Wind Pung: ", str(amt))
+            hand_dict["point_conditions"][15] = seat_wind_pung(tilesets["pungs"], tilesets["kongs"],
+                                                               self.tileset_format_seat_wind)
+            print("Seat Wind Pung: ", str(hand_dict["point_conditions"][15]))
 
-            amt = round_wind_pung(tilesets["pungs"], tilesets["kongs"], self.tileset_format_round_wind)
-            print("Round Wind Pung: ", str(amt))
+            hand_dict["point_conditions"][14] = round_wind_pung(tilesets["pungs"], tilesets["kongs"], self.tileset_format_round_wind)
+            print("Round Wind Pung: ", str(hand_dict["point_conditions"][14]))
 
-            amt = dragon_pung(tilesets["pungs"], tilesets["kongs"])
-            print("Dragon Pung: ", str(amt))
+            hand_dict["point_conditions"][13] = dragon_pung(tilesets["pungs"], tilesets["kongs"])
+            print("Dragon Pung: ", str(hand_dict["point_conditions"][13]))
 
-            # SPACE FOR SINGLE WAIT
-            # SPACE FOR CLOSED WAIT
-            # SPACE FOR EDGE WAIT
-            # SPACE FOR FLOWERS???
+            # 13. SPACE FOR SINGLE WAIT
+            # 12. SPACE FOR CLOSED WAIT
+            # 11. SPACE FOR EDGE WAIT
+            # 10. SPACE FOR FLOWERS???
 
-            # SELF DRAWN
+            # 09. SELF DRAWN
             # amt = 1 if self.pwh.drawn_tile is not None else 0
             # print("Self drawn:", str(amt))
 
-            # NO HONOR TILES
-            amt = 1 if (self.pwh.get_num_honor_tiles() == 0) else 0
-            print("No Honor Tiles:", str(amt))
+            # 08. NO HONOR TILES
+            hand_dict["point_conditions"][7] = 1 if (self.pwh.get_num_honor_tiles() == 0) else 0
+            print("No Honor Tiles:", str(hand_dict["point_conditions"][7]))
 
-            # VOIDED SUIT
-            amt = 1 if (self.pwh.num_suits_used <= 2) else 0
-            print("Voided Suit:", str(amt))
+            # 07. VOIDED SUIT
+            hand_dict["point_conditions"][6] = 1 if (self.pwh.num_suits_used <= 2) else 0
+            print("Voided Suit:", str(hand_dict["point_conditions"][6]))
 
-            amt = melded_kong(tilesets["kongs"])
-            print("Melded Kong: ", str(amt))
+            hand_dict["point_conditions"][5] = melded_kong(tilesets["kongs"])
+            print("Melded Kong: ", str(hand_dict["point_conditions"][5]))
 
-            amt = terminal_non_dragon_honor_pung(tilesets["pungs"], tilesets["kongs"],
-                                                 self.tileset_format_seat_wind, self.tileset_format_round_wind)
-            print("Terminal/Honor Pung (no dragon/seat/round wind): ", str(amt))
+            hand_dict["point_conditions"][4] = terminal_non_dragon_honor_pung(tilesets["pungs"], tilesets["kongs"],
+                                                                              self.tileset_format_seat_wind,
+                                                                              self.tileset_format_round_wind)
+            print("Terminal/Honor Pung (no dragon/seat/round wind): ", str(hand_dict["point_conditions"][4]))
 
-            amt = two_terminal_chows(tilesets["chows"])
-            print("Two Terminal Chows: ", str(amt))
+            hand_dict["point_conditions"][3] = two_terminal_chows(tilesets["chows"])
+            print("Two Terminal Chows: ", str(hand_dict["point_conditions"][3]))
 
-            amt = short_straight(tilesets["chows"])
-            print("Short Straight: ", str(amt))
+            hand_dict["point_conditions"][2] = short_straight(tilesets["chows"])
+            print("Short Straight: ", str(hand_dict["point_conditions"][2]))
 
-            amt = mixed_double_chow(tilesets["chows"])
-            print("Mixed double chow: ", str(amt))
-            hand_dict["point_conditions"][1] = amt
+            hand_dict["point_conditions"][1] = mixed_double_chow(tilesets["chows"])
+            print("Mixed double chow: ", str(hand_dict["point_conditions"][1]))
 
-            amt = pure_double_chow(tilesets["chows"])
-            print("Pure double chow: ", str(amt))
-            hand_dict["point_conditions"][0] = amt
+            hand_dict["point_conditions"][0] = pure_double_chow(tilesets["chows"])
+            print("Pure double chow: ", str(hand_dict["point_conditions"][0]))
 
-            print("-----next hand------")
-
-        # check special cases
-        amt = lesser_honors_knitted_seq(self.pwh)
-        print("Lesser Honors + Knitted: ", str(amt))
-        amt = seven_pairs(self.pwh)
-        print("Seven Pairs: ", str(amt))
-        amt = greater_honors_knitted_tiles(self.pwh)
-        print("Greater Honors + Knitted: ", str(amt))
-        amt = seven_shifted_pairs(self.pwh)
-        print("Seven Shifted Pairs: ", str(amt))
-        amt = thirteen_orphans(self.pwh)
-        print("Thirteen orphans: ", str(amt))
+        lhks = lesser_honors_knitted_seq(self.pwh)
+        sp = seven_pairs(self.pwh)
+        ghkt = greater_honors_knitted_tiles(self.pwh)
+        ssp = seven_shifted_pairs(self.pwh)
+        to = thirteen_orphans(self.pwh)
+        print("Thirteen orphans: ", str(to))
+        print("Seven Shifted Pairs: ", str(ssp))
+        print("Greater Honors + Knitted: ", str(ghkt))
+        print("Seven Pairs: ", str(sp))
+        print("Lesser Honors + Knitted: ", str(lhks))
         # after checking all hands
         # check chicken hand
 
