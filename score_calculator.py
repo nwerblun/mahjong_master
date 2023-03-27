@@ -36,22 +36,15 @@ class Calculator:
             self.hand.add_revealed_kong_to_hand(k)
         self.hand.set_drawn_tile(drawn_tile)
         self.pwh = PossibleWinningHand(self.hand)
-        self._score_winning_sets()
-
-    def _check_special_cases(self):
-        return self
+        max_point_array = self._score_winning_sets()
 
     def _score_winning_sets(self):
         if self.pwh.get_num_tiles_in_hand() < 14:
-            return
-        # Format (used=False, excluded=False)
+            return None
         # if used to make a set, used=True.
         # If used with a set that has used=True, excluded = True.
         # If attempting to use with a set that is excluded, don't.
         # Go through conditions in reverse order so exclusionary rule skips cheap fans.
-        print("======================================")
-        # check special cases
-
         for hand_dict in self.pwh.four_set_pair_hands:
             tilesets = {"kongs": [], "chows": [], "pungs": []}
             for s in hand_dict["declared_concealed_kongs"]:
@@ -324,25 +317,44 @@ class Calculator:
             hand_dict["point_conditions"][0] = pure_double_chow(tilesets["chows"])
             print("Pure double chow: ", str(hand_dict["point_conditions"][0]))
 
-        # TODO: Update this so that it returns either the hand_dict point conditions array or an array with just 1 for
-        # Something like thirteen orphans
-        max_score = 0
+        base_array = [0] * len(MahjongHands.get_hand_titles())
         sorted_hands = sorted(self.pwh.four_set_pair_hands, key=lambda x: sum(x["point_conditions"]))
         if len(sorted_hands) > 0:
-            max_score = sum(sorted_hands[0]["point_conditions"])
+            max_score_array = sorted_hands[0]["point_conditions"]
+        else:
+            max_score_array = base_array[:]
+
         lhks = lesser_honors_knitted_seq(self.pwh)
         if len(sorted_hands) > 0 and sorted_hands[0].knitted_straight:
-            max_score = max(max_score, lhks+12)
+            if lhks+12 > sum(max_score_array):
+                max_score_array = base_array[:]
+                max_score_array[44] = 1
+                max_score_array[43] = 1
         else:
-            max_score = max(max_score, lhks)
+            if lhks > sum(max_score_array):
+                max_score_array = base_array[:]
+                max_score_array[44] = 1
+
         sp = seven_pairs(self.pwh)
-        max_score = max(max_score, sp)
+        if sp > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[54] = 1
+
         ghkt = greater_honors_knitted_tiles(self.pwh)
-        max_score = max(max_score, ghkt)
+        if ghkt > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[55] = 1
+
         ssp = seven_shifted_pairs(self.pwh)
-        max_score = max(max_score, ssp)
+        if ssp > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[79] = 1
+
         to = thirteen_orphans(self.pwh)
-        max_score = max(max_score, to)
+        if to > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[80] = 1
+
         print("Thirteen orphans: ", str(to))
         print("Seven Shifted Pairs: ", str(ssp))
         print("Greater Honors + Knitted: ", str(ghkt))
@@ -350,9 +362,10 @@ class Calculator:
         print("Lesser Honors + Knitted: ", str(lhks))
         # after checking all hands
         # check chicken hand
-        if max_score == 0:
-            max_score = 8
-        return max_score
+        if sum(max_score_array) == 0:
+            max_score_array = base_array[:]
+            max_score_array[42] = 1
+        return max_score_array
 
 
 
