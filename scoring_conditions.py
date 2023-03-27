@@ -4,7 +4,7 @@ from functools import total_ordering
 
 
 def lesser_honors_knitted_seq(hand):
-    all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    all_tiles = hand.concealed_tiles
     if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
         return 0
     knitted_set_variants = [
@@ -49,7 +49,7 @@ def lesser_honors_knitted_seq(hand):
 
 
 def seven_pairs(hand):
-    all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    all_tiles = hand.concealed_tiles
     if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
         return 0
     all_tiles = sorted(all_tiles)
@@ -65,7 +65,7 @@ def seven_pairs(hand):
 
 
 def greater_honors_knitted_tiles(hand):
-    all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    all_tiles = hand.concealed_tiles
     if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
         return 0
     knitted_set_variants = [
@@ -113,7 +113,7 @@ def greater_honors_knitted_tiles(hand):
 def seven_shifted_pairs(hand):
     if hand.get_num_honor_tiles() > 0:
         return 0
-    all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    all_tiles = hand.concealed_tiles
     if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
         return 0
     all_tiles = sorted(all_tiles)
@@ -132,10 +132,10 @@ def seven_shifted_pairs(hand):
 
 
 def thirteen_orphans(hand):
-    all_tiles = hand.concealed_tiles + [hand.drawn_tile] if hand.drawn_tile else hand.concealed_tiles
+    all_tiles = hand.concealed_tiles
     if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
         return 0
-    hand_size = len(hand.concealed_tiles) + 1 if hand.drawn_tile else len(hand.concealed_tiles)
+    hand_size = len(hand.concealed_tiles)
     tiles_needed = [
         Tile("b1"), Tile("b9"), Tile("c1"),
         Tile("c9"), Tile("d1"), Tile("d9"),
@@ -250,7 +250,7 @@ def pure_double_chow(chows):
         extra = pure_double_chow(recursion_list)
         amt += 1 + extra
     else:
-        return 0
+        return pure_double_chow(fresh_chows[1:] + used_but_not_excluded_chows)
     return amt
 
 
@@ -283,7 +283,7 @@ def mixed_double_chow(chows):
         extra = mixed_double_chow(recursion_list)
         amt += 1 + extra
     else:
-        return 0
+        return mixed_double_chow(fresh_chows[1:] + used_but_not_excluded_chows)
     return amt
 
 

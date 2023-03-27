@@ -173,15 +173,15 @@ class Hand:
         self.uses_bamboo = False
         self.uses_chars = False
         self.uses_dots = False
+        self.final_tile = None
+        self.self_drawn_final_tile = False
         self.num_winds = 0
         self.num_dragons = 0
-        self.drawn_tile = None
 
     def _hand_is_legal(self):
         if self.get_num_tiles_in_hand() < 14 or self.get_num_tiles_in_hand() > 18:
             return False
         total_tile_list = self.concealed_tiles + self.revealed_tiles + self.declared_concealed_kongs
-        total_tile_list = total_tile_list + [self.drawn_tile] if self.drawn_tile is not None else total_tile_list
         total_tile_list = flatten_list(total_tile_list)
         for t in total_tile_list:
             if total_tile_list.count(t) > 4:
@@ -195,8 +195,6 @@ class Hand:
         self.num_suits_used = 0
         self.uses_bamboo = self.uses_dots = self.uses_chars = False
         all_tiles = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
-        if self.drawn_tile:
-            all_tiles += [self.drawn_tile]
 
         for tile in all_tiles:
             if tile.is_wind():
@@ -222,14 +220,18 @@ class Hand:
     def get_num_winds(self):
         return self.num_winds
 
-    def set_drawn_tile(self, name):
+    def set_final_tile(self, name, self_drawn):
         if Tile.is_valid_name(name):
-            self.drawn_tile = Tile(name)
+            self.final_tile = Tile(name)
+            self.self_drawn_final_tile = self_drawn
+            if self_drawn:
+                self.concealed_tiles += [self.final_tile]
+            else:
+                self.revealed_tiles += [self.final_tile]
         self._update_hand()
 
     def get_num_tiles_in_hand(self):
-        modifier = 1 if self.drawn_tile else 0
-        return modifier + len(flatten_list(self.declared_concealed_kongs))\
+        return len(flatten_list(self.declared_concealed_kongs))\
             + len(self.concealed_tiles) + len(self.revealed_tiles)
 
     def clear_hand(self):
@@ -240,6 +242,8 @@ class Hand:
             self.concealed_tiles = sorted(self.concealed_tiles)
         if len(self.declared_concealed_kongs) >= 1:
             self.declared_concealed_kongs = sorted(self.declared_concealed_kongs)
+        if len(self.revealed_tiles) > 1:
+            self.revealed_tiles  = sorted(self.revealed_tiles)
 
     def _update_hand(self):
         self._sort_hand()
@@ -320,7 +324,6 @@ class PossibleWinningHand(Hand):
         self.revealed_tiles = hand.revealed_tiles[:]
         self.concealed_tiles = hand.concealed_tiles[:]
         self.declared_concealed_kongs = hand.declared_concealed_kongs[:]
-        self.drawn_tile = hand.drawn_tile
         self.point_conditions = [0] * len(MahjongHands.get_hand_titles())
         self.four_set_pair_hands = []
         self.special_hands = []
@@ -445,7 +448,7 @@ class PossibleWinningHand(Hand):
             return
         sets_remaining = 4 - self.get_num_revealed_sets("all") - len(self.declared_concealed_kongs)
         # Can we construct this many sets with the concealed tiles + drawn tile?
-        all_tiles = self.concealed_tiles + [self.drawn_tile] if self.drawn_tile else self.concealed_tiles
+        all_tiles = self.concealed_tiles
         all_tiles = sorted(all_tiles)
         # Generate all possible pairs, and the remaining lists if you take out those pairs
         pairs_list = []

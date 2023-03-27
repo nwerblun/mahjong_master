@@ -18,7 +18,7 @@ class Calculator:
         self.tileset_format_round_wind = "e"
         self.tileset_format_seat_wind = "e"
 
-    def set_hand(self, concealed_tile_names, revealed_tile_names, drawn_tile,
+    def set_hand(self, concealed_tile_names, revealed_tile_names, final_tile, self_drawn_final,
                  declared_concealed_kongs, revealed_kongs, round_wind, seat_wind):
         # Handle adding/removing tiles typed in by the user
         self.round_wind = round_wind
@@ -34,7 +34,7 @@ class Calculator:
             self.hand.add_declared_concealed_kong_to_hand(k)
         for k in revealed_kongs:
             self.hand.add_revealed_kong_to_hand(k)
-        self.hand.set_drawn_tile(drawn_tile)
+        self.hand.set_final_tile(final_tile, self_drawn_final)
         self.pwh = PossibleWinningHand(self.hand)
         max_point_array = self._score_winning_sets()
 
@@ -325,7 +325,7 @@ class Calculator:
             max_score_array = base_array[:]
 
         lhks = lesser_honors_knitted_seq(self.pwh)
-        if len(sorted_hands) > 0 and sorted_hands[0].knitted_straight:
+        if len(sorted_hands) > 0 and sorted_hands[0]["knitted_straight"]:
             if lhks+12 > sum(max_score_array):
                 max_score_array = base_array[:]
                 max_score_array[44] = 1

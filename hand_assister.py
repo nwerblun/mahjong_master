@@ -27,9 +27,9 @@ class HandAssister(Frame):
         self.concealed_others_entry_label = None
         self.revealed_others_entry_label = None
         self.revealed_kong_entry_label = None
-        self.drawn_tile_labelframe = None
-        self.drawn_tile_entry = None
-        self.drawn_tile_entry_cv = None
+        self.final_tile_labelframe = None
+        self.final_tile_entry = None
+        self.final_tile_entry_cv = None
         self.entry_validation = None
         self.round_seat_wind_frame = None
         self.round_wind_dropdown = None
@@ -43,11 +43,13 @@ class HandAssister(Frame):
         self.visualizer_dawn_tile_frame = None
         self.visualizer_revealed_set_label = None
         self.visualizer_concealed_set_label = None
-        self.visualizer_drawn_tile_label = None
+        self.visualizer_final_tile_label = None
         self.visualizer_revealed_set_tile_pictures = []
         self.visualizer_concealed_set_tile_pictures = []
-        self.visualizer_drawn_tile_picture = None
+        self.visualizer_final_tile_picture = None
         self.hand_entry_warning_label = None
+        self.final_tile_drawn_or_discard_checkbutton_cv = None
+        self.final_tile_drawn_or_discard_checkbutton = None
         self.calculator = Calculator()
 
     def _check_valid_hand_entry(self, text):
@@ -65,7 +67,8 @@ class HandAssister(Frame):
     def _hand_change(self):
         concealed = []
         revealed = []
-        drawn = self.drawn_tile_entry_cv.get()
+        final = self.final_tile_entry_cv.get()
+        self_drawn_final = self.final_tile_drawn_or_discard_checkbutton_cv.get()
         concealed_kongs = []
         revealed_kongs = []
         for e in self.concealed_other_entries_cvs:
@@ -80,7 +83,7 @@ class HandAssister(Frame):
         for e in self.revealed_kong_entries_cvs:
             if len(e.get()) == 2 or len(e.get()) == 3:
                 revealed_kongs += [e.get()]
-        self.calculator.set_hand(concealed, revealed, drawn, concealed_kongs, revealed_kongs,
+        self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
                                  self.round_wind_cv.get(), self.seat_wind_cv.get())
         self._update_visualizer()
 
@@ -89,12 +92,12 @@ class HandAssister(Frame):
             l.pack_forget()
         for l in self.visualizer_concealed_set_tile_pictures:
             l.pack_forget()
-        self.visualizer_drawn_tile_picture.pack_forget()
+        self.visualizer_final_tile_picture.pack_forget()
 
         concealed = self.calculator.hand.concealed_tiles[:16]
         declared_kongs = self.calculator.hand.declared_concealed_kongs[:4]
         c, p, k = self.calculator.hand.get_revealed_sets()
-        drawn = self.calculator.hand.drawn_tile
+        final = self.calculator.hand.final_tile
         for i, t in enumerate(concealed):
             self.visualizer_concealed_set_tile_pictures[i].configure(image=t.ph)
             self.visualizer_concealed_set_tile_pictures[i].pack(side=LEFT, anchor="w")
@@ -129,16 +132,16 @@ class HandAssister(Frame):
                     lbl_ctr += 1
                 start = False
 
-        if drawn:
-            self.visualizer_drawn_tile_picture.configure(image=drawn.ph)
-            self.visualizer_drawn_tile_picture.pack(expand=YES, fill=BOTH)
+        if final:
+            self.visualizer_final_tile_picture.configure(image=final.ph)
+            self.visualizer_final_tile_picture.pack(expand=YES, fill=BOTH)
 
     def _clear_hand_entry(self):
         for p in self.visualizer_concealed_set_tile_pictures:
             p.pack_forget()
         for p in self.visualizer_revealed_set_tile_pictures:
             p.pack_forget()
-        self.visualizer_drawn_tile_picture.pack_forget()
+        self.visualizer_final_tile_picture.pack_forget()
 
         for e in self.concealed_other_entries:
             e.delete(0, 3)
@@ -148,11 +151,10 @@ class HandAssister(Frame):
             e.delete(0, 3)
         for e in self.revealed_kong_entries:
             e.delete(0, 3)
-        self.drawn_tile_entry.delete(0, 3)
+        self.final_tile_entry.delete(0, 3)
+        self.final_tile_drawn_or_discard_checkbutton_cv.set(0)
 
-    # TODO: add 'final tile from wall/discard button'??? or a note saying it's ignored
-    # TODO: change drawn tile -> last tile
-    # TODO: add checkbox in drawn tile area to 'discard' or 'self-drawn'
+    # TODO: Add boxes for final tile/kong rob etc
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
         self.hand_entry_frame.rowconfigure("all", weight=1)
@@ -166,10 +168,9 @@ class HandAssister(Frame):
                        "If you have a kong you have not declared,\n" \
                        "enter it in 'others' instead of kong\n" \
                        "==========================================\n" \
-                       "'Drawn Tile' is for self-drawn tile only.\n" \
-                       "If you steal a tile, update your revealed sets\n" \
-                       "and leave 'Drawn Tile' blank.\n" \
-                       "If you win by stealing your pair tile, put them both in concealed, leave drawn tile empty.\n" \
+                       "If you steal a tile, move the set to revealed sets\n" \
+                       "If you win by stealing, set your final tile to non-self-drawn and move the other\n" \
+                       "tiles to revealed\n" \
                        "===========================================\n" \
                        "b1-9 = Bamboo. Ex: b1 b5\n" \
                        "c1-9 = Characters. Ex c4 c8\n" \
@@ -179,13 +180,23 @@ class HandAssister(Frame):
         self.instructions_text = Message(self.hand_entry_frame, text=instructions, aspect=400)
         self.instructions_text.grid(row=0, rowspan=3, column=0, sticky=W+N+S)
 
-        self.drawn_tile_labelframe = Labelframe(self.hand_entry_frame, text="Drawn Tile")
-        self.drawn_tile_labelframe.grid(row=0, rowspan=3, column=1, padx=15, pady=2, sticky=N+S)
-        self.drawn_tile_entry_cv = StringVar()
-        self.drawn_tile_entry = Entry(self.drawn_tile_labelframe, validate="key", width=4,
-                                      textvariable=self.drawn_tile_entry_cv,
+        self.final_tile_labelframe = Labelframe(self.hand_entry_frame, text="Final Tile")
+        self.final_tile_labelframe.grid(row=0, rowspan=3, column=1, padx=15, pady=2, sticky=N+S)
+        self.final_tile_entry_cv = StringVar()
+        self.final_tile_entry = Entry(self.final_tile_labelframe, validate="key", width=4,
+                                      textvariable=self.final_tile_entry_cv,
                                       validatecommand=(self.entry_validation, '%P'))
-        self.drawn_tile_entry.pack(expand=YES)
+        self.final_tile_entry.pack(side=TOP, expand=YES, anchor="s")
+
+        self.final_tile_drawn_or_discard_checkbutton_cv = IntVar()
+        self.final_tile_drawn_or_discard_checkbutton = Checkbutton(self.final_tile_labelframe, text="Self Drawn?",
+                                                                   variable=
+                                                                   self.final_tile_drawn_or_discard_checkbutton_cv)
+        self.final_tile_drawn_or_discard_checkbutton.pack(side=TOP, expand=YES, anchor="n")
+        self.final_tile_drawn_or_discard_checkbutton.invoke()
+        self.final_tile_drawn_or_discard_checkbutton.invoke()
+        self.final_tile_drawn_or_discard_checkbutton.configure(command=self._hand_change)
+
         self.concealed_entry_labelframe = LabelFrame(self.hand_entry_frame, text="Concealed Tiles")
         self.concealed_entry_labelframe.grid(row=0, column=2, pady=8, sticky=N+S+W)
         self.revealed_entry_labelframe = Labelframe(self.hand_entry_frame, text="Revealed Tiles")
@@ -280,10 +291,10 @@ class HandAssister(Frame):
         self.visualizer_concealed_set_label = Label(self.visualizer_concealed_frame, text="Concealed Tiles:")
         self.visualizer_concealed_set_label.pack(side=TOP, anchor="nw")
 
-        self.visualizer_drawn_tile_label = Label(self.visualizer_dawn_tile_frame, text="Drawn Tile:")
-        self.visualizer_drawn_tile_label.pack(side=TOP, anchor="nw")
+        self.visualizer_final_tile_label = Label(self.visualizer_dawn_tile_frame, text="Final Tile:")
+        self.visualizer_final_tile_label.pack(side=TOP, anchor="nw")
 
-        self.visualizer_drawn_tile_picture = Label(self.visualizer_dawn_tile_frame)
+        self.visualizer_final_tile_picture = Label(self.visualizer_dawn_tile_frame)
 
         for i in range(16):
             self.visualizer_concealed_set_tile_pictures += [Label(self.visualizer_concealed_frame)]
