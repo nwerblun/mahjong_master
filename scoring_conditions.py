@@ -44,7 +44,7 @@ def lesser_honors_knitted_seq(hand):
         uniques = set(all_tiles)
         knitted_uniques = set(variant + all_honor_tiles)
         if len(uniques.intersection(knitted_uniques)) >= 14:
-            return 1
+            return 12
     return 0
 
 
@@ -60,7 +60,7 @@ def seven_pairs(hand):
         counts.count(3) == 1 and counts.count(1) >= 1,
     ]
     if any(fails):
-        return 0
+        return 24
     return 1
 
 
@@ -106,7 +106,7 @@ def greater_honors_knitted_tiles(hand):
         honor_intersection = uniques.intersection(all_honor_tiles)
         knitted_uniques = set(all_honor_tiles + variant)
         if (len(honor_intersection) == len(all_honor_tiles)) and (len(uniques.intersection(knitted_uniques)) >= 14):
-            return 1
+            return 24
     return 0
 
 
@@ -128,7 +128,7 @@ def seven_shifted_pairs(hand):
     for i in range(1, len(uniques)):
         if not uniques[i].is_sequential_to(uniques[i-1], ignore_suit=True):
             return 0
-    return 1
+    return 88
 
 
 def thirteen_orphans(hand):
@@ -154,10 +154,10 @@ def thirteen_orphans(hand):
     if len(tiles_needed) > 0:
         return 0
     if hand_size == 14 and all_tiles[0] in duplicate_tile_possibilities:
-        return 1
+        return 88
     if hand_size == 15 and ((all_tiles[0] in duplicate_tile_possibilities)
                             or (all_tiles[1] in duplicate_tile_possibilities)):
-        return 1
+        return 88
     return 0
 
 

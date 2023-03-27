@@ -324,11 +324,25 @@ class Calculator:
             hand_dict["point_conditions"][0] = pure_double_chow(tilesets["chows"])
             print("Pure double chow: ", str(hand_dict["point_conditions"][0]))
 
+        # TODO: Update this so that it returns either the hand_dict point conditions array or an array with just 1 for
+        # Something like thirteen orphans
+        max_score = 0
+        sorted_hands = sorted(self.pwh.four_set_pair_hands, key=lambda x: sum(x["point_conditions"]))
+        if len(sorted_hands) > 0:
+            max_score = sum(sorted_hands[0]["point_conditions"])
         lhks = lesser_honors_knitted_seq(self.pwh)
+        if len(sorted_hands) > 0 and sorted_hands[0].knitted_straight:
+            max_score = max(max_score, lhks+12)
+        else:
+            max_score = max(max_score, lhks)
         sp = seven_pairs(self.pwh)
+        max_score = max(max_score, sp)
         ghkt = greater_honors_knitted_tiles(self.pwh)
+        max_score = max(max_score, ghkt)
         ssp = seven_shifted_pairs(self.pwh)
+        max_score = max(max_score, ssp)
         to = thirteen_orphans(self.pwh)
+        max_score = max(max_score, to)
         print("Thirteen orphans: ", str(to))
         print("Seven Shifted Pairs: ", str(ssp))
         print("Greater Honors + Knitted: ", str(ghkt))
@@ -336,7 +350,9 @@ class Calculator:
         print("Lesser Honors + Knitted: ", str(lhks))
         # after checking all hands
         # check chicken hand
-
+        if max_score == 0:
+            max_score = 8
+        return max_score
 
 
 
