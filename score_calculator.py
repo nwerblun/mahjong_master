@@ -36,11 +36,32 @@ class Calculator:
             self.hand.add_revealed_kong_to_hand(k)
         self.hand.set_final_tile(final_tile, self_drawn_final)
         self.pwh = PossibleWinningHand(self.hand)
+        self.get_score_summary()  # TODO: eventually move this into get_score_summary
+
+    def get_score_summary(self):
         max_point_array = self._score_winning_sets()
+        for i in range(len(max_point_array)):
+            if max_point_array[i] > 0:
+                if self.voids[i] != "":
+                    voided_by = self.voids[i].split(", ")
+                    for j in range(len(voided_by)):
+                        void_index = get_index_of(self.hand_titles, voided_by[j])
+                        if max_point_array[void_index] > 0:
+                            max_point_array[i] = 0
+        total = 0
+        for i in range(len(max_point_array)):
+            if max_point_array[i] > 0:
+                total += int(self.official_point_values[i]) * int(max_point_array[i])
+                str_to_print = self.hand_titles[i] + (" " * (50 - len(self.hand_titles[i])))
+                str_to_print += "=\t"
+                str_to_print += str(int(self.official_point_values[i])*int(max_point_array[i]))
+                print(str_to_print)
+        print("TOTAL HAND VALUE: ", str(total))
+        return total
 
     def _score_winning_sets(self):
         if self.pwh.get_num_tiles_in_hand() < 14:
-            return None
+            return []
         # if used to make a set, used=True.
         # If used with a set that has used=True, excluded = True.
         # If attempting to use with a set that is excluded, don't.
@@ -325,15 +346,16 @@ class Calculator:
             max_score_array = base_array[:]
 
         lhks = lesser_honors_knitted_seq(self.pwh)
-        if len(sorted_hands) > 0 and sorted_hands[0]["knitted_straight"]:
-            if lhks+12 > sum(max_score_array):
+        if (len(sorted_hands) > 0 and sorted_hands[0]["knitted_straight"]) or\
+                self.pwh._has_knitted_straight(self.pwh.concealed_tiles)[0]:
+            if lhks+12 > sum(max_score_array) and lhks > 0:
                 max_score_array = base_array[:]
                 max_score_array[44] = 1
                 max_score_array[43] = 1
         else:
             if lhks > sum(max_score_array):
                 max_score_array = base_array[:]
-                max_score_array[44] = 1
+                max_score_array[43] = 1
 
         sp = seven_pairs(self.pwh)
         if sp > sum(max_score_array):

@@ -60,8 +60,8 @@ def seven_pairs(hand):
         counts.count(3) == 1 and counts.count(1) >= 1,
     ]
     if any(fails):
-        return 24
-    return 1
+        return 0
+    return 24
 
 
 def greater_honors_knitted_tiles(hand):
@@ -145,18 +145,21 @@ def thirteen_orphans(hand):
     ]
     duplicate_tile_possibilities = tiles_needed[:]
     ctr = 0
+    dupe_found = False
     while ctr <= 13:
         if all_tiles[0] in tiles_needed:
             tiles_needed.pop(tiles_needed.index(all_tiles[0]))
+            all_tiles.pop(0)
+        elif all_tiles[0] in duplicate_tile_possibilities:
+            dupe_found = True
+            all_tiles.pop(0)
+        else:
             all_tiles.pop(0)
         ctr += 1
 
     if len(tiles_needed) > 0:
         return 0
-    if hand_size == 14 and all_tiles[0] in duplicate_tile_possibilities:
-        return 88
-    if hand_size == 15 and ((all_tiles[0] in duplicate_tile_possibilities)
-                            or (all_tiles[1] in duplicate_tile_possibilities)):
+    if hand_size >= 14 and dupe_found:
         return 88
     return 0
 
