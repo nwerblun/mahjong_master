@@ -2,6 +2,8 @@ from game import *
 from utilities import *
 from functools import total_ordering
 
+# TODO: Combine things like seven pairs with all types, fully concealed, self draw
+
 
 def lesser_honors_knitted_seq(hand):
     all_tiles = hand.concealed_tiles

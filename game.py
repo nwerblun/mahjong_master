@@ -273,6 +273,9 @@ class Hand:
             self.revealed_tiles += [Tile(tile_name), Tile(tile_name), Tile(tile_name), Tile(tile_name)]
 
     def is_fully_concealed(self):
+        # Fully concealed up to the final tile.
+        if not self.self_drawn_final_tile:
+            return len(self.revealed_tiles) <= 1
         return not len(self.revealed_tiles)
 
     def get_revealed_sets(self):
@@ -326,7 +329,9 @@ class PossibleWinningHand(Hand):
         self.declared_concealed_kongs = hand.declared_concealed_kongs[:]
         self.point_conditions = [0] * len(MahjongHands.get_hand_titles())
         self.four_set_pair_hands = []
-        self.special_hands = []
+        self.single_wait_tile = None  # TODO: Remove this
+        if hand.final_tile:
+            self.set_final_tile(hand.final_tile.name, hand.self_drawn_final_tile)
         self._update_hand()
         self._construct_four_set_pair_hands()
 
@@ -390,6 +395,39 @@ class PossibleWinningHand(Hand):
                 straight_exists = True
                 leftover_concealed = [t for t in all_tiles if t not in variant]
         return straight_exists, leftover_concealed
+
+    # TODO: Change to verify if a tile is a single wait rather than find the single wait
+    def single_wait(self):
+        self.single_wait_tile = None
+        sets_remaining = 4 - self.get_num_revealed_sets("all") - len(self.declared_concealed_kongs)
+        for i in range(len(self.concealed_tiles)):
+            mini_set = self.concealed_tiles[:]
+            popped = mini_set.pop(i)
+            groups = self._group_into_sets(mini_set)
+            sets_remaining_after = sets_remaining - len(groups[0])
+            if sets_remaining_after == 0:
+                self.single_wait_tile = popped
+                return self.single_wait_tile.name
+        return ""
+
+    # TODO: Create new function, get_num_waits
+    # Inside set final tile function, set final tile to none before starting
+    # Go through every tile excluding final tile and see if it completes 4 sets
+    # If so, save it
+    # If num possible tiles > 0, no waits
+    # If num possible tiles == 1 and is_single_wait() then self.single_wait = tile, self.edge_wait=self.closed=none
+    # If num possible tiles == 1 and is_edge_wait() then self.edge=tile, self.single=self.closed=none
+    # etc.
+    def set_final_tile(self, name, self_drawn):
+        if Tile.is_valid_name(name):
+            self.final_tile = Tile(name)
+            self.self_drawn_final_tile = self_drawn
+            is_single_wait = name == self.single_wait()
+            if not self_drawn and is_single_wait:
+                self.concealed_tiles += [self.final_tile]
+                self.revealed_tiles.pop(self.revealed_tiles.index(self.final_tile))
+        self._update_hand()
+        self._construct_four_set_pair_hands()
 
     def _group_into_sets(self, tiles):
         if len(tiles) < 3:
