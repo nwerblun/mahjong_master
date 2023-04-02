@@ -408,10 +408,11 @@ class PossibleWinningHand(Hand):
         sets_remaining_after = 4 - len(groups[0])
         return not sets_remaining_after
 
+    # TODO: Fix. Group into sets is too unpredictable.
     def _is_edge_wait(self, t):
         if t.get_tile_number() not in ["3", "7"]:
             return False
-        all_tiles = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
+        all_tiles = self.concealed_tiles
         groups = self._group_into_sets(all_tiles)
         leftover = list(set(all_tiles) - set(flatten_list(groups)))
         sets_remaining_after = 4 - len(groups[0])
@@ -444,10 +445,11 @@ class PossibleWinningHand(Hand):
             else:
                 return False
 
+    # TODO: Fix. Group into sets is too unpredictable.
     def _is_closed_wait(self, t):
         if t.get_tile_number() not in ["2", "3", "4", "5", "6", "7", "8"]:
             return False
-        all_tiles = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
+        all_tiles = self.concealed_tiles
         groups = self._group_into_sets(all_tiles)
         leftover = list(set(all_tiles) - set(flatten_list(groups)))
         sets_remaining_after = 4 - len(groups[0])
@@ -500,8 +502,7 @@ class PossibleWinningHand(Hand):
                 self.closed_wait = False
                 if not self_drawn:
                     self.concealed_tiles += [self.final_tile]
-                else:
-                    self.revealed_tiles += [self.final_tile]
+                    self.revealed_tiles.pop(self.revealed_tiles.index(self.final_tile))
             elif len(edges) == 1 and edges[0] == self.final_tile:
                 self.single_wait = False
                 self.edge_wait = True

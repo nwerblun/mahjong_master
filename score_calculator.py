@@ -13,6 +13,7 @@ class Calculator:
         self.hand_titles = MahjongHands.get_hand_titles()
         self.official_point_values = MahjongHands.get_point_values()
         self.voids = MahjongHands.get_voids()
+        self.knitted_straight = False
         self.round_wind = "East"
         self.seat_wind = "East"
         self.tileset_format_round_wind = "e"
@@ -36,10 +37,13 @@ class Calculator:
             self.hand.add_revealed_kong_to_hand(k)
         self.hand.set_final_tile(final_tile, self_drawn_final)
         self.pwh = PossibleWinningHand(self.hand)
-        self.get_score_summary()  # TODO: eventually move this into get_score_summary
+        if self.pwh.get_num_tiles_in_hand() >= 14:
+            self.get_score_summary()
 
     def get_score_summary(self):
         max_point_array = self._score_winning_sets()
+        max_special_score = self._score_special_sets()
+        max_point_array = self._chicken_hand(max_point_array, max_special_score)
         for i in range(len(max_point_array)):
             if max_point_array[i] > 0:
                 if self.voids[i] != "":
@@ -59,6 +63,109 @@ class Calculator:
                 print(str_to_print)
         print("TOTAL HAND VALUE", " "*34, "=\t", str(total))
         return total
+
+    def _score_special_sets(self):
+        base_array = [0] * len(MahjongHands.get_hand_titles())
+        max_score_array = base_array[:]
+        lhks = lesser_honors_knitted_seq(self.pwh)
+        if self.pwh._has_knitted_straight(self.pwh.concealed_tiles)[0]:
+            if lhks + 12 > sum(max_score_array) and lhks > 0:
+                max_score_array[44] = 1
+                max_score_array[43] = 1
+        else:
+            if lhks > sum(max_score_array):
+                max_score_array[43] = 1
+
+        sp = seven_pairs(self.pwh)
+        if sp > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[54] = 1
+
+        ghkt = greater_honors_knitted_tiles(self.pwh)
+        if ghkt > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[55] = 1
+
+        ssp = seven_shifted_pairs(self.pwh)
+        if ssp > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[79] = 1
+
+        to = thirteen_orphans(self.pwh)
+        if to > sum(max_score_array):
+            max_score_array = base_array[:]
+            max_score_array[80] = 1
+
+        if sum(max_score_array) == 0:
+            return base_array
+
+        # ALL HONORS
+        max_score_array[69] = 1 if (self.pwh.num_suits_used == 0) else 0
+        # 58. FULL FLUSH
+        max_score_array[57] = 1 if (self.pwh.num_suits_used == 1 and
+                                    self.pwh.get_num_honor_tiles() == 0) else 0
+
+        # 42. SPACE FOR KONG ROB
+        # 41. SPACE FOR REPLACEMENT WIN
+        # 40. SPACE FOR LAST TILE CLAIM
+        # 39. SPACE FOR LAST TILE DRAW
+
+        # 32. MELDED HAND
+        if not self.pwh.self_drawn_final_tile and self.pwh.get_num_revealed_sets() == 4 and self.pwh.single_wait:
+            max_score_array[31] = 1
+
+        # 31. ALL TYPES
+        max_score_array[30] = 1 if (self.pwh.get_num_dragons() > 0 and self.pwh.get_num_winds() > 0
+                                    and self.pwh.num_suits_used == 3) else 0
+
+        # 29. HALF FLUSH
+        max_score_array[28] = 1 if (self.pwh.num_suits_used == 1 and
+                                    self.pwh.get_num_honor_tiles() > 0) else 0
+
+        # 27. SPACE FOR LAST TILE
+
+        # 25. FULLY CONCEALED SELF DRAWN
+        if self.pwh.self_drawn_final_tile and self.pwh.is_fully_concealed():
+            max_score_array[24] = 1
+
+        # 17. CONCEALED HAND DISCARD WIN
+        if self.pwh.is_fully_concealed() and not self.pwh.self_drawn_final_tile:
+            max_score_array[16] = 1
+
+        # 13. SINGLE WAIT
+        if self.pwh.single_wait:
+            max_score_array[12] = 1
+
+        # 12. CLOSED WAIT
+        if self.pwh.closed_wait:
+            max_score_array[11] = 1
+
+        # 11. EDGE WAIT
+        if self.pwh.edge_wait:
+            max_score_array[10] = 1
+
+        # 09. SELF DRAWN
+        if self.pwh.self_drawn_final_tile:
+            max_score_array[8] = 1
+
+        # 08. NO HONOR TILES
+        max_score_array[7] = 1 if (self.pwh.get_num_honor_tiles() == 0) else 0
+
+        # 07. VOIDED SUIT
+        max_score_array[6] = 1 if (self.pwh.num_suits_used <= 2) else 0
+        return max_score_array
+
+    @staticmethod
+    def _chicken_hand(max_score_arr, max_special_score_arr):
+        base_array = [0] * len(MahjongHands.get_hand_titles())
+        if sum(max_score_arr) == 0 and sum(max_special_score_arr) == 0:
+            base_array[42] = 1
+            return base_array
+        if sum(max_score_arr) > sum(max_special_score_arr):
+            return max_score_arr
+        if sum(max_special_score_arr) > sum(max_score_arr):
+            return max_special_score_arr
+        return base_array
 
     def _score_winning_sets(self):
         if self.pwh.get_num_tiles_in_hand() < 14:
@@ -290,45 +397,7 @@ class Calculator:
         if len(sorted_hands) > 0:
             max_score_array = sorted_hands[0]["point_conditions"]
         else:
-            max_score_array = base_array[:]
-
-        lhks = lesser_honors_knitted_seq(self.pwh)
-        if (len(sorted_hands) > 0 and sorted_hands[0]["knitted_straight"]) or\
-                self.pwh._has_knitted_straight(self.pwh.concealed_tiles)[0]:
-            if lhks+12 > sum(max_score_array) and lhks > 0:
-                max_score_array = base_array[:]
-                max_score_array[44] = 1
-                max_score_array[43] = 1
-        else:
-            if lhks > sum(max_score_array):
-                max_score_array = base_array[:]
-                max_score_array[43] = 1
-
-        sp = seven_pairs(self.pwh)
-        if sp > sum(max_score_array):
-            max_score_array = base_array[:]
-            max_score_array[54] = 1
-
-        ghkt = greater_honors_knitted_tiles(self.pwh)
-        if ghkt > sum(max_score_array):
-            max_score_array = base_array[:]
-            max_score_array[55] = 1
-
-        ssp = seven_shifted_pairs(self.pwh)
-        if ssp > sum(max_score_array):
-            max_score_array = base_array[:]
-            max_score_array[79] = 1
-
-        to = thirteen_orphans(self.pwh)
-        if to > sum(max_score_array):
-            max_score_array = base_array[:]
-            max_score_array[80] = 1
-
-        # after checking all hands
-        # check chicken hand
-        if sum(max_score_array) == 0:
-            max_score_array = base_array[:]
-            max_score_array[42] = 1
+            max_score_array = base_array
         return max_score_array
 
 
