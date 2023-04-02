@@ -50,6 +50,14 @@ class HandAssister(Frame):
         self.hand_entry_warning_label = None
         self.final_tile_drawn_or_discard_checkbutton_cv = None
         self.final_tile_drawn_or_discard_checkbutton = None
+        self.last_tile_checkbutton_cv = None
+        self.last_tile_checkbutton = None
+        self.last_of_its_kind_checkbutton_cv = None
+        self.last_of_its_kind_checkbutton = None
+        self.replacement_tile_checkbutton_cv = None
+        self.replacement_tile_checkbutton = None
+        self.kong_rob_checkbutton_cv = None
+        self.kong_rob_checkbutton = None
         self.calculator = Calculator()
 
     def _check_valid_hand_entry(self, text):
@@ -83,6 +91,10 @@ class HandAssister(Frame):
         for e in self.revealed_kong_entries_cvs:
             if len(e.get()) == 2 or len(e.get()) == 3:
                 revealed_kongs += [e.get()]
+        self.calculator.set_special_conditions(self.last_tile_checkbutton_cv.get(),
+                                               self.last_of_its_kind_checkbutton_cv.get(),
+                                               self.replacement_tile_checkbutton_cv.get(),
+                                               self.kong_rob_checkbutton_cv.get())
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
                                  self.round_wind_cv.get(), self.seat_wind_cv.get())
         self._update_visualizer()
@@ -153,8 +165,11 @@ class HandAssister(Frame):
             e.delete(0, 3)
         self.final_tile_entry.delete(0, 3)
         self.final_tile_drawn_or_discard_checkbutton_cv.set(0)
+        self.last_tile_checkbutton_cv.set(0)
+        self.last_of_its_kind_checkbutton_cv.set(0)
+        self.replacement_tile_checkbutton_cv.set(0)
+        self.kong_rob_checkbutton_cv.set(0)
 
-    # TODO: Add boxes for final tile/kong rob etc
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
         self.hand_entry_frame.rowconfigure("all", weight=1)
@@ -192,10 +207,42 @@ class HandAssister(Frame):
         self.final_tile_drawn_or_discard_checkbutton = Checkbutton(self.final_tile_labelframe, text="Self Drawn?",
                                                                    variable=
                                                                    self.final_tile_drawn_or_discard_checkbutton_cv)
-        self.final_tile_drawn_or_discard_checkbutton.pack(side=TOP, expand=YES, anchor="n")
+        self.final_tile_drawn_or_discard_checkbutton.pack(side=TOP, anchor="w")
         self.final_tile_drawn_or_discard_checkbutton.invoke()
         self.final_tile_drawn_or_discard_checkbutton.invoke()
         self.final_tile_drawn_or_discard_checkbutton.configure(command=self._hand_change)
+
+        self.last_tile_checkbutton_cv = IntVar()
+        self.last_tile_checkbutton = Checkbutton(self.final_tile_labelframe, text="Last Tile in Game?",
+                                                 variable=self.last_tile_checkbutton_cv)
+        self.last_tile_checkbutton.pack(side=TOP, anchor="w")
+        self.last_tile_checkbutton.invoke()
+        self.last_tile_checkbutton.invoke()
+        self.last_tile_checkbutton.configure(command=self._hand_change)
+
+        self.last_of_its_kind_checkbutton_cv = IntVar()
+        self.last_of_its_kind_checkbutton = Checkbutton(self.final_tile_labelframe, text="Last tile of its kind?",
+                                                        variable=self.last_of_its_kind_checkbutton_cv)
+        self.last_of_its_kind_checkbutton.pack(side=TOP, anchor="w")
+        self.last_of_its_kind_checkbutton.invoke()
+        self.last_of_its_kind_checkbutton.invoke()
+        self.last_of_its_kind_checkbutton.configure(command=self._hand_change)
+
+        self.replacement_tile_checkbutton_cv = IntVar()
+        self.replacement_tile_checkbutton = Checkbutton(self.final_tile_labelframe, text="Replacement Tile?",
+                                                        variable=self.replacement_tile_checkbutton_cv)
+        self.replacement_tile_checkbutton.pack(side=TOP, anchor="w")
+        self.replacement_tile_checkbutton.invoke()
+        self.replacement_tile_checkbutton.invoke()
+        self.replacement_tile_checkbutton.configure(command=self._hand_change)
+
+        self.kong_rob_checkbutton_cv = IntVar()
+        self.kong_rob_checkbutton = Checkbutton(self.final_tile_labelframe, text="Self Drawn?",
+                                                variable=self.kong_rob_checkbutton_cv)
+        self.kong_rob_checkbutton.pack(side=TOP, anchor="w")
+        self.kong_rob_checkbutton.invoke()
+        self.kong_rob_checkbutton.invoke()
+        self.kong_rob_checkbutton.configure(command=self._hand_change)
 
         self.concealed_entry_labelframe = LabelFrame(self.hand_entry_frame, text="Concealed Tiles")
         self.concealed_entry_labelframe.grid(row=0, column=2, pady=8, sticky=N+S+W)

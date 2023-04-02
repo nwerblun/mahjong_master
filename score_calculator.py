@@ -19,6 +19,9 @@ class Calculator:
         self.tileset_format_round_wind = "e"
         self.tileset_format_seat_wind = "e"
 
+    def set_special_conditions(self, drew_last_tile, last_tile_of_its_kind, win_on_replacement, robbed_kong):
+        pass
+
     def set_hand(self, concealed_tile_names, revealed_tile_names, final_tile, self_drawn_final,
                  declared_concealed_kongs, revealed_kongs, round_wind, seat_wind):
         # Handle adding/removing tiles typed in by the user
