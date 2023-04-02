@@ -52,11 +52,12 @@ class Calculator:
         for i in range(len(max_point_array)):
             if max_point_array[i] > 0:
                 total += int(self.official_point_values[i]) * int(max_point_array[i])
-                str_to_print = self.hand_titles[i] + (" " * (50 - len(self.hand_titles[i])))
+                str_to_print = self.hand_titles[i] + " x" + str(max_point_array[i])
+                str_to_print += (" " * (50 - len(self.hand_titles[i])))
                 str_to_print += "=\t"
-                str_to_print += str(int(self.official_point_values[i])*int(max_point_array[i]))
+                str_to_print += str(int(self.official_point_values[i])*max_point_array[i])
                 print(str_to_print)
-        print("TOTAL HAND VALUE: ", str(total))
+        print("TOTAL HAND VALUE", " "*34, "=\t", str(total))
         return total
 
     def _score_winning_sets(self):
@@ -194,7 +195,7 @@ class Calculator:
             hand_dict["point_conditions"][32] = two_dragon_pungs(tilesets["pungs"], tilesets["kongs"])
 
             # 32. MELDED HAND
-            if not self.pwh.self_drawn_final_tile and self.pwh.get_num_revealed_sets() == 4:
+            if not self.pwh.self_drawn_final_tile and self.pwh.get_num_revealed_sets() == 4 and self.pwh.single_wait:
                 hand_dict["point_conditions"][31] = 1
 
             # 31. ALL TYPES
@@ -247,13 +248,17 @@ class Calculator:
 
             hand_dict["point_conditions"][13] = dragon_pung(tilesets["pungs"], tilesets["kongs"])
 
-            # TODO: Change later to be if self.pwh.single_wait rather than a tile
             # 13. SINGLE WAIT
-            if self.pwh.single_wait_tile:
-                if self.pwh.single_wait_tile.name == hand_dict["pair"][0].name:
-                    hand_dict["point_conditions"][12] = 1
-            # 12. SPACE FOR CLOSED WAIT
-            # 11. SPACE FOR EDGE WAIT
+            if self.pwh.single_wait:
+                hand_dict["point_conditions"][12] = 1
+
+            # 12. CLOSED WAIT
+            if self.pwh.closed_wait:
+                hand_dict["point_conditions"][11] = 1
+
+            # 11. EDGE WAIT
+            if self.pwh.edge_wait:
+                hand_dict["point_conditions"][10] = 1
             # 10. SPACE FOR FLOWERS???
 
             # 09. SELF DRAWN
