@@ -5,7 +5,7 @@ from utilities import *
 from score_calculator import Calculator
 from game import VoidTile
 
-
+# TODO: Add a total value text box for hand. When clicking it, a new window opens with a breakdown
 class HandAssister(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)

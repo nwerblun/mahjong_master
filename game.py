@@ -412,7 +412,6 @@ class PossibleWinningHand(Hand):
                 return True
         return False
 
-    # TODO: Fix. Group into sets is too unpredictable.... Or is it?
     def _is_edge_wait(self, t):
         if t.get_tile_number() not in ["3", "7"]:
             return False
@@ -438,7 +437,6 @@ class PossibleWinningHand(Hand):
                 return True
         return False
 
-    # TODO: Fix. Group into sets is too unpredictable.... Or is it?
     def _is_closed_wait(self, t):
         if t.get_tile_number() not in ["2", "3", "4", "5", "6", "7", "8"]:
             return False
