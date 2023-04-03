@@ -5,7 +5,7 @@ from utilities import *
 from score_calculator import Calculator
 from game import VoidTile
 
-# TODO: Add a total value text box for hand. When clicking it, a new window opens with a breakdown
+
 class HandAssister(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -47,6 +47,10 @@ class HandAssister(Frame):
         self.visualizer_revealed_set_tile_pictures = []
         self.visualizer_concealed_set_tile_pictures = []
         self.visualizer_final_tile_picture = None
+        self.visualizer_total_score_label = None
+        self.visualizer_total_score_label_cv = None
+        self.visualizer_total_score_label_style = None
+        self.popup = None
         self.hand_entry_warning_label = None
         self.final_tile_drawn_or_discard_checkbutton_cv = None
         self.final_tile_drawn_or_discard_checkbutton = None
@@ -150,6 +154,12 @@ class HandAssister(Frame):
         if final:
             self.visualizer_final_tile_picture.configure(image=final.ph)
             self.visualizer_final_tile_picture.pack(expand=YES, fill=BOTH)
+        score = self.calculator.total_hand_value
+        if score >= 8:
+            self.visualizer_total_score_label_style.configure("TotalPoints.TLabel", foreground="green")
+        else:
+            self.visualizer_total_score_label_style.configure("TotalPoints.TLabel", foreground="red")
+        self.visualizer_total_score_label_cv.set("Total Score (click for info): "+str(score))
 
     def _clear_hand_entry(self):
         for p in self.visualizer_concealed_set_tile_pictures:
@@ -174,6 +184,34 @@ class HandAssister(Frame):
         self.last_of_its_kind_checkbutton_cv.set(0)
         self.replacement_tile_checkbutton_cv.set(0)
         self.kong_rob_checkbutton_cv.set(0)
+
+    def _create_score_popup(self, event):
+        if self.popup:
+            self.popup.destroy()
+            self.popup = None
+        self.popup = Toplevel()
+        self.popup.title("Score Breakdown")
+        self.popup.geometry("600x400")
+        self.popup.resizable(height=False, width=False)
+        frm = Frame(self.popup)
+        frm.pack()
+        breakdown = self.calculator.score_breakdown
+        lbl = Label(frm, text="Score Breakdown", justify=CENTER)
+        lbl.grid(row=0, column=0, columnspan=4, sticky=N)
+        if breakdown == "":
+            lbl = Label(frm, text="Invalid hand. Enter a valid hand to see the score.")
+            lbl.grid(row=1, column=0, columnspan=4, sticky=N+E+W)
+        else:
+            for row, line in enumerate(breakdown.split("\n")):
+                split_line = line.split(",")
+                lbl = Label(frm, text=split_line[0])
+                lbl.grid(row=row+1, column=0)
+                lbl = Label(frm, text=split_line[1])
+                lbl.grid(row=row+1, column=1)
+                lbl = Label(frm, text=split_line[2])
+                lbl.grid(row=row+1, column=2)
+                lbl = Label(frm, text=split_line[3])
+                lbl.grid(row=row+1, column=3)
 
     def create_hand_entry(self):
         self.entry_validation = self.register(self._check_valid_hand_entry)
@@ -352,6 +390,19 @@ class HandAssister(Frame):
         for i in range(16):
             self.visualizer_concealed_set_tile_pictures += [Label(self.visualizer_concealed_frame)]
             self.visualizer_revealed_set_tile_pictures += [Label(self.visualizer_revealed_frame)]
+
+        self.visualizer_total_score_label_cv = StringVar()
+        self.visualizer_total_score_label_style = Style()
+        self.visualizer_total_score_label_style.configure("TotalPoints.TLabel",
+                                                          font=('Segoe UI', 14, "bold"), foreground="red")
+
+        self.visualizer_total_score_label = Label(self.hand_visualizer_frame,
+                                                  textvariable=self.visualizer_total_score_label_cv,
+                                                  style="TotalPoints.TLabel",
+                                                  cursor="hand2")
+        self.visualizer_total_score_label_cv.set("Total Score (click for info): ")
+        self.visualizer_total_score_label.grid(row=3, column=0, sticky=W+S)
+        self.visualizer_total_score_label.bind("<ButtonRelease>", self._create_score_popup)
 
         self.round_wind_cv.trace("w", self._combobox_change)
         self.seat_wind_cv.trace("w", self._combobox_change)

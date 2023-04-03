@@ -22,6 +22,8 @@ class Calculator:
         self.last_tile_of_its_kind = False
         self.win_on_replacement = False
         self.robbed_kong = False
+        self.score_breakdown = ""
+        self.total_hand_value = 0
 
     def set_special_conditions(self, drew_last_tile, last_tile_of_its_kind, win_on_replacement, robbed_kong):
         self.drew_last_tile = drew_last_tile
@@ -47,10 +49,11 @@ class Calculator:
             self.hand.add_revealed_kong_to_hand(k)
         self.hand.set_final_tile(final_tile, self_drawn_final)
         self.pwh = PossibleWinningHand(self.hand)
-        if self.pwh.get_num_tiles_in_hand() >= 14:
-            self.get_score_summary()
+        self.total_hand_value, self.score_breakdown = self.get_score_summary()
 
     def get_score_summary(self):
+        if self.pwh.get_num_tiles_in_hand() < 14:
+            return 0, ""
         max_point_array = self._score_winning_sets()
         max_special_score = self._score_special_sets()
         max_point_array = self._chicken_hand(max_point_array, max_special_score)
@@ -63,16 +66,17 @@ class Calculator:
                         if max_point_array[void_index] > 0:
                             max_point_array[i] = 0
         total = 0
+        breakdown = ""
         for i in range(len(max_point_array)):
             if max_point_array[i] > 0:
                 total += int(self.official_point_values[i]) * int(max_point_array[i])
-                str_to_print = self.hand_titles[i] + " x" + str(max_point_array[i])
-                str_to_print += (" " * (50 - len(self.hand_titles[i])))
-                str_to_print += "=\t"
+                str_to_print = self.hand_titles[i]
+                str_to_print += ","+"x" + str(max_point_array[i])
+                str_to_print += ",=,"
                 str_to_print += str(int(self.official_point_values[i])*max_point_array[i])
-                print(str_to_print)
-        print("TOTAL HAND VALUE", " "*34, "=\t", str(total))
-        return total
+                breakdown += str_to_print + "\n"
+        breakdown += "TOTAL HAND VALUE,,=," + str(total)
+        return total, breakdown
 
     def _score_special_sets(self):
         base_array = [0] * len(MahjongHands.get_hand_titles())
@@ -179,9 +183,10 @@ class Calculator:
         max_score_array[6] = 1 if (self.pwh.num_suits_used <= 2) else 0
         return max_score_array
 
-    @staticmethod
-    def _chicken_hand(max_score_arr, max_special_score_arr):
+    def _chicken_hand(self, max_score_arr, max_special_score_arr):
         base_array = [0] * len(MahjongHands.get_hand_titles())
+        if self.pwh.get_num_tiles_in_hand() < 14:
+            return base_array
         if sum(max_score_arr) == 0 and sum(max_special_score_arr) == 0:
             base_array[42] = 1
             return base_array
