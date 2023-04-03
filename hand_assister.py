@@ -72,6 +72,9 @@ class HandAssister(Frame):
         self.after(1, self._hand_change)
         return True
 
+    def _combobox_change(self, index, value, op):
+        self._hand_change()
+
     def _hand_change(self):
         concealed = []
         revealed = []
@@ -165,6 +168,8 @@ class HandAssister(Frame):
             e.delete(0, 3)
         self.final_tile_entry.delete(0, 3)
         self.final_tile_drawn_or_discard_checkbutton_cv.set(0)
+        self.round_wind_cv.set("East")
+        self.seat_wind_cv.set("East")
         self.last_tile_checkbutton_cv.set(0)
         self.last_of_its_kind_checkbutton_cv.set(0)
         self.replacement_tile_checkbutton_cv.set(0)
@@ -308,6 +313,7 @@ class HandAssister(Frame):
         self.round_wind_dropdown.pack(side=TOP, expand=YES, fill=X, pady=4, anchor="n")
         self.round_wind_dropdown.state(['!disabled', 'readonly'])
         self.round_wind_cv.set("East")
+
         e = Label(self.round_seat_wind_frame, text="Seat Wind:")
         e.pack(side=TOP, pady=4, anchor="w")
         self.seat_wind_cv = StringVar()
@@ -346,3 +352,7 @@ class HandAssister(Frame):
         for i in range(16):
             self.visualizer_concealed_set_tile_pictures += [Label(self.visualizer_concealed_frame)]
             self.visualizer_revealed_set_tile_pictures += [Label(self.visualizer_revealed_frame)]
+
+        self.round_wind_cv.trace("w", self._combobox_change)
+        self.seat_wind_cv.trace("w", self._combobox_change)
+

@@ -215,6 +215,15 @@ class TileSet:
         return (self.suit != other.suit) and (self.numbers == other.numbers) \
             and (self.set_type == "chow") and (other.set_type == "chow")
 
+    @staticmethod
+    def sorted_by_suits(sets):
+        bamboos = [ts for ts in sets if ts.suit == "bamboo"]
+        chars = [ts for ts in sets if ts.suit == "character"]
+        dots = [ts for ts in sets if ts.suit == "dot"]
+        dragons = [ts for ts in sets if ts.suit == "dragon"]
+        winds = [ts for ts in sets if ts.suit == "wind"]
+        return sorted(bamboos) + sorted(chars) + sorted(dots) + sorted(dragons) + sorted(winds)
+
     def __eq__(self, other):
         return (self.suit == other.suit) and (self.numbers == other.numbers) and (self.set_type == other.set_type)
 
@@ -291,7 +300,7 @@ def mixed_double_chow(chows):
 
 
 def short_straight(chows):
-    s_chows = sorted([ts for ts in chows if not ts.excluded])
+    s_chows = TileSet.sorted_by_suits([ts for ts in chows if not ts.excluded])
     if len(s_chows) < 2:
         return 0
     amt = 0
@@ -512,7 +521,7 @@ def mixed_double_pung(pungs, kongs):
 def two_concealed_pungs(pungs, kongs):
     # Don't check kongs since there's a two concealed kongs already
     concealed = [ts for ts in pungs if ts.concealed]
-    usable_kongs = [ts for ts in kongs if not ts.used and not ts.excluded]
+    usable_kongs = [ts for ts in kongs if not ts.used and not ts.excluded and ts.concealed]
     if len(concealed) >= 2:
         return 1
     elif len(concealed) == 1 and len(usable_kongs) >= 1:
