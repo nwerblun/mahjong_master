@@ -83,6 +83,12 @@ class Calculator:
         if sp > sum(max_score_array):
             max_score_array = base_array[:]
             max_score_array[54] = 1
+        if sp > 0:
+            seen = []
+            for t in self.pwh.concealed_tiles:
+                if self.pwh.concealed_tiles.count(t) == 4 and t not in seen:
+                    seen += [t]
+                    max_score_array[18] += 1
 
         ghkt = greater_honors_knitted_tiles(self.pwh)
         if ghkt > sum(max_score_array):

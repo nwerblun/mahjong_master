@@ -329,12 +329,11 @@ class PossibleWinningHand(Hand):
         self.declared_concealed_kongs = hand.declared_concealed_kongs[:]
         self.point_conditions = [0] * len(MahjongHands.get_hand_titles())
         self.four_set_pair_hands = []
-        self.single_wait_tile = None  # TODO: Remove this
-        if hand.final_tile:
-            self.set_final_tile(hand.final_tile.name, hand.self_drawn_final_tile)
         self.closed_wait = False
         self.single_wait = False
         self.edge_wait = False
+        if hand.final_tile:
+            self.set_final_tile(hand.final_tile.name, hand.self_drawn_final_tile)
         self._update_hand()
         self._construct_four_set_pair_hands()
 
@@ -408,65 +407,52 @@ class PossibleWinningHand(Hand):
         sets_remaining_after = 4 - len(groups[0])
         return not sets_remaining_after
 
-    # TODO: Fix. Group into sets is too unpredictable.
+    # TODO: Fix. Group into sets is too unpredictable.... Or is it?
     def _is_edge_wait(self, t):
         if t.get_tile_number() not in ["3", "7"]:
             return False
-        all_tiles = self.concealed_tiles
-        groups = self._group_into_sets(all_tiles)
-        leftover = list(set(all_tiles) - set(flatten_list(groups)))
-        sets_remaining_after = 4 - len(groups[0])
-        if sets_remaining_after != 1:
-            return False
+        all_tiles = self.concealed_tiles[:]
         if t.get_tile_number() == "3":
             one = Tile(t.name[0] + "1")
             two = Tile(t.name[0] + "2")
-            if not (leftover.count(one) >= 1 and leftover.count(two) >= 1):
-                return False
-            leftover.pop(leftover.index(one))
-            leftover.pop(leftover.index(two))
-            if not len(leftover) == 2:
-                return False
-            if leftover[0] == leftover[1]:
+        else:
+            one = Tile(t.name[0] + "8")
+            two = Tile(t.name[0] + "9")
+        if all_tiles.count(one) >= 1 and all_tiles.count(two) >= 1:
+            all_tiles.pop(all_tiles.index(one))
+            all_tiles.pop(all_tiles.index(two))
+        else:
+            return False
+        groups = self._group_into_sets(all_tiles)
+        # For each grouping in groups
+        for group in groups:
+            temp_all_tiles = all_tiles[:]
+            for t in flatten_list(group):
+                temp_all_tiles.pop(temp_all_tiles.index(t))
+            if len(temp_all_tiles) == 2 and temp_all_tiles[0] == temp_all_tiles[1]:
                 return True
-            else:
-                return False
-        elif t.get_tile_number() == "7":
-            eight = Tile(t.name[0] + "8")
-            nine = Tile(t.name[0] + "9")
-            if not (leftover.count(eight) >= 1 and leftover.count(nine) >= 1):
-                return False
-            leftover.pop(leftover.index(eight))
-            leftover.pop(leftover.index(nine))
-            if not len(leftover) == 2:
-                return False
-            if leftover[0] == leftover[1]:
-                return True
-            else:
-                return False
+        return False
 
-    # TODO: Fix. Group into sets is too unpredictable.
+    # TODO: Fix. Group into sets is too unpredictable.... Or is it?
     def _is_closed_wait(self, t):
         if t.get_tile_number() not in ["2", "3", "4", "5", "6", "7", "8"]:
             return False
-        all_tiles = self.concealed_tiles
-        groups = self._group_into_sets(all_tiles)
-        leftover = list(set(all_tiles) - set(flatten_list(groups)))
-        sets_remaining_after = 4 - len(groups[0])
-        if sets_remaining_after != 1:
-            return False
+        all_tiles = self.concealed_tiles[:]
         prev_t = Tile(t.name[0] + str(int(t.get_tile_number()) - 1))
         next_t = Tile(t.name[0] + str(int(t.get_tile_number()) + 1))
-        if not (leftover.count(prev_t) >= 1 and leftover.count(next_t) >= 1):
-            return False
-        leftover.pop(leftover.index(prev_t))
-        leftover.pop(leftover.index(next_t))
-        if not len(leftover) == 2:
-            return False
-        if leftover[0] == leftover[1]:
-            return True
+        if all_tiles.count(prev_t) >= 1 and all_tiles.count(next_t) >= 1:
+            all_tiles.pop(all_tiles.index(prev_t))
+            all_tiles.pop(all_tiles.index(next_t))
         else:
             return False
+        groups = self._group_into_sets(all_tiles)
+        for group in groups:
+            temp_all_tiles = all_tiles[:]
+            for t in flatten_list(group):
+                temp_all_tiles.pop(temp_all_tiles.index(t))
+            if len(temp_all_tiles) == 2 and temp_all_tiles[0] == temp_all_tiles[1]:
+                return True
+        return False
 
     def _get_waits(self):
         all_tiles = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
@@ -489,28 +475,50 @@ class PossibleWinningHand(Hand):
     def set_final_tile(self, name, self_drawn):
         self.final_tile = Tile(name)
         self.self_drawn_final_tile = self_drawn
+        if self_drawn:
+            self.concealed_tiles.pop(self.concealed_tiles.index(self.final_tile))
+        else:
+            self.revealed_tiles.pop(self.revealed_tiles.index(self.final_tile))
         singles, closed, edges = self._get_waits()
         total_waits = len(singles) + len(closed) + len(edges)
-        if total_waits != 1:
-            self.closed_wait = False
-            self.edge_wait = False
-            self.single_wait = False
-        else:
+        if total_waits == 1:
             if len(singles) == 1 and singles[0] == self.final_tile:
                 self.single_wait = True
                 self.edge_wait = False
                 self.closed_wait = False
-                if not self_drawn:
-                    self.concealed_tiles += [self.final_tile]
-                    self.revealed_tiles.pop(self.revealed_tiles.index(self.final_tile))
+                self.concealed_tiles += [self.final_tile]
             elif len(edges) == 1 and edges[0] == self.final_tile:
                 self.single_wait = False
                 self.edge_wait = True
                 self.closed_wait = False
+                if self_drawn:
+                    self.concealed_tiles += [self.final_tile]
+                else:
+                    self.revealed_tiles += [self.final_tile]
             elif len(closed) == 1 and closed[0] == self.final_tile:
                 self.single_wait = False
                 self.edge_wait = False
                 self.closed_wait = True
+                if self_drawn:
+                    self.concealed_tiles += [self.final_tile]
+                else:
+                    self.revealed_tiles += [self.final_tile]
+            else:
+                self.single_wait = False
+                self.edge_wait = False
+                self.closed_wait = True
+                if self_drawn:
+                    self.concealed_tiles += [self.final_tile]
+                else:
+                    self.revealed_tiles += [self.final_tile]
+        else:
+            self.single_wait = False
+            self.edge_wait = False
+            self.closed_wait = False
+            if self_drawn:
+                self.concealed_tiles += [self.final_tile]
+            else:
+                self.revealed_tiles += [self.final_tile]
         self._update_hand()
         self._construct_four_set_pair_hands()
 
@@ -571,7 +579,7 @@ class PossibleWinningHand(Hand):
             return
         sets_remaining = 4 - self.get_num_revealed_sets("all") - len(self.declared_concealed_kongs)
         # Can we construct this many sets with the concealed tiles + drawn tile?
-        all_tiles = self.concealed_tiles
+        all_tiles = self.concealed_tiles[:]
         all_tiles = sorted(all_tiles)
         # Generate all possible pairs, and the remaining lists if you take out those pairs
         pairs_list = []
