@@ -404,8 +404,13 @@ class PossibleWinningHand(Hand):
             return False
         all_tiles.pop(all_tiles.index(t))
         groups = self._group_into_sets(all_tiles)
-        sets_remaining_after = 4 - len(groups[0])
-        return not sets_remaining_after
+        for group in groups:
+            temp_all_tiles = all_tiles[:]
+            for t in flatten_list(group):
+                temp_all_tiles.pop(temp_all_tiles.index(t))
+            if len(temp_all_tiles) == 0:
+                return True
+        return False
 
     # TODO: Fix. Group into sets is too unpredictable.... Or is it?
     def _is_edge_wait(self, t):

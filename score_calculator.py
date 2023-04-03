@@ -18,9 +18,16 @@ class Calculator:
         self.seat_wind = "East"
         self.tileset_format_round_wind = "e"
         self.tileset_format_seat_wind = "e"
+        self.drew_last_tile = False
+        self.last_tile_of_its_kind = False
+        self.win_on_replacement = False
+        self.robbed_kong = False
 
     def set_special_conditions(self, drew_last_tile, last_tile_of_its_kind, win_on_replacement, robbed_kong):
-        pass
+        self.drew_last_tile = drew_last_tile
+        self.last_tile_of_its_kind = last_tile_of_its_kind
+        self.win_on_replacement = win_on_replacement
+        self.robbed_kong = robbed_kong
 
     def set_hand(self, concealed_tile_names, revealed_tile_names, final_tile, self_drawn_final,
                  declared_concealed_kongs, revealed_kongs, round_wind, seat_wind):
@@ -114,10 +121,17 @@ class Calculator:
         max_score_array[57] = 1 if (self.pwh.num_suits_used == 1 and
                                     self.pwh.get_num_honor_tiles() == 0) else 0
 
-        # 42. SPACE FOR KONG ROB
-        # 41. SPACE FOR REPLACEMENT WIN
-        # 40. SPACE FOR LAST TILE CLAIM
-        # 39. SPACE FOR LAST TILE DRAW
+        # 42. KONG ROB
+        max_score_array[41] = 1 if self.robbed_kong else 0
+
+        # 41. REPLACEMENT WIN
+        max_score_array[40] = 1 if self.win_on_replacement else 0
+
+        # 40. LAST TILE CLAIM
+        max_score_array[39] = 1 if self.drew_last_tile and not self.pwh.self_drawn_final_tile else 0
+
+        # 39. LAST TILE DRAW
+        max_score_array[38] = 1 if self.drew_last_tile and self.pwh.self_drawn_final_tile else 0
 
         # 32. MELDED HAND
         if not self.pwh.self_drawn_final_tile and self.pwh.get_num_revealed_sets() == 4 and self.pwh.single_wait:
@@ -131,7 +145,8 @@ class Calculator:
         max_score_array[28] = 1 if (self.pwh.num_suits_used == 1 and
                                     self.pwh.get_num_honor_tiles() > 0) else 0
 
-        # 27. SPACE FOR LAST TILE
+        # 27. LAST TILE
+        max_score_array[26] = 1 if self.last_tile_of_its_kind else 0
 
         # 25. FULLY CONCEALED SELF DRAWN
         if self.pwh.self_drawn_final_tile and self.pwh.is_fully_concealed():
@@ -292,10 +307,18 @@ class Calculator:
             # 44. Lesser Honors + Knitted Tiles, computed separately
 
             # 43. CHICKEN HAND WOULD GO HERE BUT YOU NEED TO CHECK SPECIAL CASES
-            # 42. SPACE FOR KONG ROB
-            # 41. SPACE FOR REPLACEMENT WIN
-            # 40. SPACE FOR LAST TILE CLAIM
-            # 39. SPACE FOR LAST TILE DRAW
+
+            # 42. KONG ROB
+            hand_dict["point_conditions"][41] = 1 if self.robbed_kong else 0
+
+            # 41. REPLACEMENT WIN
+            hand_dict["point_conditions"][40] = 1 if self.win_on_replacement else 0
+
+            # 40. LAST TILE CLAIM
+            hand_dict["point_conditions"][39] = 1 if self.drew_last_tile and not self.pwh.self_drawn_final_tile else 0
+
+            # 39. LAST TILE DRAW
+            hand_dict["point_conditions"][38] = 1 if self.drew_last_tile and self.pwh.self_drawn_final_tile else 0
 
             hand_dict["point_conditions"][37] = two_concealed_kongs(tilesets["kongs"])
 
@@ -327,7 +350,8 @@ class Calculator:
             # 28. ALL PUNGS
             hand_dict["point_conditions"][27] = 1 if (len(tilesets["chows"]) == 0) else 0
 
-            # 27. SPACE FOR LAST TILE
+            # 27. LAST TILE
+            hand_dict["point_conditions"][26] = 1 if self.last_tile_of_its_kind else 0
 
             hand_dict["point_conditions"][25] = two_melded_kongs(tilesets["kongs"])
 

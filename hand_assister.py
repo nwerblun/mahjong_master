@@ -106,10 +106,10 @@ class HandAssister(Frame):
             l.pack_forget()
         self.visualizer_final_tile_picture.pack_forget()
 
-        concealed = self.calculator.hand.concealed_tiles[:16]
-        declared_kongs = self.calculator.hand.declared_concealed_kongs[:4]
-        c, p, k = self.calculator.hand.get_revealed_sets()
-        final = self.calculator.hand.final_tile
+        concealed = self.calculator.pwh.concealed_tiles[:16]
+        declared_kongs = self.calculator.pwh.declared_concealed_kongs[:4]
+        c, p, k = self.calculator.pwh.get_revealed_sets()
+        final = self.calculator.pwh.final_tile
         for i, t in enumerate(concealed):
             self.visualizer_concealed_set_tile_pictures[i].configure(image=t.ph)
             self.visualizer_concealed_set_tile_pictures[i].pack(side=LEFT, anchor="w")

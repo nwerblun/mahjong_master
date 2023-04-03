@@ -456,8 +456,8 @@ class MahjongHands:
         ", ".join([_hand_titles[50], _hand_titles[74]]),
         ", ".join([_hand_titles[67]]),
         ", ".join([_hand_titles[53]]),  # Index 20
-        ", ".join([_hand_titles[21], _hand_titles[54], _hand_titles[73]]),
-        ", ".join([_hand_titles[21]]),
+        ", ".join([_hand_titles[38], _hand_titles[54], _hand_titles[73]]),
+        ", ".join([_hand_titles[38]]),
         ", ".join([_hand_titles[52], _hand_titles[57], _hand_titles[62]]),
         ", ".join([_hand_titles[66], _hand_titles[69], _hand_titles[70], _hand_titles[81]]),
         "",

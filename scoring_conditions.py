@@ -1290,9 +1290,9 @@ def three_kongs(kongs):
     used_but_not_excluded_kongs = [ts for ts in kongs if (ts.used and not ts.excluded)]
     if len(fresh_kongs) < 1 or len(kongs) + len(used_but_not_excluded_kongs) < 3:
         return 0
-    # If there's 4, 4 kongs will be activated anyways and void this one.
-    TileSet.update_used_excluded_stats(fresh_kongs)
-    TileSet.update_used_excluded_stats(used_but_not_excluded_kongs)
+    # If there's 4, 4 kongs will be activated anyway and void this one.
+    # TileSet.update_used_excluded_stats(fresh_kongs)
+    # TileSet.update_used_excluded_stats(used_but_not_excluded_kongs)
     return 1
 
 
@@ -1791,5 +1791,5 @@ def four_kongs(kongs):
     excluded_kongs = [ts for ts in kongs if ts.excluded]
     if len(fresh_kongs) < 1 or len(excluded_kongs) > 0 or len(kongs) != 4:
         return 0
-    TileSet.update_used_excluded_stats(kongs)
+    # TileSet.update_used_excluded_stats(kongs)  # Apparently doesn't void
     return 1
