@@ -4,6 +4,7 @@ from hands import MahjongHands
 from utilities import *
 from score_calculator import Calculator
 from game import VoidTile
+from pathfinding import *
 
 
 class HandAssister(Frame):
@@ -62,6 +63,7 @@ class HandAssister(Frame):
         self.replacement_tile_checkbutton = None
         self.kong_rob_checkbutton_cv = None
         self.kong_rob_checkbutton = None
+        self.pathfinder = Pathfinder()
         self.calculator = Calculator()
 
     def _check_valid_hand_entry(self, text):
@@ -103,6 +105,9 @@ class HandAssister(Frame):
                                                self.replacement_tile_checkbutton_cv.get(),
                                                self.kong_rob_checkbutton_cv.get())
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
+                                 self.round_wind_cv.get(), self.seat_wind_cv.get())
+        self.pathfinder = Pathfinder()
+        self.pathfinder.set_calc(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
                                  self.round_wind_cv.get(), self.seat_wind_cv.get())
         self._update_visualizer()
 

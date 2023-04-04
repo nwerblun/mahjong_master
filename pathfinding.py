@@ -1,7 +1,15 @@
 from game import *
-
-# takes a hand from score_calculator as a starting point and computes the top N winning hands
+from score_calculator import Calculator
 
 
 class Pathfinder:
-    pass
+    def __init__(self):
+        self.calc = Calculator()
+        self.start_hand = None
+
+    def set_calc(self, concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
+                 round_wind, seat_wind_cv):
+        self.calc.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs,
+                           revealed_kongs, round_wind, seat_wind_cv)
+        self.start_hand = self.calc.pwh
+
