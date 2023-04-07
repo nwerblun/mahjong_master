@@ -211,6 +211,21 @@ class Hand:
                 self.num_suits_used += 1
                 self.uses_dots = True
 
+    def make_copy(self):
+        new = Hand()
+        new.concealed_tiles = self.concealed_tiles[:]
+        new.revealed_tiles = self.revealed_tiles[:]
+        new.declared_concealed_kongs = self.declared_concealed_kongs[:]
+        new.num_suits_used = self.num_suits_used
+        new.uses_bamboo = self.uses_bamboo
+        new.uses_chars = self.uses_chars
+        new.uses_dots = self.uses_dots
+        new.final_tile = self.final_tile
+        new.self_drawn_final_tile = self.self_drawn_final_tile
+        new.num_winds = self.num_winds
+        new.num_dragons = self.num_dragons
+        return new
+
     def get_num_honor_tiles(self):
         return self.num_dragons + self.num_winds
 
@@ -234,6 +249,56 @@ class Hand:
         return len(flatten_list(self.declared_concealed_kongs))\
             + len(self.concealed_tiles) + len(self.revealed_tiles)
 
+    def possible_chows_with_tile(self, t):
+        if t.is_dragon() or t.is_wind():
+            return []
+        tile_num = int(t.get_tile_number())
+        suit = t.type[0]
+        possible_groups = []
+        if tile_num == 1:
+            possible_groups += [[Tile(suit + str(2)), Tile(suit + str(3))]]
+        elif tile_num == 2:
+            possible_groups += [[Tile(suit + str(1)), Tile(suit + str(3))]]
+            possible_groups += [[Tile(suit + str(3)), Tile(suit + str(4))]]
+        elif 2 < tile_num < 8:
+            possible_groups += [[Tile(suit + str(tile_num-2)), Tile(suit + str(tile_num-1))]]
+            possible_groups += [[Tile(suit + str(tile_num-1)), Tile(suit + str(tile_num+1))]]
+            possible_groups += [[Tile(suit + str(tile_num+1)), Tile(suit + str(tile_num+2))]]
+        elif tile_num == 8:
+            possible_groups += [[Tile(suit + str(6)), Tile(suit + str(7))]]
+            possible_groups += [[Tile(suit + str(7)), Tile(suit + str(9))]]
+        elif tile_num == 9:
+            possible_groups += [[Tile(suit + str(7)), Tile(suit + str(8))]]
+
+        chows = []
+        for group in possible_groups:
+            flag = True
+            for tile in group:
+                if tile not in self.concealed_tiles:
+                    flag = False
+            if flag:
+                chows += [sorted(group+[t])]
+        return chows
+
+    def can_make_pung_with_tile(self, t):
+        return self.concealed_tiles.count(t) >= 2
+
+    def can_make_kong_with_tile(self, t):
+        return self.concealed_tiles.count(t) == 3
+
+    def can_upgrade_pung_to_kong_with_tile(self, t):
+        # not possible to have a pung + chow both using t and then also draw t, since 4x tiles max
+        # Is possible to have 3 chows using t though. Must check for pung.
+        # User should be entering revealed tiles in order, check if 3x t are sequential
+        if len(self.revealed_tiles) < 3:
+            return False, None
+
+        for i in range(len(self.revealed_tiles)):
+            if self.revealed_tiles[i] == t and (len(self.revealed_tiles) - i) >= 3:
+                if (t == self.revealed_tiles[i+1]) and (self.revealed_tiles[i+1] == self.revealed_tiles[i+2]):
+                    return True, i
+        return False, None
+
     def clear_hand(self):
         self.__init__()
 
@@ -243,7 +308,7 @@ class Hand:
         if len(self.declared_concealed_kongs) >= 1:
             self.declared_concealed_kongs = sorted(self.declared_concealed_kongs)
         if len(self.revealed_tiles) > 1:
-            self.revealed_tiles  = sorted(self.revealed_tiles)
+            self.revealed_tiles = sorted(self.revealed_tiles)
 
     def _update_hand(self):
         self._sort_hand()
@@ -332,10 +397,11 @@ class PossibleWinningHand(Hand):
         self.closed_wait = False
         self.single_wait = False
         self.edge_wait = False
+        self._update_hand()
         if hand.final_tile:
             self.set_final_tile(hand.final_tile.name, hand.self_drawn_final_tile)
-        self._update_hand()
-        self._construct_four_set_pair_hands()
+        else:
+            self._construct_four_set_pair_hands()
 
     def _get_base_dict(self):
         rc, rp, rk = self.get_revealed_sets()

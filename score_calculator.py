@@ -1,7 +1,6 @@
 from tkinter import *
 from tkinter.ttk import *  # Automatically replace some widgets with better versions
 from game import *
-from pathfinding import *
 from hands import MahjongHands
 from scoring_conditions import *
 
@@ -188,8 +187,9 @@ class Calculator:
         if self.pwh.get_num_tiles_in_hand() < 14:
             return base_array
         if sum(max_score_arr) == 0 and sum(max_special_score_arr) == 0:
-            base_array[42] = 1
-            return base_array
+            if len(self.pwh.four_set_pair_hands) > 0:
+                base_array[42] = 1
+                return base_array
         if sum(max_score_arr) > sum(max_special_score_arr):
             return max_score_arr
         if sum(max_special_score_arr) > sum(max_score_arr):
@@ -437,6 +437,27 @@ class Calculator:
         else:
             max_score_array = base_array
         return max_score_array
+
+    def make_copy(self):
+        new = Calculator()
+        new.hand = self.hand.make_copy()
+        new.pwh = None
+        new.hand_titles = self.hand_titles[:]
+        new.official_point_values = self.official_point_values[:]
+        new.voids = self.voids[:]
+        new.knitted_straight = self.knitted_straight
+        new.round_wind = self.round_wind[:]
+        new.seat_wind = self.seat_wind[:]
+        new.tileset_format_round_wind = self.tileset_format_round_wind[:]
+        new.tileset_format_seat_wind = self.tileset_format_seat_wind[:]
+        new.drew_last_tile = self.drew_last_tile
+        new.last_tile_of_its_kind = self.last_tile_of_its_kind
+        new.win_on_replacement = self.win_on_replacement
+        new.robbed_kong = self.robbed_kong
+        new.score_breakdown = self.score_breakdown[:]
+        new.total_hand_value = self.total_hand_value
+        return new
+
 
 
 

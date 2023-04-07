@@ -63,8 +63,8 @@ class HandAssister(Frame):
         self.replacement_tile_checkbutton = None
         self.kong_rob_checkbutton_cv = None
         self.kong_rob_checkbutton = None
-        self.pathfinder = Pathfinder()
         self.calculator = Calculator()
+        self.pathfinder = Pathfinder(self.calculator)
 
     def _check_valid_hand_entry(self, text):
         invalid_conds = [
@@ -106,10 +106,10 @@ class HandAssister(Frame):
                                                self.kong_rob_checkbutton_cv.get())
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
                                  self.round_wind_cv.get(), self.seat_wind_cv.get())
-        self.pathfinder = Pathfinder()
-        self.pathfinder.set_calc(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
-                                 self.round_wind_cv.get(), self.seat_wind_cv.get())
+        self.pathfinder = Pathfinder(self.calculator)
         self._update_visualizer()
+        if self.pathfinder.ready_to_check():
+            print(self.pathfinder.get_fastest_n_wins())
 
     def _update_visualizer(self):
         for l in self.visualizer_revealed_set_tile_pictures:
