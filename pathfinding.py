@@ -9,14 +9,11 @@ from time import sleep
 
 @total_ordering
 class Node:
-    def __init__(self, calc, new_deck, parent=None):
-        self.parent = parent
+    def __init__(self, calc, new_deck):
         self.calc = calc
         self.hand = self.calc.hand
-        # TODO: make this deck a global thing that considers discards
         self.remaining_deck = new_deck
         self.prev_dist = inf
-        self.priority = inf
         self.hand_value = inf
 
     def _get_chow_calcs(self, new_calc, tile_name):
@@ -109,23 +106,24 @@ class Node:
                         cond = simple_calcs
 
                     if cond:
-                        neighbors += [Node(simple_calcs, new_deck, parent=self)]
+                        neighbors += [Node(simple_calcs, new_deck)]
                     if pung_calcs:
-                        neighbors += [Node(pung_calcs, new_deck, parent=self)]
+                        neighbors += [Node(pung_calcs, new_deck)]
                     if kong_calcs:
-                        neighbors += [Node(kong_calcs, new_deck, parent=self)]
+                        neighbors += [Node(kong_calcs, new_deck)]
                     if upgraded_calcs:
                         # You don't lose a tile when you upgrade to a kong
                         upgraded_calcs.hand.add_tile_to_hand(False, discarded.name)
-                        neighbors += [Node(upgraded_calcs, new_deck, parent=self)]
+                        neighbors += [Node(upgraded_calcs, new_deck)]
                     if chow_calcs:
-                        neighbors += [Node(c, new_deck, parent=self) for c in chow_calcs]
+                        neighbors += [Node(c, new_deck) for c in chow_calcs]
         return neighbors
 
     def _get_score(self):
         if self.hand_value == inf:
             value, _ = self.calc.get_score_summary()
             self.hand_value = value
+            self.calc.pwh = None  # Save memory. Thanks garbage collector!
         return self.hand_value
 
     def is_goal(self):
@@ -136,8 +134,10 @@ class Node:
         # TODO: Maybe make a smarter heuristic
         self.calc.pwh = PossibleWinningHand(self.calc.hand)
         if len(self.calc.pwh.four_set_pair_hands) == 0:
-            return 8
-        return 8 - self._get_score()
+            h = 8
+        else:
+            h = 8 - self._get_score()
+        return h
 
     def __eq__(self, other):
         return self.hand_value == other.hand_value
@@ -146,7 +146,6 @@ class Node:
         return self.hand_value < other.hand_value
 
 
-# TODO: Add logic so all active processes are killed when init is called
 class Pathfinder:
     def __init__(self, calc):
         self.starting_calc = calc
@@ -175,9 +174,6 @@ class Pathfinder:
             queue.put((prior_after_update, neighbor))
 
     def _a_star(self, pipe_conn):
-        # m = PQManager()
-        # m.start()
-        # q = m.PriorityQueue()   # This is process-safe
         q = PriorityQueue()
 
         self.start_node.prev_dist = 0
@@ -203,7 +199,6 @@ class Pathfinder:
 
             for n in neighbors:
                 self._worker_task(curr, nodes_to_ignore, q, n)
-                # async_res += [pool.apply_async(self._worker_task, (curr, nodes_to_ignore, q, n))]
 
             nodes_to_ignore += [curr]
             iters += 1
