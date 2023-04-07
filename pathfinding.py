@@ -3,8 +3,7 @@ from queue import PriorityQueue
 from score_calculator import Calculator
 from math import inf
 from functools import total_ordering
-from multiprocessing import Process, Pipe, Pool
-from multiprocessing.managers import BaseManager
+from multiprocessing import Process, Pipe
 from time import sleep
 
 
@@ -146,18 +145,6 @@ class Node:
     def __lt__(self, other):
         return self.hand_value < other.hand_value
 
-##################################################
-
-
-# Define custom manager to use priority queues across processes
-class PQManager(BaseManager):
-    pass
-
-
-PQManager.register("PriorityQueue", PriorityQueue)
-
-
-#####################################################
 
 # TODO: Add logic so all active processes are killed when init is called
 class Pathfinder:
@@ -226,6 +213,7 @@ class Pathfinder:
         else:
             pipe_conn.send(None)
 
+    # TODO: Make this return the process and pipe so it can be polled at the top level
     def get_nth_fastest_win(self, n=1):
         rcv, send = Pipe(False)
         p = Process(target=self._a_star, args=(send,))

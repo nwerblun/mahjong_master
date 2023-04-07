@@ -108,6 +108,7 @@ class HandAssister(Frame):
                                  self.round_wind_cv.get(), self.seat_wind_cv.get())
         self.pathfinder = Pathfinder(self.calculator)
         self._update_visualizer()
+        # TODO: Make this grab a process and pipe, then check it every 10ms to see if it's done
         if self.pathfinder.ready_to_check():
             print(self.pathfinder.get_nth_fastest_win(1))
 
