@@ -61,6 +61,14 @@ class Tile:
         else:
             self.type = "wind"
 
+    def destroy_pictures(self):
+        self.img = None
+        self.ph = None
+
+    def generate_pictures(self):
+        self.img = Image.open(self.picture_link)
+        self.ph = ImageTk.PhotoImage(self.img)
+
     @staticmethod
     def is_valid_name(name):
         return name in Tile.valid_tile_names

@@ -150,7 +150,10 @@ class Node:
     def __lt__(self, other):
         return self.hand_value < other.hand_value
 
+##################################################
 
+
+# Define custom manager to use priority queues across processes
 class PQManager(BaseManager):
     pass
 
@@ -158,6 +161,10 @@ class PQManager(BaseManager):
 PQManager.register("PriorityQueue", PriorityQueue)
 
 
+#####################################################
+
+
+# TODO: Restructure calc so that it holds 0 tkinter objects (not pickleable)
 class Pathfinder:
     def __init__(self, calc):
         self.starting_calc = calc
@@ -171,7 +178,7 @@ class Pathfinder:
     def ready_to_check(self):
         return self.starting_calc.hand.get_num_tiles_in_hand() >= 14
 
-    def _check_neighbor(self, curr, nodes_to_ignore, queue, neighbor):
+    def worker_task(self, curr, nodes_to_ignore, queue, neighbor):
         print("Working on ", neighbor)
         if neighbor in nodes_to_ignore:
             return
@@ -213,7 +220,7 @@ class Pathfinder:
                     neighbors = curr.get_neighbors(reduced=False)
 
                 for n in neighbors:
-                    pool.apply_async(self._check_neighbor, (curr, nodes_to_ignore, q, n))
+                    pool.apply_async(self.worker_task, (curr, nodes_to_ignore, q, n))
 
                 nodes_to_ignore += [curr]
                 iters += 1
