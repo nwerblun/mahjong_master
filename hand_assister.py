@@ -109,7 +109,7 @@ class HandAssister(Frame):
         self.pathfinder = Pathfinder(self.calculator)
         self._update_visualizer()
         if self.pathfinder.ready_to_check():
-            print(self.pathfinder.get_fastest_n_wins())
+            print(self.pathfinder.get_nth_fastest_win(1))
 
     def _update_visualizer(self):
         for l in self.visualizer_revealed_set_tile_pictures:
@@ -123,18 +123,24 @@ class HandAssister(Frame):
         c, p, k = self.calculator.pwh.get_revealed_sets()
         final = self.calculator.pwh.final_tile
         for i, t in enumerate(concealed):
-            self.visualizer_concealed_set_tile_pictures[i].configure(image=t.ph)
+            ph = t.gen_img()
+            self.visualizer_concealed_set_tile_pictures[i].configure(image=ph)
+            self.visualizer_concealed_set_tile_pictures[i].ph = ph  # Avoid GC on the img
             self.visualizer_concealed_set_tile_pictures[i].pack(side=LEFT, anchor="w")
 
         lbl_ctr = 0
         for r_set in c+p+k:
             if lbl_ctr + len(r_set) <= 16:
                 for i in range(len(r_set) - 1):
-                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=r_set[i].ph)
+                    ph = r_set[i].gen_img()
+                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=ph)
+                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].ph = ph
                     self.visualizer_revealed_set_tile_pictures[lbl_ctr].pack(side=LEFT, anchor="w")
                     lbl_ctr += 1
                 if len(r_set) > 1:
-                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=r_set[-1].ph)
+                    ph = r_set[-1].gen_img()
+                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=ph)
+                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].ph = ph
                     self.visualizer_revealed_set_tile_pictures[lbl_ctr].pack(side=LEFT, padx=(0, 18), anchor="w")
                     lbl_ctr += 1
 
@@ -143,21 +149,29 @@ class HandAssister(Frame):
             if lbl_ctr + len(d_set) <= 16:
                 for i in range(len(d_set) - 1):
                     if not start:
-                        self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=self.void_tile.ph)
+                        ph = self.void_tile.gen_img()
+                        self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=ph)
+                        self.visualizer_revealed_set_tile_pictures[lbl_ctr].ph = ph
                         self.visualizer_revealed_set_tile_pictures[lbl_ctr].pack(side=LEFT, anchor="w")
                         start = True
                     else:
-                        self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=d_set[i].ph)
+                        ph = d_set[i].gen_img()
+                        self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=ph)
+                        self.visualizer_revealed_set_tile_pictures[lbl_ctr].ph = ph
                         self.visualizer_revealed_set_tile_pictures[lbl_ctr].pack(side=LEFT, anchor="w")
                     lbl_ctr += 1
                 if len(d_set) > 1:
-                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=self.void_tile.ph)
+                    ph = self.void_tile.gen_img()
+                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].configure(image=ph)
+                    self.visualizer_revealed_set_tile_pictures[lbl_ctr].ph = ph
                     self.visualizer_revealed_set_tile_pictures[lbl_ctr].pack(side=LEFT, padx=(0, 18), anchor="w")
                     lbl_ctr += 1
                 start = False
 
         if final:
-            self.visualizer_final_tile_picture.configure(image=final.ph)
+            ph = final.gen_img()
+            self.visualizer_final_tile_picture.configure(image=ph)
+            self.visualizer_final_tile_picture.ph = ph
             self.visualizer_final_tile_picture.pack(expand=YES, fill=BOTH)
         score = self.calculator.total_hand_value
         if score >= 8:

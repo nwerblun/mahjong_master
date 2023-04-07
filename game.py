@@ -48,8 +48,6 @@ class Tile:
     def __init__(self, name):
         self.name = name
         self.picture_link = self.get_picture_link_from_name()
-        self.img = Image.open(self.picture_link)
-        self.ph = ImageTk.PhotoImage(self.img)
         if self.name[0] == "b":
             self.type = "bamboo"
         elif self.name[0] == "c":
@@ -61,13 +59,10 @@ class Tile:
         else:
             self.type = "wind"
 
-    def destroy_pictures(self):
-        self.img = None
-        self.ph = None
-
-    def generate_pictures(self):
-        self.img = Image.open(self.picture_link)
-        self.ph = ImageTk.PhotoImage(self.img)
+    def gen_img(self):
+        img = Image.open(self.picture_link)
+        ph = ImageTk.PhotoImage(img)
+        return ph
 
     @staticmethod
     def is_valid_name(name):

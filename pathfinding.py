@@ -3,9 +3,9 @@ from queue import PriorityQueue
 from score_calculator import Calculator
 from math import inf
 from functools import total_ordering
-from multiprocessing import Pool
+from multiprocessing import Process, Pipe, Pool
 from multiprocessing.managers import BaseManager
-from os import cpu_count
+from time import sleep
 
 
 @total_ordering
@@ -19,7 +19,6 @@ class Node:
         self.prev_dist = inf
         self.priority = inf
         self.hand_value = inf
-        self.neighbors = []
 
     def _get_chow_calcs(self, new_calc, tile_name):
         rm_tile = Tile(tile_name)
@@ -86,7 +85,8 @@ class Node:
         new_calc.hand.set_final_tile(tile_name, True)
         return new_calc
 
-    def update_neighbors(self, reduce=False):
+    def get_neighbors(self, reduced=False):
+        neighbors = []
         for i in range(len(self.hand.concealed_tiles)):
             new_calc = self.calc.make_copy()
             discarded = new_calc.hand.concealed_tiles.pop(i)
@@ -104,28 +104,24 @@ class Node:
                     upgraded_calcs = self._get_upgraded_kong_calcs(new_calc, remaining_name)
                     chow_calcs = self._get_chow_calcs(new_calc, remaining_name)
 
-                    if reduce:
+                    if reduced:
                         cond = simple_calcs and any([pung_calcs, kong_calcs, upgraded_calcs, chow_calcs])
                     else:
                         cond = simple_calcs
 
                     if cond:
-                        self.neighbors += [Node(simple_calcs, new_deck, parent=self)]
+                        neighbors += [Node(simple_calcs, new_deck, parent=self)]
                     if pung_calcs:
-                        self.neighbors += [Node(pung_calcs, new_deck, parent=self)]
+                        neighbors += [Node(pung_calcs, new_deck, parent=self)]
                     if kong_calcs:
-                        self.neighbors += [Node(kong_calcs, new_deck, parent=self)]
+                        neighbors += [Node(kong_calcs, new_deck, parent=self)]
                     if upgraded_calcs:
                         # You don't lose a tile when you upgrade to a kong
                         upgraded_calcs.hand.add_tile_to_hand(False, discarded.name)
-                        self.neighbors += [Node(upgraded_calcs, new_deck, parent=self)]
+                        neighbors += [Node(upgraded_calcs, new_deck, parent=self)]
                     if chow_calcs:
-                        self.neighbors += [Node(c, new_deck, parent=self) for c in chow_calcs]
-
-    def get_neighbors(self, reduced=False):
-        if len(self.neighbors) == 0:
-            self.update_neighbors(reduced)
-        return self.neighbors
+                        neighbors += [Node(c, new_deck, parent=self) for c in chow_calcs]
+        return neighbors
 
     def _get_score(self):
         if self.hand_value == inf:
@@ -163,8 +159,7 @@ PQManager.register("PriorityQueue", PriorityQueue)
 
 #####################################################
 
-
-# TODO: Restructure calc so that it holds 0 tkinter objects (not pickleable)
+# TODO: Add logic so all active processes are killed when init is called
 class Pathfinder:
     def __init__(self, calc):
         self.starting_calc = calc
@@ -178,7 +173,8 @@ class Pathfinder:
     def ready_to_check(self):
         return self.starting_calc.hand.get_num_tiles_in_hand() >= 14
 
-    def worker_task(self, curr, nodes_to_ignore, queue, neighbor):
+    @staticmethod
+    def _worker_task(curr, nodes_to_ignore, queue, neighbor):
         print("Working on ", neighbor)
         if neighbor in nodes_to_ignore:
             return
@@ -191,47 +187,52 @@ class Pathfinder:
             neighbor.priority = prior_after_update
             queue.put((prior_after_update, neighbor))
 
-    def get_fastest_n_wins(self, n=1):
-        m = PQManager()
-        m.start()
-        q = m.PriorityQueue()   # This is process-safe
+    def _a_star(self, pipe_conn):
+        # m = PQManager()
+        # m.start()
+        # q = m.PriorityQueue()   # This is process-safe
+        q = PriorityQueue()
 
-        # processes = None means use os.cpu_count(). Max power.
-        with Pool(processes=2) as pool:
-            self.start_node.prev_dist = 0
-            nodes_to_ignore = []
-            iters = 0
-            q.put((0, self.start_node))
+        self.start_node.prev_dist = 0
+        nodes_to_ignore = []
+        iters = 0
+        q.put((0, self.start_node))
 
-            curr = None
+        curr = None
 
-            while not q.empty():
-                # get returns a tuple of (priority, data)
-                curr = q.get()[1]
-                if curr.is_goal():
-                    break
-                if iters >= 100:
-                    print("Max iterations in hand-solving exceeded.")
-                    return None
+        while not q.empty():
+            # get returns a tuple of (priority, data)
+            curr = q.get()[1]
+            if curr.is_goal():
+                break
+            if iters >= 100:
+                print("Max iterations in hand-solving exceeded.")
+                pipe_conn.send(None)
 
-                if iters < 3:
-                    neighbors = curr.get_neighbors(reduced=True)
-                else:
-                    neighbors = curr.get_neighbors(reduced=False)
+            if iters < 3:
+                neighbors = curr.get_neighbors(reduced=True)
+            else:
+                neighbors = curr.get_neighbors(reduced=False)
 
-                for n in neighbors:
-                    pool.apply_async(self.worker_task, (curr, nodes_to_ignore, q, n))
+            for n in neighbors:
+                self._worker_task(curr, nodes_to_ignore, q, n)
+                # async_res += [pool.apply_async(self._worker_task, (curr, nodes_to_ignore, q, n))]
 
-                nodes_to_ignore += [curr]
-                iters += 1
+            nodes_to_ignore += [curr]
+            iters += 1
 
-        m.close()
         if curr.is_goal():
-            # path = []
-            # while curr.parent is not None:
-            #     path += [curr.parent]
-            #     curr = curr.parent
-            # return [self.start_node] + path[::-1]
-            return curr
+            pipe_conn.send(curr)
         else:
-            return None
+            pipe_conn.send(None)
+
+    def get_nth_fastest_win(self, n=1):
+        rcv, send = Pipe(False)
+        p = Process(target=self._a_star, args=(send,))
+        p.start()
+        while not rcv.poll():
+            sleep(0.01)
+        final = rcv.recv()
+        p.join()
+        return final
+
