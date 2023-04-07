@@ -2,8 +2,9 @@ from game import *
 from queue import PriorityQueue
 from score_calculator import Calculator
 from math import inf
-from functools import total_ordering, partial
-from threading import Thread
+from functools import total_ordering
+from multiprocessing import Pool
+from multiprocessing.managers import BaseManager
 from os import cpu_count
 
 
@@ -150,6 +151,13 @@ class Node:
         return self.hand_value < other.hand_value
 
 
+class PQManager(BaseManager):
+    pass
+
+
+PQManager.register("PriorityQueue", PriorityQueue)
+
+
 class Pathfinder:
     def __init__(self, calc):
         self.starting_calc = calc
@@ -177,42 +185,40 @@ class Pathfinder:
             queue.put((prior_after_update, neighbor))
 
     def get_fastest_n_wins(self, n=1):
-        q = PriorityQueue()
-        self.start_node.prev_dist = 0
-        nodes_to_ignore = []
-        iters = 0
-        q.put((0, self.start_node))
+        m = PQManager()
+        m.start()
+        q = m.PriorityQueue()   # This is process-safe
 
-        curr = None
         # processes = None means use os.cpu_count(). Max power.
-        while not q.empty():
-            # get returns a tuple of (priority, data)
-            curr = q.get()[1]
-            if curr.is_goal():
-                break
-            if iters >= 100:
-                print("Max iterations in hand-solving exceeded.")
-                return None
+        with Pool(processes=2) as pool:
+            self.start_node.prev_dist = 0
+            nodes_to_ignore = []
+            iters = 0
+            q.put((0, self.start_node))
 
-            if iters < 3:
-                neighbors = curr.get_neighbors(reduced=True)
-            else:
-                neighbors = curr.get_neighbors(reduced=False)
+            curr = None
 
-            threads = []
-            for n in neighbors:
-                t = Thread(target=self._check_neighbor, args=(curr, nodes_to_ignore, q, n))
-                threads += [t]
+            while not q.empty():
+                # get returns a tuple of (priority, data)
+                curr = q.get()[1]
+                if curr.is_goal():
+                    break
+                if iters >= 100:
+                    print("Max iterations in hand-solving exceeded.")
+                    return None
 
-            for t in threads:
-                t.start()
+                if iters < 3:
+                    neighbors = curr.get_neighbors(reduced=True)
+                else:
+                    neighbors = curr.get_neighbors(reduced=False)
 
-            for t in threads:
-                t.join()
+                for n in neighbors:
+                    pool.apply_async(self._check_neighbor, (curr, nodes_to_ignore, q, n))
 
-            nodes_to_ignore += [curr]
-            iters += 1
+                nodes_to_ignore += [curr]
+                iters += 1
 
+        m.close()
         if curr.is_goal():
             # path = []
             # while curr.parent is not None:
