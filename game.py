@@ -388,6 +388,35 @@ class Hand:
         else:
             return -1
 
+    def __eq__(self, other):
+        if len(self.revealed_tiles) != len(other.revealed_tiles):
+            return False
+        if len(self.concealed_tiles) != len(other.concealed_tiles):
+            return False
+        if len(self.declared_concealed_kongs) != len(other.declared_concealed_kongs):
+            return False
+        if self.final_tile and other.final_tile:
+            if self.final_tile.name != other.final_tile.name:
+                return False
+        else:
+            return False
+        flag = True
+
+        for i in range(len(self.revealed_tiles)):
+            if self.revealed_tiles[i].name != other.revealed_tiles[i].name:
+                flag = False
+                break
+        for i in range(len(self.concealed_tiles)):
+            if self.concealed_tiles[i].name != other.concealed_tiles[i].name:
+                flag = False
+                break
+        for i in range(len(self.declared_concealed_kongs)):
+            if self.declared_concealed_kongs[i].name != other.declared_concealed_kongs[i].name:
+                flag = False
+                break
+
+        return flag
+
 
 class PossibleWinningHand(Hand):
     def __init__(self, hand):

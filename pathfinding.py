@@ -140,10 +140,10 @@ class Node:
         return h
 
     def __eq__(self, other):
-        return self.hand_value == other.hand_value
+        return self.hand == other.hand
 
     def __lt__(self, other):
-        return self.hand_value < other.hand_value
+        return self._get_score() < other._get_score()
 
 
 class Pathfinder:
@@ -161,8 +161,7 @@ class Pathfinder:
 
     @staticmethod
     def _worker_task(curr, nodes_to_ignore, queue, neighbor):
-        print("Working on ", neighbor)
-        if neighbor in nodes_to_ignore:
+        if any([curr == i for i in nodes_to_ignore]):
             return
         heuristic_result = neighbor.heuristic()
         prior_before_update = neighbor.prev_dist + heuristic_result
@@ -173,7 +172,7 @@ class Pathfinder:
             neighbor.priority = prior_after_update
             queue.put((prior_after_update, neighbor))
 
-    def _a_star(self, pipe_conn):
+    def _a_star(self, pipe_conn, num_wins_req):
         q = PriorityQueue()
 
         self.start_node.prev_dist = 0
@@ -182,16 +181,30 @@ class Pathfinder:
         q.put((0, self.start_node))
 
         curr = None
-
+        num_wins = 0
+        winners = []
         while not q.empty():
             # get returns a tuple of (priority, data)
             curr = q.get()[1]
             if curr.is_goal():
-                break
-            if iters >= 100:
+                print("Found a solution on iteration", str(iters))
+                if q.empty():
+                    print("First node was the goal. Quitting.")
+                    # If we already won there's no point
+                    pipe_conn.send([curr])
+                    return
+                if not any([curr == i for i in winners]):
+                    num_wins += 1
+                    winners += [curr.calc]
+                    nodes_to_ignore += [curr]
+                if num_wins >= num_wins_req:
+                    print("Found", str(num_wins_req), "wins. Exiting.")
+                    break
+            if iters >= 200:
                 print("Max iterations in hand-solving exceeded.")
-                pipe_conn.send(None)
+                pipe_conn.send([])
 
+            # Disable for now
             if iters < 3:
                 neighbors = curr.get_neighbors(reduced=True)
             else:
@@ -203,19 +216,11 @@ class Pathfinder:
             nodes_to_ignore += [curr]
             iters += 1
 
-        if curr.is_goal():
-            pipe_conn.send(curr)
-        else:
-            pipe_conn.send(None)
+        pipe_conn.send(winners)
 
-    # TODO: Make this return the process and pipe so it can be polled at the top level
-    def get_nth_fastest_win(self, n=1):
+    def get_n_fastest_wins(self, n=1):
         rcv, send = Pipe(False)
-        p = Process(target=self._a_star, args=(send,))
+        p = Process(target=self._a_star, args=(send, n))
         p.start()
-        while not rcv.poll():
-            sleep(0.01)
-        final = rcv.recv()
-        p.join()
-        return final
+        return rcv, p
 

@@ -5,13 +5,21 @@ from utilities import *
 from score_calculator import Calculator
 from game import VoidTile
 from pathfinding import *
+from functools import partial
 
 
 class HandAssister(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
+        self.master.rowconfigure("all", weight=1)
         self.hand_entry_frame = Frame(self.master, borderwidth=3, relief=GROOVE)
-        self.hand_entry_frame.pack(side=TOP, fill=BOTH)
+        self.hand_entry_frame.pack(expand=NO, side=TOP, fill=X)
+
+        self.solutions_frame = Frame(self.master, borderwidth=3, relief=GROOVE)
+        self.solutions_frame.pack(expand=YES, side=BOTTOM, fill=BOTH)
+        self.solutions_frame.rowconfigure(0, weight=1)
+        self.solutions_frame.columnconfigure(0, weight=1)
+
         self.void_tile = VoidTile()
         self.instructions_text = None
         self.concealed_entry_labelframe = None
@@ -38,6 +46,7 @@ class HandAssister(Frame):
         self.seat_wind_cv = None
         self.round_wind_cv = None
         self.clear_hand_button = None
+
         self.hand_visualizer_frame = None
         self.visualizer_revealed_frame = None
         self.visualizer_concealed_frame = None
@@ -51,6 +60,7 @@ class HandAssister(Frame):
         self.visualizer_total_score_label = None
         self.visualizer_total_score_label_cv = None
         self.visualizer_total_score_label_style = None
+
         self.popup = None
         self.hand_entry_warning_label = None
         self.final_tile_drawn_or_discard_checkbutton_cv = None
@@ -63,8 +73,21 @@ class HandAssister(Frame):
         self.replacement_tile_checkbutton = None
         self.kong_rob_checkbutton_cv = None
         self.kong_rob_checkbutton = None
+
         self.calculator = Calculator()
+
         self.pathfinder = Pathfinder(self.calculator)
+        self.pathfinder_pipe = None
+        self.pathfinder_process = None
+        self.pathfinder_poll_callback_id = None
+
+        self.solutions_style = Style()
+        self.solutions_style.configure("Solutions.TLabel",
+                                       font=('Segoe UI', 12, "bold", "underline"), foreground="blue")
+        self.solutions_label = Label(self.solutions_frame, anchor="center")
+        self.solutions_label.grid(row=0, column=0, sticky=N+E+S+W)
+        self.num_sols_to_find = 6
+        self.solution_entries = []
 
     def _check_valid_hand_entry(self, text):
         invalid_conds = [
@@ -79,7 +102,123 @@ class HandAssister(Frame):
         return True
 
     def _combobox_change(self, index, value, op):
+        # Parameters are required by tkinter, but not needed
         self._hand_change()
+
+    def _poll_status(self):
+        self.solutions_label.configure(text="Loading...")
+        self.solutions_label.grid(row=0, column=0, sticky=N+E+S+W)
+        if self.pathfinder_process is None or self.pathfinder_pipe is None:
+            return
+        if not self.pathfinder_pipe.poll():
+            self.pathfinder_poll_callback_id = self.after(10, self._poll_status)
+            return
+        final = self.pathfinder_pipe.recv()
+        self.pathfinder_process.join()
+        self._update_solutions_area(final)
+
+    def _update_solutions_area(self, final):
+        for entr in self.solution_entries:
+            entr.grid_remove()
+            recursive_destroy(entr)
+        self.solution_entries = []
+
+        if final is None or len(final) == 0:
+            return
+
+        for i in range(len(final)):
+            final_calc = final[i]
+            if not final_calc.pwh:
+                final_calc.pwh = PossibleWinningHand(final_calc.hand)
+            val, breakdown = final_calc.get_score_summary()
+            self.solutions_label.configure(text="Closest Solution(s) Found!\n", anchor="center")
+            self.solutions_label.grid(row=0, column=0, columnspan=3, sticky=N)
+            entr_frm = self._create_solution_entry(final_calc.hand, val, breakdown, i+1)
+            col_to_use = i//3
+            entr_frm.grid(row=i % 3, column=col_to_use, sticky=W)
+            self.solution_entries += [entr_frm]
+        self.solutions_frame.rowconfigure("all", weight=1)
+        self.solutions_frame.columnconfigure("all", weight=1)
+
+    def _create_solution_entry(self, hand, val, breakdown, sol_num):
+        frm = Frame(self.solutions_frame)
+        rvld = hand.revealed_tiles
+        cld = hand.concealed_tiles
+        ck = hand.declared_concealed_kongs
+        entry_lbl = Label(frm, style="Solutions.TLabel", cursor="hand2",
+                          text=str(sol_num) + ". Est. " + str(val) + " Points. Click for Breakdown")
+        entry_lbl.grid(row=0, sticky=E+W+N)
+        entry_lbl.bind("<ButtonRelease>", self._gen_solution_callback(breakdown))
+
+        declared_frm = Frame(frm)
+        declared_frm.grid(row=1, sticky=E+W)
+
+        concealed_frm = Frame(frm)
+        concealed_frm.grid(row=2, sticky=E+W)
+
+        for t in rvld:
+            ph = t.gen_img()
+            x = Label(declared_frm, image=ph)
+            x.ph = ph  # Avoid garbage collection
+            x.pack(side=LEFT, fill=Y)
+
+        if len(ck) >= 4:
+            for i in range(0, len(ck), 4):
+                ph = self.void_tile.gen_img()
+                x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+                ph = ck[i+1].gen_img()
+                x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+                x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+                ph = self.void_tile.gen_img()
+                x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+        for t in cld:
+            ph = t.gen_img()
+            x = Label(concealed_frm, image=ph)
+            x.ph = ph  # Avoid garbage collection
+            x.pack(side=LEFT, fill=Y)
+        return frm
+
+    def _gen_solution_callback(self, breakdown):
+        def f(str_to_print, event):
+            if self.popup:
+                self.popup.destroy()
+                self.popup = None
+            self.popup = Toplevel()
+            self.popup.title("Score Breakdown")
+            self.popup.geometry("600x400")
+            self.popup.resizable(height=False, width=False)
+            frm = Frame(self.popup)
+            frm.pack()
+            lbl = Label(frm, text="Score Breakdown", justify=CENTER)
+            lbl.grid(row=0, column=0, columnspan=4, sticky=N)
+            if str_to_print == "":
+                lbl = Label(frm, text="I don't know why, but there's no breakdown here.")
+                lbl.grid(row=1, column=0, columnspan=4, sticky=N+E+W)
+            else:
+                for row, line in enumerate(str_to_print.split("\n")):
+                    split_line = line.split(",")
+                    lbl = Label(frm, text=split_line[0])
+                    lbl.grid(row=row + 1, column=0)
+                    lbl = Label(frm, text=split_line[1])
+                    lbl.grid(row=row + 1, column=1)
+                    lbl = Label(frm, text=split_line[2])
+                    lbl.grid(row=row + 1, column=2)
+                    lbl = Label(frm, text=split_line[3])
+                    lbl.grid(row=row + 1, column=3)
+        func = partial(f, breakdown)
+        return func
 
     def _hand_change(self):
         concealed = []
@@ -108,9 +247,24 @@ class HandAssister(Frame):
                                  self.round_wind_cv.get(), self.seat_wind_cv.get())
         self.pathfinder = Pathfinder(self.calculator)
         self._update_visualizer()
-        # TODO: Make this grab a process and pipe, then check it every 10ms to see if it's done
+
+        if self.pathfinder_process:
+            # Kill it
+            self.pathfinder_pipe.close()
+            self.pathfinder_process.terminate()
+            self.pathfinder_process.join()
+            self.pathfinder_pipe = None
+            self.pathfinder_process = None
+        if self.pathfinder_poll_callback_id is not None:
+            self.after_cancel(self.pathfinder_poll_callback_id)
+
         if self.pathfinder.ready_to_check():
-            print(self.pathfinder.get_nth_fastest_win(1))
+            self.pathfinder_pipe, self.pathfinder_process = self.pathfinder.get_n_fastest_wins(n=self.num_sols_to_find)
+            self.pathfinder_poll_callback_id = self.after(10, self._poll_status)
+        else:
+            self.solutions_label.configure(text="Please enter a valid starting point above.")
+            self.solutions_label.grid(row=0, column=0, sticky=N+E+S+W)
+            self._update_solutions_area(None)
 
     def _update_visualizer(self):
         for l in self.visualizer_revealed_set_tile_pictures:
