@@ -156,38 +156,82 @@ class HandAssister(Frame):
         concealed_frm = Frame(frm)
         concealed_frm.grid(row=2, sticky=E+W)
 
+        all_tiles = cld + rvld + ck
+        all_old_tiles = self.calculator.hand.concealed_tiles + self.calculator.hand.revealed_tiles +\
+            self.calculator.hand.declared_concealed_kongs
+        uniques_new = list(set(all_tiles))
+        new_tiles = [i for i in uniques_new if all_tiles.count(i) > all_old_tiles.count(i)]
+        special_style = Style()
+        special_style.configure("NewTile.TFrame", background="red")
+
+        for t in cld:
+            ph = t.gen_img()
+            if t in new_tiles:
+                x = Frame(concealed_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                x.pack(side=LEFT, fill=Y)
+                x = Label(x, image=ph)
+                new_tiles.pop(new_tiles.index(t))
+            else:
+                x = Label(concealed_frm, image=ph)
+            x.ph = ph  # Avoid garbage collection
+            x.pack(side=LEFT, fill=Y)
+
         for t in rvld:
             ph = t.gen_img()
-            x = Label(declared_frm, image=ph)
+            if t in new_tiles:
+                x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                x.pack(side=LEFT, fill=Y)
+                x = Label(x, image=ph)
+                new_tiles.pop(new_tiles.index(t))
+            else:
+                x = Label(declared_frm, image=ph)
             x.ph = ph  # Avoid garbage collection
             x.pack(side=LEFT, fill=Y)
 
         if len(ck) >= 4:
             for i in range(0, len(ck), 4):
                 ph = self.void_tile.gen_img()
-                x = Label(concealed_frm, image=ph)
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
                 x.ph = ph  # Avoid garbage collection
                 x.pack(side=LEFT, fill=Y)
 
-                ph = ck[i+1].gen_img()
-                x = Label(concealed_frm, image=ph)
+                ph = ck[i].gen_img()
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
                 x.ph = ph  # Avoid garbage collection
                 x.pack(side=LEFT, fill=Y)
 
-                x = Label(concealed_frm, image=ph)
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
                 x.ph = ph  # Avoid garbage collection
                 x.pack(side=LEFT, fill=Y)
 
                 ph = self.void_tile.gen_img()
-                x = Label(concealed_frm, image=ph)
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
                 x.ph = ph  # Avoid garbage collection
                 x.pack(side=LEFT, fill=Y)
-
-        for t in cld:
-            ph = t.gen_img()
-            x = Label(concealed_frm, image=ph)
-            x.ph = ph  # Avoid garbage collection
-            x.pack(side=LEFT, fill=Y)
         return frm
 
     def _gen_solution_callback(self, breakdown):
