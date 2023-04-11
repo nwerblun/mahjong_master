@@ -202,7 +202,7 @@ class Pathfinder:
                     break
             if iters >= 200:
                 print("Max iterations in hand-solving exceeded.")
-                pipe_conn.send([])
+                pipe_conn.send(winners)
 
             # Disable for now
             if iters < 3:

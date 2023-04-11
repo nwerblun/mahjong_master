@@ -127,13 +127,13 @@ class HandAssister(Frame):
         if final is None or len(final) == 0:
             return
 
+        self.solutions_label.configure(text="Closest Solution(s) Found!\n", anchor="center")
+        self.solutions_label.grid(row=0, column=0, columnspan=self.num_sols_to_find // 3, sticky=N)
         for i in range(len(final)):
             final_calc = final[i]
             if not final_calc.pwh:
                 final_calc.pwh = PossibleWinningHand(final_calc.hand)
             val, breakdown = final_calc.get_score_summary()
-            self.solutions_label.configure(text="Closest Solution(s) Found!\n", anchor="center")
-            self.solutions_label.grid(row=0, column=0, columnspan=3, sticky=N)
             entr_frm = self._create_solution_entry(final_calc.hand, val, breakdown, i+1)
             col_to_use = i//3
             entr_frm.grid(row=i % 3, column=col_to_use, sticky=W)
