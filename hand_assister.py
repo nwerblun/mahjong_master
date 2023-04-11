@@ -114,6 +114,7 @@ class HandAssister(Frame):
             self.pathfinder_poll_callback_id = self.after(10, self._poll_status)
             return
         final = self.pathfinder_pipe.recv()
+        self.pathfinder_pipe.close()
         self.pathfinder_process.join()
         self._update_solutions_area(final)
 
@@ -167,7 +168,7 @@ class HandAssister(Frame):
         for t in cld:
             ph = t.gen_img()
             if t in new_tiles:
-                x = Frame(concealed_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                x = Frame(concealed_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
                 x.pack(side=LEFT, fill=Y)
                 x = Label(x, image=ph)
                 new_tiles.pop(new_tiles.index(t))
@@ -179,7 +180,7 @@ class HandAssister(Frame):
         for t in rvld:
             ph = t.gen_img()
             if t in new_tiles:
-                x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
                 x.pack(side=LEFT, fill=Y)
                 x = Label(x, image=ph)
                 new_tiles.pop(new_tiles.index(t))
@@ -192,7 +193,7 @@ class HandAssister(Frame):
             for i in range(0, len(ck), 4):
                 ph = self.void_tile.gen_img()
                 if ck[i] in new_tiles:
-                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
                     x.pack(side=LEFT, fill=Y)
                     x = Label(x, image=ph)
                     new_tiles.pop(new_tiles.index(t))
@@ -203,7 +204,7 @@ class HandAssister(Frame):
 
                 ph = ck[i].gen_img()
                 if ck[i] in new_tiles:
-                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
                     x.pack(side=LEFT, fill=Y)
                     x = Label(x, image=ph)
                     new_tiles.pop(new_tiles.index(t))
@@ -213,7 +214,7 @@ class HandAssister(Frame):
                 x.pack(side=LEFT, fill=Y)
 
                 if ck[i] in new_tiles:
-                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
                     x.pack(side=LEFT, fill=Y)
                     x = Label(x, image=ph)
                     new_tiles.pop(new_tiles.index(t))
@@ -224,7 +225,7 @@ class HandAssister(Frame):
 
                 ph = self.void_tile.gen_img()
                 if ck[i] in new_tiles:
-                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=3, relief=GROOVE)
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
                     x.pack(side=LEFT, fill=Y)
                     x = Label(x, image=ph)
                     new_tiles.pop(new_tiles.index(t))
