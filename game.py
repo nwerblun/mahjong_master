@@ -618,6 +618,8 @@ class PossibleWinningHand(Hand):
             self.closed_wait = False
             if self_drawn:
                 self.concealed_tiles += [self.final_tile]
+            elif not self_drawn and (self.final_tile in singles) and len(edges) == 0 and len(closed) == 0:
+                self.concealed_tiles += [self.final_tile]
             else:
                 self.revealed_tiles += [self.final_tile]
         self._update_hand()
@@ -633,15 +635,14 @@ class PossibleWinningHand(Hand):
         t0_third = VoidTile() if t0_next_name is None else Tile(t0_next_name)
         sets_and_remainders = []
         if tiles.count(t0_second) >= 1 and tiles.count(t0_third) >= 1:
-            ind_next = tiles.index(t0_second)
-            ind_third = tiles.index(t0_third)
-            remainder = tiles[:]
-            remainder.pop(ind_third)
-            remainder.pop(ind_next)
-            remainder.pop(0)
+            temp_tiles = tiles[1:]
+            ind_next = temp_tiles.index(t0_second)
+            t0_2 = temp_tiles.pop(ind_next)
+            ind_third = temp_tiles.index(t0_third)
+            t0_3 = temp_tiles.pop(ind_third)
             sets_and_remainders += [[
-                [t0, tiles[ind_next], tiles[ind_third]],
-                remainder
+                [t0, t0_2, t0_3],
+                temp_tiles
             ]]
         if tiles.count(t0) >= 3:
             temp_tiles = tiles[1:]

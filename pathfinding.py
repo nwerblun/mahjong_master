@@ -191,7 +191,7 @@ class Pathfinder:
                 if q.empty():
                     print("First node was the goal. Quitting.")
                     # If we already won there's no point
-                    pipe_conn.send([curr])
+                    pipe_conn.send([curr.calc])
                     return
                 if not any([curr == i for i in winners]):
                     num_wins += 1
