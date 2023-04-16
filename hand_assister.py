@@ -116,6 +116,8 @@ class HandAssister(Frame):
         final = self.pathfinder_pipe.recv()
         self.pathfinder_pipe.close()
         self.pathfinder_process.join()
+        if len(final) == 0 or final is None:
+            self.solutions_label.configure(text="Number of iterations with no solution exceeded.", anchor="center")
         self._update_solutions_area(final)
 
     def _update_solutions_area(self, final):
@@ -125,7 +127,6 @@ class HandAssister(Frame):
         self.solution_entries = []
 
         if final is None or len(final) == 0:
-            self.solutions_label.configure(text="Number of iterations with no solution exceeded.", anchor="center")
             return
 
         self.solutions_label.configure(text="Closest Solution(s) Found!\n", anchor="center")

@@ -4,9 +4,14 @@ from functools import total_ordering
 
 
 def lesser_honors_knitted_seq(hand):
-    all_tiles = hand.concealed_tiles
-    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
-        return 0
+    if not hand.self_drawn_final_tile:
+        all_tiles = hand.concealed_tiles + [hand.final_tile]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 1 or len(all_tiles) < 14:
+            return 0
+    else:
+        all_tiles = hand.concealed_tiles[:]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+            return 0
     knitted_set_variants = [
         [
             Tile("b1"), Tile("b4"), Tile("b7"),
@@ -49,9 +54,14 @@ def lesser_honors_knitted_seq(hand):
 
 
 def seven_pairs(hand):
-    all_tiles = hand.concealed_tiles
-    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
-        return 0
+    if not hand.self_drawn_final_tile:
+        all_tiles = hand.concealed_tiles + [hand.final_tile]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 1 or len(all_tiles) < 14:
+            return 0
+    else:
+        all_tiles = hand.concealed_tiles[:]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+            return 0
     all_tiles = sorted(all_tiles)
     counts = [all_tiles.count(t) for t in all_tiles]
     fails = [
@@ -65,9 +75,14 @@ def seven_pairs(hand):
 
 
 def greater_honors_knitted_tiles(hand):
-    all_tiles = hand.concealed_tiles
-    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
-        return 0
+    if not hand.self_drawn_final_tile:
+        all_tiles = hand.concealed_tiles + [hand.final_tile]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 1 or len(all_tiles) < 14:
+            return 0
+    else:
+        all_tiles = hand.concealed_tiles[:]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+            return 0
     knitted_set_variants = [
         [
             Tile("b1"), Tile("b4"), Tile("b7"),
@@ -113,9 +128,14 @@ def greater_honors_knitted_tiles(hand):
 def seven_shifted_pairs(hand):
     if hand.get_num_honor_tiles() > 0:
         return 0
-    all_tiles = hand.concealed_tiles
-    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
-        return 0
+    if not hand.self_drawn_final_tile:
+        all_tiles = hand.concealed_tiles + [hand.final_tile]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 1 or len(all_tiles) < 14:
+            return 0
+    else:
+        all_tiles = hand.concealed_tiles[:]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+            return 0
     all_tiles = sorted(all_tiles)
     counts = [all_tiles.count(t) for t in all_tiles]
     if counts.count(1) == 1:
@@ -132,10 +152,15 @@ def seven_shifted_pairs(hand):
 
 
 def thirteen_orphans(hand):
-    all_tiles = hand.concealed_tiles
-    if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
-        return 0
-    hand_size = len(hand.concealed_tiles)
+    if not hand.self_drawn_final_tile:
+        all_tiles = hand.concealed_tiles + [hand.final_tile]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 1 or len(all_tiles) < 14:
+            return 0
+    else:
+        all_tiles = hand.concealed_tiles[:]
+        if len(all_tiles) == 0 or len(hand.revealed_tiles) > 0 or len(all_tiles) < 14:
+            return 0
+    hand_size = len(all_tiles)
     tiles_needed = [
         Tile("b1"), Tile("b9"), Tile("c1"),
         Tile("c9"), Tile("d1"), Tile("d9"),
