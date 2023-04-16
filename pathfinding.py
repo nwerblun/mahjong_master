@@ -113,7 +113,7 @@ class Node:
                         neighbors += [Node(kong_calcs, new_deck)]
                     if upgraded_calcs:
                         # You don't lose a tile when you upgrade to a kong
-                        upgraded_calcs.hand.add_tile_to_hand(False, discarded.name)
+                        upgraded_calcs.hand.set_final_tile(discarded.name, True)
                         neighbors += [Node(upgraded_calcs, new_deck)]
                     if chow_calcs:
                         neighbors += [Node(c, new_deck) for c in chow_calcs]
@@ -203,6 +203,7 @@ class Pathfinder:
             if iters >= 200:
                 print("Max iterations in hand-solving exceeded.")
                 pipe_conn.send(winners)
+                return
 
             # Disable for now
             if iters < 3:

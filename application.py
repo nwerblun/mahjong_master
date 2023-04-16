@@ -54,20 +54,22 @@ class Application(Frame):
             self.hand_calc = None
 
     def debug(self):
-        self.hand_assister.concealed_other_entries[0].insert(0, "b1")
-        self.hand_assister.concealed_other_entries[1].insert(0, "b2")
-        self.hand_assister.concealed_other_entries[2].insert(0, "b3")
-        self.hand_assister.concealed_other_entries[3].insert(0, "b7")
-        self.hand_assister.concealed_other_entries[4].insert(0, "b8")
-        self.hand_assister.concealed_other_entries[5].insert(0, "c1")
-        self.hand_assister.concealed_other_entries[6].insert(0, "c1")
-        self.hand_assister.concealed_other_entries[7].insert(0, "we")
-        self.hand_assister.concealed_other_entries[8].insert(0, "we")
-        self.hand_assister.concealed_other_entries[9].insert(0, "d7")
+        self.hand_assister.concealed_other_entries[0].insert(0, "")
+        self.hand_assister.concealed_other_entries[1].insert(0, "c9")
+        self.hand_assister.concealed_other_entries[2].insert(0, "d3")
+        self.hand_assister.concealed_other_entries[3].insert(0, "d7")
+        self.hand_assister.concealed_other_entries[4].insert(0, "d8")
+        self.hand_assister.concealed_other_entries[5].insert(0, "drr")
+        self.hand_assister.concealed_other_entries[6].insert(0, "drg")
+        self.hand_assister.concealed_other_entries[7].insert(0, "")
+        self.hand_assister.concealed_other_entries[8].insert(0, "")
+        self.hand_assister.concealed_other_entries[9].insert(0, "")
 
-        self.hand_assister.revealed_other_entries[0].insert(0, "d1")
-        self.hand_assister.revealed_other_entries[1].insert(0, "d1")
-        self.hand_assister.revealed_other_entries[2].insert(0, "d1")
+        self.hand_assister.revealed_other_entries[0].insert(0, "d4")
+        self.hand_assister.revealed_other_entries[1].insert(0, "d5")
+        self.hand_assister.revealed_other_entries[2].insert(0, "d6")
+
+        self.hand_assister.revealed_kong_entries[0].insert(0, "wn")
 
         self.hand_assister.final_tile_entry.insert(0, "c")
         self.hand_assister.final_tile_drawn_or_discard_checkbutton.invoke()

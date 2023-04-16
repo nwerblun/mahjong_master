@@ -125,6 +125,7 @@ class HandAssister(Frame):
         self.solution_entries = []
 
         if final is None or len(final) == 0:
+            self.solutions_label.configure(text="Number of iterations with no solution exceeded.", anchor="center")
             return
 
         self.solutions_label.configure(text="Closest Solution(s) Found!\n", anchor="center")
