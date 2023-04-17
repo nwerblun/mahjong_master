@@ -21,21 +21,22 @@ class YoloReshape(keras.layers.Layer):
         return config
 
     def call(self, inputs):
+        # Don't specify batch size, TF takes care of it
         grid_dims = [self.target_shape[0], self.target_shape[1]]
-        batch_size = inputs.shape[0]  # should be the same as yg.BATCH_SIZE but whatever
+
         # Input will be one large flat array with Batch x grid_w x grid_h x (bboxes * 5 + num_classes) elements
         start_to_num_classes = grid_dims[0] * grid_dims[1] * yg.NUM_CLASSES
         num_classes_to_bboxes = start_to_num_classes + grid_dims[0] * grid_dims[1] * yg.NUM_BOUNDING_BOXES
 
         # Reshape class probabilities and softmax. Should be size (B x GridW x GridH x NumClasses)
         class_probs = tf.reshape(inputs[..., :start_to_num_classes],
-                                 (batch_size,) + (grid_dims[0], grid_dims[1], yg.NUM_CLASSES))
+                                 [-1, grid_dims[0], grid_dims[1], yg.NUM_CLASSES])
         # Convert to prob. distribution
         class_probs = keras.activations.softmax(class_probs)
 
         # Each grid cell's confidence. A single value. Size (B x GridW x GridH x NumBBoxes)
         cell_conf = tf.reshape(inputs[..., start_to_num_classes:num_classes_to_bboxes],
-                               (batch_size,) + (grid_dims[0], grid_dims[1], yg.NUM_BOUNDING_BOXES))
+                               [-1, grid_dims[0], grid_dims[1], yg.NUM_BOUNDING_BOXES])
         # Confidence should range 0->1 so sigmoid it
         cell_conf = keras.activations.sigmoid(cell_conf)
 
@@ -43,7 +44,7 @@ class YoloReshape(keras.layers.Layer):
         # Size should be (B x GridW x GridH x NumBBoxes * 4)
         # * 4 since there's x,y,w,h for each BBox
         bboxes = tf.reshape(inputs[..., num_classes_to_bboxes:],
-                            (batch_size,) + (grid_dims[0], grid_dims[1], yg.NUM_BOUNDING_BOXES * 4))
+                            [-1, grid_dims[0], grid_dims[1], yg.NUM_BOUNDING_BOXES * 4])
         # It's in terms of % of size of grid cell and should range from 0->1. Sigmoid it
         bboxes = keras.activations.sigmoid(bboxes)
 
@@ -100,7 +101,7 @@ def yolo_loss(y_true, y_pred):
         conv_index = tf.transpose(tf.stack([conv_row_index, conv_col_index]))
         conv_index = tf.reshape(conv_index, [-1, yg.GRID_H, yg.GRID_W, 1, 2])
         # Add dummy dimensions so we can broadcast
-        conv_dims = tf.reshape(tf.Tensor([yg.GRID_H, yg.GRID_W]), [1, 1, 1, 1, 2])
+        conv_dims = tf.reshape(tf.convert_to_tensor([yg.GRID_H, yg.GRID_W], dtype=tf.float32), [1, 1, 1, 1, 2])
         # Adds xy center loc + grid cell index = absolute loc. in terms of grid cells
         # -> divide by grid_w to get location as % of image
         # Multiply by image width to get absolute img coord
@@ -249,39 +250,7 @@ def make_model():
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(Conv2D(filters=1024, kernel_size=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-
-    model.add(Conv2D(filters=256, kernel_size=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=512, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=256, kernel_size=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=512, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=256, kernel_size=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=512, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=512, kernel_size=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
-
-    model.add(Conv2D(filters=512, kernel_size=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=512, kernel_size=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), strides=(2, 2), padding='same'))
-
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=55, kernel_size=(1, 1), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
 
     model.add(Flatten())
     model.add(Dense(512))
@@ -354,5 +323,3 @@ def _test_model(ds, from_h5=True):
           yolo_model.evaluate(ds,
                               steps=int(len(ds) // (yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[2]))
                               ))
-
-
