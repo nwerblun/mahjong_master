@@ -23,7 +23,6 @@ def file_to_img_label(example_tuple):
 
     # CV loads in BGR order, want RGB
     img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-    img_h, img_w = img.shape[0:2]
     img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
     # Max is 255 (img are stored in 8-bits / channel) rescale to 0->1 max
     img = img / 255.0
@@ -86,6 +85,27 @@ def get_datasets():
     train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
     valid_ds = valid_ds.prefetch(tf.data.AUTOTUNE)
     return train_ds, valid_ds, test_ds
+
+
+def img_to_pred_input(img_path):
+    try:
+        img = cv.imread(img_path)
+    except FileNotFoundError:
+        print("Could not find image file", img_path)
+        return None
+
+    # CV loads in BGR order, want RGB
+    img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+    img_h, img_w = img.shape[0:2]
+    img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
+    # Max is 255 (img are stored in 8-bits / channel) rescale to 0->1 max
+    return tf.Tensor(img / 255.)
+
+
+def draw_pred_output_and_plot(output_tensor):
+    pass
+
+
 
 
 
