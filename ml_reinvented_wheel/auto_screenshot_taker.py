@@ -13,7 +13,7 @@ try:
             # Cheap hack :)
             if "mahjong" in win_name.lower() and "mozilla" in win_name.lower():
                 # Firefox is displayed as 'web name — Mozilla Firefox'. — is a double hyphen character.
-                website_name = win_name.replace(" ", "_").split("—")[0].lower()
+                website_name = win_name.replace(" ", "_").replace(".", "_").split("—")[0].lower()
                 files = os.listdir(".\\img\\")
                 if len(files) > 0:
                     prev_scs = [int(s.replace(".png", "").replace(website_name, ""))
