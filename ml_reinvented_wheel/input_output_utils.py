@@ -5,7 +5,7 @@ import yolo_globals as yg
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-from matplotlib.colors import get_named_colors_mapping
+# from matplotlib.colors import get_named_colors_mapping
 from random import choice
 
 
@@ -237,9 +237,6 @@ def img_and_label_plot(img_path, squish=False):
         text_anchor_xy = ((x_rel - w_rel/2)*img_w,  ((y_rel - h_rel/2)*img_h)+5)
         plt.annotate(yg.CLASS_MAP[cls], text_anchor_xy)
     plt.show()
-
-
-img_and_label_plot(".\\img\\mcr_mahjong_trainer_297.png", squish=True)
 
 
 
