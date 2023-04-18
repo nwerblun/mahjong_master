@@ -7,7 +7,8 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.regularizers import l2
 from input_output_utils import get_datasets
 import yolo_globals as yg
-import sys
+import cv2 as cv
+import numpy as np
 
 
 class YoloReshape(keras.layers.Layer):
@@ -344,3 +345,20 @@ def _test_model(ds, n_examples, from_h5=True):
           yolo_model.evaluate(ds,
                               steps=int(n_examples // max(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[2], 1))
                               ))
+
+
+def predict_on_img(img_path):
+    try:
+        img = cv.imread(img_path)
+    except FileNotFoundError:
+        print("Could not find image file", img_path)
+        return None
+
+    # CV loads in BGR order, want RGB
+    img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
+    img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
+    img = img / 255.0
+    img = img.reshape((1,)+img.shape)
+    m = load_model()
+    out = m(img, training=False)
+    return np.squeeze(out.numpy())

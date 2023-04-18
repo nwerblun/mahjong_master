@@ -6,4 +6,6 @@ if __name__ == "__main__":
     if not good:
         print("Not enough bboxes to hold", str(max_objs), "in file", max_objs_file)
     else:
-        train_model(test_after=True, output_json=True)
+        # train_model(test_after=True, output_json=True)
+        pred = predict_on_img(".\\img\\mcr_mahjong_trainer_53.png")
+        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", pred, class_thresh=0.03, conf_thresh=0)

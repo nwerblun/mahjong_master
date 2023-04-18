@@ -187,15 +187,15 @@ def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thres
 
     for row in range(yg.GRID_H):
         for col in range(yg.GRID_W):
-            pred_classes = output_arr[row, col, yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
-            pred_confidences = output_arr[row, col, yg.PRED_CONFIDENCE_INDEX_START:yg.PRED_CONFIDENCE_INDEX_END]
+            pred_classes = output_arr[..., row, col, yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
+            pred_confidences = output_arr[..., row, col, yg.PRED_CONFIDENCE_INDEX_START:yg.PRED_CONFIDENCE_INDEX_END]
 
             highest_prob_class_name = yg.CLASS_MAP[np.argmax(pred_classes)]
             highest_prob_class_amt = pred_classes[np.argmax(pred_classes)]
             if highest_prob_class_amt < class_thresh:
                 continue
 
-            pred_bboxes = output_arr[row, col, yg.PRED_CONFIDENCE_INDEX_END:].reshape((yg.NUM_BOUNDING_BOXES, 4))
+            pred_bboxes = output_arr[..., row, col, yg.PRED_CONFIDENCE_INDEX_END:].reshape((yg.NUM_BOUNDING_BOXES, 4))
             for bbox_ind in range(yg.NUM_BOUNDING_BOXES):
                 if pred_confidences[bbox_ind] < conf_thresh:
                     continue
@@ -266,10 +266,3 @@ def img_and_label_plot(img_path, squish=False):
         text_anchor_xy = ((x_rel - w_rel/2)*img_w,  ((y_rel - h_rel/2)*img_h)+5)
         plt.annotate(yg.CLASS_MAP[cls], text_anchor_xy)
     plt.show()
-
-
-
-
-
-
-
