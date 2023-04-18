@@ -132,15 +132,32 @@ def get_datasets():
     test_ds = tf.data.Dataset.from_tensor_slices(test_examples)
     test_ds = test_ds.map(lambda x: tf.py_function(file_to_img_label, inp=[x], Tout=[tf.float32, tf.float32]))
 
-    train_ds = train_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
-                                seed=yg.GLOBAL_RNG_SEED,
-                                reshuffle_each_iteration=True).repeat().batch(yg.BATCH_SIZE)
-    valid_ds = valid_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
-                                seed=yg.GLOBAL_RNG_SEED*4,
-                                reshuffle_each_iteration=True).repeat().batch(max(int(yg.BATCH_SIZE * val_split), 1))
-    test_ds = test_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
-                              seed=yg.GLOBAL_RNG_SEED*6,
-                              reshuffle_each_iteration=True).repeat().batch(max(int(yg.BATCH_SIZE * test_split), 1))
+    # Batching takes too much memory I think. files are already shuffled, so I guess we are just going in.
+    # Mem of params = # trainable params * 4 bytes / param (assuming float32)
+    #   for 31 million params, this is ~124MB
+    # Training mem = mem of params * 3 (once for forward/back prop + other stuff)
+    #   Total ~370MB
+    # For each layer, 4 bytes * (shape[0]*shape[1]*...)
+    #   For a conv layer of 416x416x64 this is 1.2MB
+    # Take the total of all layer output sizes and * batch size to get memory of a forward pass
+    if yg.DS_BUFFER_SIZE > 0:
+        train_ds = train_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
+                                    seed=yg.GLOBAL_RNG_SEED,
+                                    reshuffle_each_iteration=True).repeat().batch(yg.BATCH_SIZE)
+        valid_ds = valid_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
+                                    seed=yg.GLOBAL_RNG_SEED*4,
+                                    reshuffle_each_iteration=True).repeat().batch(
+            max(int(yg.BATCH_SIZE * val_split), 1)
+        )
+        test_ds = test_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
+                                  seed=yg.GLOBAL_RNG_SEED*6,
+                                  reshuffle_each_iteration=True).repeat().batch(
+            max(int(yg.BATCH_SIZE * test_split), 1)
+    )
+    else:
+        train_ds = train_ds.repeat().batch(yg.BATCH_SIZE)
+        valid_ds = valid_ds.repeat().batch(max(int(yg.BATCH_SIZE * val_split), 1))
+        test_ds = test_ds.repeat().batch(max(int(yg.BATCH_SIZE * test_split), 1))
 
     # train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
     # valid_ds = valid_ds.prefetch(tf.data.AUTOTUNE)

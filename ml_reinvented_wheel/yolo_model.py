@@ -237,7 +237,7 @@ def make_model():
     model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     # Modified to 4,4 for memory? Reduce to 2,2 if mem usage isn't improved and uncomment above layer.
-    model.add(MaxPooling2D(pool_size=(4, 4), strides=(2, 2), padding='same'))
+    model.add(MaxPooling2D(pool_size=(4, 4), strides=(4, 4), padding='same'))
 
     model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
@@ -253,13 +253,14 @@ def make_model():
 
     model.add(Conv2D(filters=512, kernel_size=(3, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=1024, kernel_size=(1, 1), padding='same',
+    model.add(Conv2D(filters=512, kernel_size=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=55, kernel_size=(1, 1), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=((yg.NUM_BOUNDING_BOXES * 5) + yg.NUM_CLASSES),
+                     kernel_size=(1, 1), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
 
     model.add(Flatten())
+    model.add(Dense(256))
     model.add(Dense(512))
-    model.add(Dense(1024))
     model.add(Dropout(0.5))
     model.add(Dense(yg.YOLO_TOTAL_DIMENSIONS, activation='sigmoid'))
     model.add(YoloReshape(target_shape=yg.YOLO_OUTPUT_SHAPE))
@@ -275,7 +276,7 @@ def train_model(test_after=True, output_json=False):
     model_save_filename = "model.h5"
     early_cb = keras.callbacks.EarlyStopping(patience=12, restore_best_weights=True)
     mid_cb = keras.callbacks.ModelCheckpoint(
-        model_save_filename, monitor="val_accuracy", save_best_only=True
+        model_save_filename, monitor="loss", save_best_only=True
     )
     backup_cb = keras.callbacks.BackupAndRestore(backup_dir=".\\tmp\\backup")
 
@@ -284,13 +285,13 @@ def train_model(test_after=True, output_json=False):
         epochs=yg.NUM_EPOCHS,
         validation_data=valid_ds,
         callbacks=[get_learning_schedule(), early_cb, mid_cb, backup_cb],
-        steps_per_epoch=int(n_train//yg.BATCH_SIZE),
+        steps_per_epoch=int(n_train//max(yg.BATCH_SIZE, 1)),
         validation_steps=int(n_valid//max(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1], 1))
     )
 
     print("Evaluation", yolo_model.evaluate(valid_ds,
                                             steps=int(n_valid //
-                                                      (yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1]))))
+                                                      max(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1], 1))))
     yolo_model.save("model.h5", save_format="h5")
     if output_json:
         model_h5_to_json_weights(yolo_model)
