@@ -12,7 +12,7 @@ LABEL_CLASS_INDEX_START = 0
 LABEL_CLASS_INDEX_END = 35  # Assuming it will be used in slicing, so it will be exclusive on the end
 LABEL_BBOX_INDEX_START = 35
 LABEL_BBOX_INDEX_END = 39  # Assuming it will be used in slicing, so it will be exclusive on the end
-LABEL_CONFIDENCE_INDEX = 40
+LABEL_CONFIDENCE_INDEX = 39
 
 PRED_CLASS_INDEX_START = 0
 PRED_CLASS_INDEX_END = 35  # Assuming it will be used in slicing, so it will be exclusive on the end
@@ -95,7 +95,8 @@ INVERSE_CLASS_MAP = {
     "ww": 3+30,
     "f1": 0+34
 }
-BATCH_SIZE = 32
+BATCH_SIZE = 4
+DS_BUFFER_SIZE = 1
 TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
 GLOBAL_RNG_SEED = 12039
 ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \

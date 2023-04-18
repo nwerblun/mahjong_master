@@ -1,3 +1,4 @@
+import os.path
 import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential
@@ -6,10 +7,11 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.regularizers import l2
 from input_output_utils import get_datasets
 import yolo_globals as yg
+import sys
 
 
 class YoloReshape(keras.layers.Layer):
-    def __init__(self, target_shape):
+    def __init__(self, target_shape, **kwargs):
         super().__init__()
         self.target_shape = tuple(target_shape)
 
@@ -78,8 +80,8 @@ def yolo_loss(y_true, y_pred):
 
     def xywh_to_absolute_coords(xywhc):
         # Input is the x, y, w, h, c pair for a single bbox. x,y is in terms of grid size, w,h is % of img
-        conv_row_index = tf.range(start=0, stop=yg.GRID_H)
-        conv_col_index = tf.range(start=0, stop=yg.GRID_W)
+        conv_row_index = tf.range(start=0, limit=yg.GRID_H)
+        conv_col_index = tf.range(start=0, limit=yg.GRID_W)
         # Create list [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1, 2, ...] 13 times if grid_w = 13
         conv_row_index = tf.tile(conv_row_index, [yg.GRID_W])
 
@@ -95,11 +97,12 @@ def yolo_loss(y_true, y_pred):
         #  [2, 2, 2, ...]
         #  ...]
         # then flattens it into [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, ...]
-        conv_col_index = tf.transpose(conv_col_index).reshape([-1])
+        conv_col_index = tf.reshape(tf.transpose(conv_col_index), [-1])
 
         # [[0, 0], [1, 0], [2, 0], ... [0, 1], [1, 1], [2, 1], ... [13, 13]] if grid_w = 13
         conv_index = tf.transpose(tf.stack([conv_row_index, conv_col_index]))
         conv_index = tf.reshape(conv_index, [-1, yg.GRID_H, yg.GRID_W, 1, 2])
+        conv_index = tf.cast(conv_index, dtype=tf.float32)
         # Add dummy dimensions so we can broadcast
         conv_dims = tf.reshape(tf.convert_to_tensor([yg.GRID_H, yg.GRID_W], dtype=tf.float32), [1, 1, 1, 1, 2])
         # Adds xy center loc + grid cell index = absolute loc. in terms of grid cells
@@ -149,14 +152,12 @@ def yolo_loss(y_true, y_pred):
     # Compute IOU scores. 4 scores, 1 per box. Score is a single number
     iou_scores = iou(pred_xy_tl, predict_xy_br, label_xy_tl, label_xy_br)  # B x 13 x 13 x 4 x 1
     # I think this just reduces dimensions by 1. Not sure why this is done
-    all_grid_bboxes_ious = tf.math.maximum(iou_scores, axis=4)  # B x 13 x 13 x 4
+    all_grid_bboxes_ious = tf.math.reduce_max(iou_scores, axis=4)  # B x 13 x 13 x 4
     # This actually computes maxes. Axis 3 has 4 elements, one IOU per box
-    best_bbox_iou_per_cell = tf.math.maximum(all_grid_bboxes_ious, axis=3, keepdims=True)  # B x 13 x 13 x 1
-
+    best_bbox_iou_per_cell = tf.math.reduce_max(all_grid_bboxes_ious, axis=3, keepdims=True)  # B x 13 x 13 x 1
     # Values are floats. Create a mask of which boxes in each cell have the highest IOU to 0 out the rest.
     # This is all booleans, so convert it to a float to get 1 or 0
     bbox_mask = tf.cast(all_grid_bboxes_ious >= best_bbox_iou_per_cell, tf.float32)  # B x 13 x 13 x 4
-
     # Compute loss.
     # If there should be no object, then the error is 0 - predicted.
     # bbox_mask * result mask should only = 1 if both the label exists there, and the grid properly predicted that
@@ -168,15 +169,14 @@ def yolo_loss(y_true, y_pred):
     object_loss = bbox_mask * result_mask * tf.math.square(1 - pred_confs)
     confidence_loss = no_object_loss + object_loss
     # Reduce to a single number across all grid cells and their boxes
-    confidence_loss = tf.math.reduce_sum(confidence_loss)
-
+    confidence_loss = tf.math.reduce_sum(confidence_loss, axis=-1, keepdims=True)
     # How wrong of a class did it pick? If the label exists here, we should predict a class matching the label.
     class_loss = result_mask * tf.math.square(label_classes - pred_classes)
-    class_loss = tf.math.reduce_sum(class_loss)
+    class_loss = tf.math.reduce_sum(class_loss, axis=-1, keepdims=True)
 
     # Re-compute all xy pairs to compute how wrong the box coordinates were
-    label_xy, label_wh = xywh_to_absolute_coords(label_bboxes)
-    pred_xy, pred_wh = xywh_to_absolute_coords(pred_bboxes)
+    label_xy, label_wh = xywh_to_absolute_coords(reshaped_label_bboxes)
+    pred_xy, pred_wh = xywh_to_absolute_coords(reshaped_pred_bboxes)
 
     bbox_mask = tf.expand_dims(bbox_mask, -1)
     result_mask = tf.expand_dims(result_mask, -1)
@@ -193,10 +193,13 @@ def yolo_loss(y_true, y_pred):
     """
     box_loss += yg.BBOX_WH_LOSS_SCALE * bbox_mask * result_mask * \
         tf.math.square((tf.math.sqrt(label_wh) - tf.math.sqrt(pred_wh)) / yg.IMG_W)
-    box_loss = tf.math.reduce_sum(box_loss)
+    # We added an extra dimension to make sizes match. We need to reduce dimensions to align with other losses.
+    box_loss = tf.math.reduce_sum(box_loss, axis=-1, keepdims=False)
 
     # Total loss is the sum of all loss terms
     loss = confidence_loss + class_loss + box_loss
+    # tf.print("Loss is " + str(loss))
+    # tf.print("Loss final shape is: ", tf.shape(loss))
     return loss
 
 
@@ -226,13 +229,14 @@ def make_model():
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=16, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    # model.add(Conv2D(filters=16, kernel_size=(3, 3), padding='same',
+    #                 activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    # model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
     model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    # Modified to 4,4 for memory? Reduce to 2,2 if mem usage isn't improved and uncomment above layer.
+    model.add(MaxPooling2D(pool_size=(4, 4), strides=(2, 2), padding='same'))
 
     model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
@@ -263,7 +267,7 @@ def make_model():
 
 
 def train_model(test_after=True, output_json=False):
-    train_ds, valid_ds, test_ds = get_datasets()
+    train_ds, valid_ds, test_ds, n_train, n_valid, n_test = get_datasets()
     yolo_model = make_model()
     yolo_model.compile(loss=yolo_loss, optimizer="adam")
 
@@ -279,47 +283,64 @@ def train_model(test_after=True, output_json=False):
         epochs=yg.NUM_EPOCHS,
         validation_data=valid_ds,
         callbacks=[get_learning_schedule(), early_cb, mid_cb, backup_cb],
-        steps_per_epoch=int(len(train_ds)//yg.BATCH_SIZE),
-        validation_steps=int(len(valid_ds)//(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1]))
+        steps_per_epoch=int(n_train//yg.BATCH_SIZE),
+        validation_steps=int(n_valid//max(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1], 1))
     )
 
     print("Evaluation", yolo_model.evaluate(valid_ds,
-                                            steps=int(len(valid_ds) //
+                                            steps=int(n_valid //
                                                       (yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1]))))
+    yolo_model.save("model.h5", save_format="h5")
     if output_json:
         model_h5_to_json_weights(yolo_model)
 
     if test_after:
-        _test_model(test_ds, from_h5=True)
+        _test_model(test_ds, n_train, from_h5=True)
 
 
-def model_h5_to_json_weights(model=None):
-    if model is None:
-        yolo_model = keras.models.load_model("model.h5")
-        yolo_model.compile(loss=yolo_loss, optimizer="adam")
-    else:
-        yolo_model = model
+def load_model(from_json=False):
+    try:
+        if from_json:
+            if not os.path.exists("model.json") or not os.path.exists("model_weights.h5"):
+                yolo_model = keras.models.load_model("model.h5",
+                                                     custom_objects={
+                                                         "yolo_loss": yolo_loss,
+                                                         "YoloReshape": YoloReshape
+                                                     },
+                                                     compile=True)
+                model_h5_to_json_weights(yolo_model)
+
+            f = open("model.json", "r")
+            model_text = f.read()
+            f.close()
+            yolo_model = keras.models.model_from_json(model_text)
+            yolo_model.load_weights("model_weights.h5")
+            yolo_model.compile(loss=yolo_loss, optimizer="adam")
+        else:
+            yolo_model = keras.models.load_model("model.h5",
+                                                 custom_objects={
+                                                     "yolo_loss": yolo_loss,
+                                                     "YoloReshape": YoloReshape
+                                                 },
+                                                 compile=True)
+    except FileNotFoundError:
+        print("Could not find model files.")
+        return None
+    return yolo_model
+
+
+def model_h5_to_json_weights(model):
     with open("model.json", "w") as outfile:
-        arch = yolo_model.to_json()
+        arch = model.to_json()
         outfile.write(arch)
         outfile.close()
+    model.save_weights("model_weights.h5")
 
-    yolo_model.save_weights("model_weights.h5")
 
-
-def _test_model(ds, from_h5=True):
+def _test_model(ds, n_examples, from_h5=True):
     print("Testing. Loading model...")
-    if from_h5:
-        yolo_model = keras.models.load_model(".\\model.h5")
-    else:
-        f = open("model.json", "r")
-        model_text = f.read()
-        f.close()
-        yolo_model = keras.models.model_from_json(model_text)
-        yolo_model.load_weights("model_weights.h5")
-
-    yolo_model.compile(loss=yolo_loss, optimizer="adam")
+    yolo_model = load_model(from_json=(not from_h5))
     print("Evaluation",
           yolo_model.evaluate(ds,
-                              steps=int(len(ds) // (yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[2]))
+                              steps=int(n_examples // max(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[2], 1))
                               ))

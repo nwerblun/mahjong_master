@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 # from matplotlib.colors import get_named_colors_mapping
 from random import choice
+import pdb
 
 
 # colors = list(get_named_colors_mapping().keys())
@@ -24,15 +25,27 @@ colors = [
 ]
 
 
-# TODO: this
 def check_if_grid_size_and_bbox_num_large_enough():
     # Go through the dataset and 'assign' each object to a grid cell.
     # If we run out of bboxes, then raise a warning
-    pass
+    all_files = list(os.listdir(yg.ROOT_DATASET_PATH))
+    annotations = [yg.ROOT_DATASET_PATH+f for f in all_files if os.path.splitext(f)[1] == yg.LABEL_FILETYPE]
+    max_objs = 0
+    max_obj_file = ""
+    for ann in annotations:
+        f = open(ann, "r")
+        lines = f.readlines()
+        f.close()
+        if len(lines) > max_objs:
+            max_objs = len(lines)
+            max_obj_file = ann
+    return max_objs <= (yg.GRID_W * yg.GRID_H * yg.NUM_BOUNDING_BOXES), max_objs, max_obj_file
 
 
 def file_to_img_label(example_tuple):
-    img_path, lbl_path = example_tuple
+    img_path, lbl_path = example_tuple[0], example_tuple[1]
+    img_path = yg.ROOT_DATASET_PATH + img_path.numpy().decode('utf-8')
+    lbl_path = yg.ROOT_DATASET_PATH + lbl_path.numpy().decode('utf-8')
     try:
         f = open(lbl_path)
         label_txt = f.readlines()
@@ -76,8 +89,8 @@ def file_to_img_label(example_tuple):
             label_matrix[grid_row, grid_col, yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END] = \
                 np.array([x_offset_from_grid_col, y_offset_from_grid_row, w, h])
             label_matrix[grid_row, grid_col, yg.LABEL_CONFIDENCE_INDEX] = 1
-            label_matrix[grid_row, grid_col, yg.LABEL_CLASS_INDEX_START+cls] = 1
-        return img, label_matrix
+            label_matrix[grid_row, grid_col, yg.LABEL_CLASS_INDEX_START+int(cls)] = 1
+    return img, label_matrix
 
 
 # TODO: this
@@ -95,27 +108,43 @@ def get_datasets():
 
     train_split, val_split, test_split = yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE
 
-    all_examples = zip(all_img, all_labels)
+    all_examples = list(zip(all_img, all_labels))
     rng = np.random.RandomState(yg.GLOBAL_RNG_SEED)
     rng.shuffle(all_examples)
+    total_len = len(all_examples)
+    train_end_ind = int(total_len * train_split)
+    valid_end_ind = train_end_ind + int(total_len * val_split)
 
-    all_ds = tf.data.Dataset.from_tensor_slices(all_examples)
-    all_ds.map(file_to_img_label)
-    total_len = len(all_ds)
-    train_end_ind = int(total_len*train_split)
-    valid_end_ind = train_end_ind + int(total_len*val_split)
+    train_examples = all_examples[:train_end_ind]
+    valid_examples = all_examples[train_end_ind:valid_end_ind]
+    test_examples = all_examples[valid_end_ind:]
 
-    train_ds = all_ds[:train_end_ind]
-    valid_ds = all_ds[train_end_ind:valid_end_ind]
-    test_ds = all_ds[valid_end_ind:]
+    num_train_examples = len(train_examples)
+    num_valid_examples = len(valid_examples)
+    num_test_examples = len(test_examples)
 
-    train_ds = train_ds.shuffle(buffer_size=yg.BATCH_SIZE * 4, seed=yg.GLOBAL_RNG_SEED).repeat().batch(yg.BATCH_SIZE)
-    valid_ds = valid_ds.shuffle(buffer_size=int(yg.BATCH_SIZE * val_split) * 4, seed=yg.GLOBAL_RNG_SEED).repeat()\
-        .batch(int(yg.BATCH_SIZE * val_split))
+    train_ds = tf.data.Dataset.from_tensor_slices(train_examples)
+    train_ds = train_ds.map(lambda x: tf.py_function(file_to_img_label, inp=[x], Tout=[tf.float32, tf.float32]))
 
-    train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
-    valid_ds = valid_ds.prefetch(tf.data.AUTOTUNE)
-    return train_ds, valid_ds, test_ds
+    valid_ds = tf.data.Dataset.from_tensor_slices(valid_examples)
+    valid_ds = valid_ds.map(lambda x: tf.py_function(file_to_img_label, inp=[x], Tout=[tf.float32, tf.float32]))
+
+    test_ds = tf.data.Dataset.from_tensor_slices(test_examples)
+    test_ds = test_ds.map(lambda x: tf.py_function(file_to_img_label, inp=[x], Tout=[tf.float32, tf.float32]))
+
+    train_ds = train_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
+                                seed=yg.GLOBAL_RNG_SEED,
+                                reshuffle_each_iteration=True).repeat().batch(yg.BATCH_SIZE)
+    valid_ds = valid_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
+                                seed=yg.GLOBAL_RNG_SEED*4,
+                                reshuffle_each_iteration=True).repeat().batch(max(int(yg.BATCH_SIZE * val_split), 1))
+    test_ds = test_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
+                              seed=yg.GLOBAL_RNG_SEED*6,
+                              reshuffle_each_iteration=True).repeat().batch(max(int(yg.BATCH_SIZE * test_split), 1))
+
+    # train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
+    # valid_ds = valid_ds.prefetch(tf.data.AUTOTUNE)
+    return train_ds, valid_ds, test_ds, num_train_examples, num_valid_examples, num_test_examples
 
 
 def img_to_pred_input(img_path):

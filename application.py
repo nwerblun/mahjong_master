@@ -34,9 +34,7 @@ class Application(Frame):
         self.temp_lbl = Label(self.hand_analyzer_real_time_frame, text="UNDER CONSTRUCTION")
         self.temp_lbl.pack(fill=BOTH, expand=YES)
         self.notebook.add(self.hand_analyzer_real_time_frame, text="Real-time Hand Analyzer")
-
-        # TODO: remove
-        self.debug()
+        # self.debug()
 
     def create_hand_calc(self, root):
         self.hand_calc = HandCalculator(root)
@@ -53,24 +51,24 @@ class Application(Frame):
             self.hand_calc_frame = None
             self.hand_calc = None
 
-    def debug(self):
-        self.hand_assister.concealed_other_entries[0].insert(0, "")
-        self.hand_assister.concealed_other_entries[1].insert(0, "c9")
-        self.hand_assister.concealed_other_entries[2].insert(0, "d3")
-        self.hand_assister.concealed_other_entries[3].insert(0, "d7")
-        self.hand_assister.concealed_other_entries[4].insert(0, "d8")
-        self.hand_assister.concealed_other_entries[5].insert(0, "drr")
-        self.hand_assister.concealed_other_entries[6].insert(0, "drg")
-        self.hand_assister.concealed_other_entries[7].insert(0, "")
-        self.hand_assister.concealed_other_entries[8].insert(0, "")
-        self.hand_assister.concealed_other_entries[9].insert(0, "")
-
-        self.hand_assister.revealed_other_entries[0].insert(0, "d4")
-        self.hand_assister.revealed_other_entries[1].insert(0, "d5")
-        self.hand_assister.revealed_other_entries[2].insert(0, "d6")
-
-        self.hand_assister.revealed_kong_entries[0].insert(0, "wn")
-
-        self.hand_assister.final_tile_entry.insert(0, "c")
-        self.hand_assister.final_tile_drawn_or_discard_checkbutton.invoke()
+    # def debug(self):
+    #     self.hand_assister.concealed_other_entries[0].insert(0, "")
+    #     self.hand_assister.concealed_other_entries[1].insert(0, "c9")
+    #     self.hand_assister.concealed_other_entries[2].insert(0, "d3")
+    #     self.hand_assister.concealed_other_entries[3].insert(0, "d7")
+    #     self.hand_assister.concealed_other_entries[4].insert(0, "d8")
+    #     self.hand_assister.concealed_other_entries[5].insert(0, "drr")
+    #     self.hand_assister.concealed_other_entries[6].insert(0, "drg")
+    #     self.hand_assister.concealed_other_entries[7].insert(0, "")
+    #     self.hand_assister.concealed_other_entries[8].insert(0, "")
+    #     self.hand_assister.concealed_other_entries[9].insert(0, "")
+    #
+    #     self.hand_assister.revealed_other_entries[0].insert(0, "d4")
+    #     self.hand_assister.revealed_other_entries[1].insert(0, "d5")
+    #     self.hand_assister.revealed_other_entries[2].insert(0, "d6")
+    #
+    #     self.hand_assister.revealed_kong_entries[0].insert(0, "wn")
+    #
+    #     self.hand_assister.final_tile_entry.insert(0, "c")
+    #     self.hand_assister.final_tile_drawn_or_discard_checkbutton.invoke()
 
