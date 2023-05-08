@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 # from matplotlib.colors import get_named_colors_mapping
 from random import choice
-import pdb
 
 
 # colors = list(get_named_colors_mapping().keys())
@@ -30,16 +29,27 @@ def check_if_grid_size_and_bbox_num_large_enough():
     # If we run out of bboxes, then raise a warning
     all_files = list(os.listdir(yg.ROOT_DATASET_PATH))
     annotations = [yg.ROOT_DATASET_PATH+f for f in all_files if os.path.splitext(f)[1] == yg.LABEL_FILETYPE]
-    max_objs = 0
-    max_obj_file = ""
+
     for ann in annotations:
         f = open(ann, "r")
         lines = f.readlines()
+        lines = [e.strip().split(" ") for e in lines]
         f.close()
-        if len(lines) > max_objs:
-            max_objs = len(lines)
-            max_obj_file = ann
-    return max_objs <= (yg.GRID_W * yg.GRID_H * yg.NUM_BOUNDING_BOXES), max_objs, max_obj_file
+        grid_assignments = np.zeros((yg.GRID_H, yg.GRID_W))
+        for line in lines:
+            # X, Y, W, H is already in units of % of image width/height -> range from 0->1
+            split_line = [float(el) for el in line]
+            x_center = split_line[1]
+            y_center = split_line[2]
+            # Will be a number between 0 -> grid size with a fraction representing how far into the cell.
+            grid_loc = [yg.GRID_W * x_center, yg.GRID_H * y_center]
+            # Y value determines row. Top left of image is 0,0 and y is downwards, x is to the right.
+            grid_row = int(grid_loc[1])
+            grid_col = int(grid_loc[0])
+            grid_assignments[grid_row, grid_col] += 1
+            if grid_assignments[grid_row, grid_col] > yg.NUM_BOUNDING_BOXES:
+                return False, grid_assignments[grid_row, grid_col], ann, grid_row, grid_col
+    return True, None, None, None, None
 
 
 def file_to_img_label(example_tuple):
@@ -93,8 +103,8 @@ def file_to_img_label(example_tuple):
     return img, label_matrix
 
 
-# TODO: this
-def augment_ds():
+def augment_ds(ds):
+    # TODO: This
     return
 
 
@@ -236,7 +246,7 @@ def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thres
     plt.show()
 
 
-def img_and_label_plot(img_path, squish=False):
+def img_and_label_plot(img_path, squish=False, highlight_cell=None):
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:
@@ -267,7 +277,18 @@ def img_and_label_plot(img_path, squish=False):
         plt.axhline(y=i*y_spacing, color="k", linestyle="--", alpha=0.2)
     for i in range(1, yg.GRID_W):
         plt.axvline(x=i*x_spacing, color="k", linestyle="--", alpha=0.2)
-
+    if highlight_cell is not None:
+        grid_anchor_x = highlight_cell[1] * x_spacing
+        grid_anchor_y = highlight_cell[0] * y_spacing
+        rect = Rectangle((grid_anchor_x, grid_anchor_y), x_spacing, y_spacing, linewidth=2.5, edgecolor="green", facecolor='none')
+        plt.gca().add_patch(rect)
+        #plt.arrow(0, 0, grid_anchor_x, grid_anchor_y, length_includes_head=True, head_width=10, head_length=10, edgecolor="red")
+        plt.annotate("Highlighted Cell", (grid_anchor_x, grid_anchor_y), xytext=(0, 0), arrowprops=
+            {
+                "headwidth": 10,
+                "headlength": 10
+            }
+        )
     for an in label_txt:
         info = [float(el) for el in an.strip().split(" ")]
         cls = info[0]

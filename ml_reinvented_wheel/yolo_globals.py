@@ -3,7 +3,7 @@ IMG_H = 416*2
 GRID_W = 13
 GRID_H = 13
 NUM_CLASSES = 35
-NUM_BOUNDING_BOXES = 4
+NUM_BOUNDING_BOXES = 6
 # Each bounding box has [x,y,w,h,confidence]
 # Total of bounding_boxes * 5 + num_classes = 55
 YOLO_OUTPUT_SHAPE = (13, 13, ((NUM_BOUNDING_BOXES * 5) + NUM_CLASSES))
@@ -95,7 +95,7 @@ INVERSE_CLASS_MAP = {
     "ww": 3+30,
     "f1": 0+34
 }
-BATCH_SIZE = 8
+BATCH_SIZE = 2
 DS_BUFFER_SIZE = 0
 TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
 GLOBAL_RNG_SEED = 12039

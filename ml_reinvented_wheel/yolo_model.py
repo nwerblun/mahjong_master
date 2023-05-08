@@ -175,6 +175,9 @@ def yolo_loss(y_true, y_pred):
     class_loss = result_mask * tf.math.square(label_classes - pred_classes)
     class_loss = tf.math.reduce_sum(class_loss, axis=-1, keepdims=True)
 
+    # tf.print("Conf. Loss Shape:", tf.shape(confidence_loss))
+    # tf.print("Class loss shape:", tf.shape(class_loss))
+
     # Re-compute all xy pairs to compute how wrong the box coordinates were
     label_xy, label_wh = xywh_to_absolute_coords(reshaped_label_bboxes)
     pred_xy, pred_wh = xywh_to_absolute_coords(reshaped_pred_bboxes)
@@ -195,10 +198,18 @@ def yolo_loss(y_true, y_pred):
     box_loss += yg.BBOX_WH_LOSS_SCALE * bbox_mask * result_mask * \
         tf.math.square((tf.math.sqrt(label_wh) - tf.math.sqrt(pred_wh)) / yg.IMG_W)
     # We added an extra dimension to make sizes match. We need to reduce dimensions to align with other losses.
+
+    # tf.print("Box loss pre reduce shape:", tf.shape(box_loss))
     box_loss = tf.math.reduce_sum(box_loss, axis=-1, keepdims=False)
+    # tf.print("Box loss post reduce shape:", tf.shape(box_loss))
+    # Bx13x13x6 -> reduce again to get the sum across all bboxes
+    box_loss = tf.math.reduce_sum(box_loss, axis=-1, keepdims=True)
+    # tf.print("Box loss post 2nd reduce shape:", tf.shape(box_loss))
 
     # Total loss is the sum of all loss terms
     loss = confidence_loss + class_loss + box_loss
+    # Reduce to a single number
+    loss = tf.math.reduce_sum(loss)
     # tf.print("Loss is " + str(loss))
     # tf.print("Loss final shape is: ", tf.shape(loss))
     return loss
@@ -207,8 +218,8 @@ def yolo_loss(y_true, y_pred):
 def get_learning_schedule():
     schedule = [
         (0, 0.01),
-        (75, 0.001),
-        (105, 0.0001)
+        (25, 0.001),
+        (45, 0.0001)
     ]
 
     def update(epoch, lr):
