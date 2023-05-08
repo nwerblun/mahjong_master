@@ -1,23 +1,41 @@
+import numpy as np
+
 IMG_W = 416*2
 IMG_H = 416*2
 GRID_W = 13
 GRID_H = 13
-NUM_CLASSES = 35
-NUM_BOUNDING_BOXES = 6
-# Each bounding box has [x,y,w,h,confidence]
-# Total of bounding_boxes * 5 + num_classes = 55
-YOLO_OUTPUT_SHAPE = (13, 13, ((NUM_BOUNDING_BOXES * 5) + NUM_CLASSES))
-YOLO_TOTAL_DIMENSIONS = YOLO_OUTPUT_SHAPE[0] * YOLO_OUTPUT_SHAPE[1] * YOLO_OUTPUT_SHAPE[2]
-LABEL_CLASS_INDEX_START = 0
-LABEL_CLASS_INDEX_END = 35  # Assuming it will be used in slicing, so it will be exclusive on the end
-LABEL_BBOX_INDEX_START = 35
-LABEL_BBOX_INDEX_END = 39  # Assuming it will be used in slicing, so it will be exclusive on the end
-LABEL_CONFIDENCE_INDEX = 39
+# Class 36 is Z1. It is not currently used. Maybe remove?
+NUM_CLASSES = 36
+# I chose 6 because that's how many objects can appear in one 13x13 grid cell
+NUM_ANCHOR_BOXES = 6
+# Obtained from kmeans in kmeans_for_anchor_boxes.py
+# Shape is (NBOXES, 2)
+# Format is Width, Height in % of total image size
+ANCHOR_BOXES = np.array([
+ [0.03242392, 0.04467245],
+ [0.02949143, 0.07183909],
+ [0.02436721, 0.06027983],
+ [0.03933732, 0.05368105],
+ [0.02738487, 0.03401295],
+ [0.03639444, 0.09813662]
+])
+ANCHOR_BOXES_GRID_UNITS = np.array([[x*GRID_W, y*GRID_H] for x, y in ANCHOR_BOXES])
 
-PRED_CLASS_INDEX_START = 0
-PRED_CLASS_INDEX_END = 35  # Assuming it will be used in slicing, so it will be exclusive on the end
-PRED_CONFIDENCE_INDEX_START = PRED_CLASS_INDEX_END
-PRED_CONFIDENCE_INDEX_END = PRED_CONFIDENCE_INDEX_START + NUM_BOUNDING_BOXES
+# Each bounding box has [x,y,w,h,confidence]
+YOLO_OUTPUT_SHAPE = (13, 13, NUM_ANCHOR_BOXES, 5 + NUM_CLASSES)
+YOLO_TOTAL_DIMENSIONS = YOLO_OUTPUT_SHAPE[0] * YOLO_OUTPUT_SHAPE[1] * YOLO_OUTPUT_SHAPE[2] * YOLO_OUTPUT_SHAPE[3]
+
+LABEL_BBOX_INDEX_START = 0
+LABEL_BBOX_INDEX_END = 4  # Assuming it will be used in slicing, so it will be exclusive on the end
+LABEL_CONFIDENCE_INDEX = LABEL_BBOX_INDEX_END
+LABEL_CLASS_INDEX_START = LABEL_CONFIDENCE_INDEX + 1
+LABEL_CLASS_INDEX_END = LABEL_CLASS_INDEX_START + NUM_CLASSES
+
+PRED_BBOX_INDEX_START = 0
+PRED_BBOX_INDEX_END = 4  # Assuming it will be used in slicing, so it will be exclusive on the end
+PRED_CONFIDENCE_INDEX = PRED_BBOX_INDEX_END
+PRED_CLASS_INDEX_START = PRED_CONFIDENCE_INDEX + 1
+PRED_CLASS_INDEX_END = PRED_CLASS_INDEX_START + NUM_CLASSES
 
 
 # No reason for being 0+9, it was just easier to copy-paste
@@ -56,7 +74,8 @@ CLASS_MAP = {
     1+30: "wn",
     2+30: "ws",
     3+30: "ww",
-    0+34: "f1"
+    0+34: "f1",
+    0+35: "z1"
 }
 INVERSE_CLASS_MAP = {
     "b1": 0,
@@ -93,7 +112,8 @@ INVERSE_CLASS_MAP = {
     "wn": 1+30,
     "ws": 2+30,
     "ww": 3+30,
-    "f1": 0+34
+    "f1": 0+34,
+    "z1": 0+35
 }
 BATCH_SIZE = 6
 DS_BUFFER_SIZE = 0
@@ -104,9 +124,10 @@ ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff
 IMG_FILETYPE = ".png"
 LABEL_FILETYPE = ".txt"
 
-NO_OBJ_SCALE = 0.5
-BBOX_XY_LOSS_SCALE = 5
-BBOX_WH_LOSS_SCALE = 5
+LAMBDA_NO_OBJECT = 1.0
+LAMBDA_OBJECT = 5.0
+LAMBDA_COORD = 1.0
+LAMBDA_CLASS = 1.0
 
 NUM_EPOCHS = 100
 

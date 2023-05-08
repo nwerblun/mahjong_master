@@ -5,6 +5,7 @@ import yolo_globals as yg
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from kmeans_for_anchor_boxes import _iou
 # from matplotlib.colors import get_named_colors_mapping
 from random import choice
 
@@ -47,9 +48,23 @@ def check_if_grid_size_and_bbox_num_large_enough():
             grid_row = int(grid_loc[1])
             grid_col = int(grid_loc[0])
             grid_assignments[grid_row, grid_col] += 1
-            if grid_assignments[grid_row, grid_col] > 1:
+            if grid_assignments[grid_row, grid_col] > yg.NUM_ANCHOR_BOXES:
                 return False, grid_assignments[grid_row, grid_col], ann, grid_row, grid_col
     return True, None, None, None, None
+
+
+def _find_best_unused_anchor_box(box_w, box_h, label_entry):
+    best_iou = -1
+    best_anchor_ind = -1
+    for i in range(len(yg.ANCHOR_BOXES)):
+        box = np.array([box_w, box_h])
+        clust = np.array([yg.ANCHOR_BOXES[i]])
+        iou = _iou(box, clust)
+        # print("Box of w/h", str(box_w), "x", str(box_h), "iou with anchor", str(i), "=", str(iou))
+        if iou > best_iou and not any(label_entry[i]):
+            best_iou = iou
+            best_anchor_ind = i
+    return best_anchor_ind, best_iou
 
 
 def file_to_img_label(example_tuple):
@@ -81,26 +96,37 @@ def file_to_img_label(example_tuple):
         # Formatted as class, x_center, y_center, box_w, box_h delimited by spaces
         # Class is a number based on yolo_globals.class_map
         # X, Y, W, H is already in units of % of image width/height -> range from 0->1
-        # Need to change it to squished coords
         split_line = [float(el) for el in line.strip().split(" ")]
-        cls = split_line[0]
+        cls = int(split_line[0])
         x_center = split_line[1]
         y_center = split_line[2]
         w = split_line[3]
         h = split_line[4]
+
         # Will be a number between 0 -> grid size with a fraction representing how far into the cell.
-        grid_loc = [yg.GRID_W * x_center, yg.GRID_H * y_center]
+        grid_x = yg.GRID_W * x_center
+        grid_y = yg.GRID_H * y_center
+
         # Y value determines row. Top left of image is 0,0 and y is downwards, x is to the right.
-        grid_row = int(grid_loc[1])
-        grid_col = int(grid_loc[0])
-        y_offset_from_grid_row = grid_loc[1] - grid_row
-        x_offset_from_grid_col = grid_loc[0] - grid_col
-        # Just to ensure we only assign the label to 1 cell
-        if label_matrix[grid_row, grid_col, yg.LABEL_CONFIDENCE_INDEX] == 0:
-            label_matrix[grid_row, grid_col, yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END] = \
-                np.array([x_offset_from_grid_col, y_offset_from_grid_row, w, h])
-            label_matrix[grid_row, grid_col, yg.LABEL_CONFIDENCE_INDEX] = 1
-            label_matrix[grid_row, grid_col, yg.LABEL_CLASS_INDEX_START+int(cls)] = 1
+        grid_row = int(grid_y)
+        grid_col = int(grid_x)
+
+        best_anchor_ind, iou = _find_best_unused_anchor_box(w, h, label_matrix[grid_row, grid_col])
+        if best_anchor_ind == -1:
+            raise ValueError("Not enough anchor boxes to assign to")
+        # print("Best anchor: ", str(best_anchor_ind), " with iou:", str(iou))
+
+        # Convert from % image to % grid
+        w *= yg.GRID_W
+        h *= yg.GRID_H
+
+        label_matrix[grid_row, grid_col, best_anchor_ind, yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END] = \
+            np.array([grid_x, grid_y, w, h])
+        label_matrix[grid_row, grid_col, best_anchor_ind, yg.LABEL_CONFIDENCE_INDEX] = 1
+        class_lst = [0]*yg.NUM_CLASSES
+        class_lst[cls] = 1
+        label_matrix[grid_row, grid_col, best_anchor_ind, yg.LABEL_CLASS_INDEX_START:yg.LABEL_CLASS_INDEX_END] = \
+            np.array(class_lst)
     return img, label_matrix
 
 

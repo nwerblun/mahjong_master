@@ -25,192 +25,136 @@ class YoloReshape(keras.layers.Layer):
 
     def call(self, inputs):
         # Don't specify batch size, TF takes care of it
-        grid_dims = [self.target_shape[0], self.target_shape[1]]
+        reshaped_inps = tf.reshape(inputs, [-1, yg.GRID_W, yg.GRID_H, yg.NUM_ANCHOR_BOXES, 5+yg.NUM_CLASSES])
 
-        # Input will be one large flat array with Batch x grid_w x grid_h x (bboxes * 5 + num_classes) elements
-        start_to_num_classes = grid_dims[0] * grid_dims[1] * yg.NUM_CLASSES
-        num_classes_to_bboxes = start_to_num_classes + grid_dims[0] * grid_dims[1] * yg.NUM_BOUNDING_BOXES
+        # Reshape class probabilities and DON'T softmax. Should be size (B x GridW x GridH x NumBoxes x NumClasses)
+        class_probs = reshaped_inps[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
+        # Commented out becaues the cross entr. function in loss assumes non-softmaxed logits
+        # class_probs = keras.activations.softmax(class_probs)
+        # tf.print("Class probs shape", tf.shape(class_probs))
 
-        # Reshape class probabilities and softmax. Should be size (B x GridW x GridH x NumClasses)
-        class_probs = tf.reshape(inputs[..., :start_to_num_classes],
-                                 [-1, grid_dims[0], grid_dims[1], yg.NUM_CLASSES])
-        # Convert to prob. distribution
-        class_probs = keras.activations.softmax(class_probs)
-
-        # Each grid cell's confidence. A single value. Size (B x GridW x GridH x NumBBoxes)
-        cell_conf = tf.reshape(inputs[..., start_to_num_classes:num_classes_to_bboxes],
-                               [-1, grid_dims[0], grid_dims[1], yg.NUM_BOUNDING_BOXES])
+        # Each grid cell's confidence. A single value. Size (B x GridW x GridH x NumBBoxes x 1)
+        cell_conf = reshaped_inps[..., yg.PRED_CONFIDENCE_INDEX]
         # Confidence should range 0->1 so sigmoid it
         cell_conf = keras.activations.sigmoid(cell_conf)
+        # B x 13 x 13 x 6 -> B x 13 x 13 x 6 x 1
+        cell_conf = tf.expand_dims(cell_conf, axis=-1)
+        # tf.print("Obj confs shape", tf.shape(cell_conf))
+
+        # Create a matrix where each element is just its grid cell location to shift x,y into grid cell units
+        # Note that x,y are swapped because x -> col. instead of row in the image grid
+        # Should contain 0,1,2,3,4...13 repeated 13 times, then reshaped
+        # After reshape it should be a single value in each cell corresponding to its column location
+        cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
+        cell_indicies_x = tf.reshape(cell_indicies_x, [-1, yg.GRID_H, yg.GRID_W, 1, 1])
+        cell_indicies_x = tf.cast(cell_indicies_x, tf.float32)
+
+        # Switches axes 2/1 but keeps all other axes the same. AKA, just transpose the grid
+        cell_indicies_y = tf.transpose(cell_indicies_x, [0, 2, 1, 3, 4])
+        cell_grid = tf.tile(tf.concat([cell_indicies_x, cell_indicies_y], -1),
+                            [yg.BATCH_SIZE, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
+        # tf.print("Cell grid shape", tf.shape(cell_grid))
+        # tf.print("Cell grid 5, 3", cell_grid[..., 5, 3, :, :])
 
         # Bounding box lists
-        # Size should be (B x GridW x GridH x NumBBoxes * 4)
+        # Size should be (B x GridW x GridH x NumBBoxes x 4)
         # * 4 since there's x,y,w,h for each BBox
-        bboxes = tf.reshape(inputs[..., num_classes_to_bboxes:],
-                            [-1, grid_dims[0], grid_dims[1], yg.NUM_BOUNDING_BOXES * 4])
-        # It's in terms of % of size of grid cell and should range from 0->1. Sigmoid it
-        bboxes = keras.activations.sigmoid(bboxes)
+        # Start by grabbing just xy to sigmoid, so it ranges 0->1. Add cell grid to adjust units. Assumes order is xywh
+        bboxes_xy = reshaped_inps[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_START+2]
+        bboxes_xy = tf.sigmoid(bboxes_xy) + cell_grid
+        # tf.print("BBox xy size", tf.shape(bboxes_xy))
 
-        # The axes should be B x GridW x GridH x ?, so concatenation will happen on the last axis
-        outputs = keras.layers.concatenate([class_probs, cell_conf, bboxes])
+        # Now grab just the wh and exp it to make it positive, then scale it by the anchor box sizes
+        # This effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
+        bboxes_wh = reshaped_inps[..., yg.PRED_BBOX_INDEX_START+2:yg.PRED_BBOX_INDEX_END]
+        # tf.print("BBox wh size", tf.shape(bboxes_wh))
+        bboxes_wh = tf.exp(bboxes_wh) * \
+            tf.cast(tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2]), tf.float32)
+        bboxes = tf.concat([bboxes_xy, bboxes_wh], axis=-1)
+
+        # tf.print("BBox shape", tf.shape(bboxes))
+        bboxes = tf.reshape(bboxes, [-1, yg.GRID_W, yg.GRID_H, yg.NUM_ANCHOR_BOXES, 4])
+        # The axes should be B x GridW x GridH x NumBBoxes, ?, so concatenation will happen on the last axis
+        outputs = keras.layers.concatenate([bboxes, cell_conf, class_probs])
+        # tf.print("Output shape", tf.shape(outputs))
         return outputs
 
 
 def yolo_loss(y_true, y_pred):
-    # Shamelessly copied from JY-112553's github implementation
-    def xy_center_to_xy_min_max(xy, wh):
-        xy_min = xy - wh / 2
-        xy_max = xy + wh / 2
-        return xy_min, xy_max
+    # y true bbox x,y,w,h are in grid cell units. E.g., ranging from 0->13
+    y_true_bboxes = y_true[..., yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END]  # Bx13x13x6x4
+    y_true_confs = y_true[..., yg.LABEL_CONFIDENCE_INDEX]  # Bx13x13x6
+    y_true_confs = tf.expand_dims(y_true_confs, axis=-1)
+    y_true_classes = y_true[..., yg.LABEL_CLASS_INDEX_START:yg.LABEL_CLASS_INDEX_END]  # Bx13x13x6x36
 
-    def iou(pred_tl, pred_br, true_tl, true_br):
-        intersect_top_lefts = tf.math.maximum(pred_tl, true_tl)
-        intersect_bottom_rights = tf.math.minimum(pred_br, true_br)
-        intersect_wh = tf.math.maximum(intersect_bottom_rights - intersect_top_lefts, 0.)
+    # The model should adjust the output so x,y -> 0 to 13 and the pred/conf is sigmoided. w,h ideally 0->13
+    y_pred_bboxes = y_pred[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
+    y_pred_confs = y_pred[..., yg.PRED_CONFIDENCE_INDEX]
+    y_pred_confs = tf.expand_dims(y_pred_confs, axis=-1)
+    y_pred_classes = y_pred[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
+
+    def calc_xywh_loss(y_true_xywh, y_pred_xywh, y_true_conf):
+        # Use y_true_confs to make a mask since it's 1 or 0 where it should be
+        mask = y_true_conf * yg.LAMBDA_COORD
+        num_objs = tf.reduce_sum(tf.cast(mask > 0.0, tf.float32))
+        y_true_xy = y_true_xywh[..., :2]
+        y_true_wh = y_true_xywh[..., 2:]
+        y_pred_xy = y_pred_xywh[..., :2]
+        y_pred_wh = y_pred_xywh[..., 2:]
+        loss_xy = tf.reduce_sum(tf.square(y_true_xy - y_pred_xy) * mask) / (num_objs + 1e-6) / 2.
+        loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
+        return loss_wh + loss_xy
+
+    def calc_class_loss(y_true_cls, y_pred_cls, y_true_conf):
+        class_mask = y_true_conf * yg.LAMBDA_CLASS
+        num_objs = tf.reduce_sum(tf.cast(class_mask > 0.0, tf.float32))
+        # assumes non-softmaxed outputs and assumes true class labels are 0, 1 only
+        cls_loss = tf.nn.softmax_cross_entropy_with_logits(labels=tf.cast(y_true_cls, tf.int32),
+                                                           logits=tf.cast(y_pred_cls, tf.float32))
+        cls_loss = tf.expand_dims(cls_loss, axis=-1)
+        cls_loss = tf.reduce_sum(cls_loss * class_mask) / (num_objs + 1e-6)
+        return cls_loss
+
+    def get_masked_iou_scores(y_true_xywh, y_pred_xywh, y_true_conf):
+        y_true_xy = y_true_xywh[..., :2]
+        y_true_wh = y_true_xywh[..., 2:]
+        y_pred_xy = y_pred_xywh[..., :2]
+        y_pred_wh = y_pred_xywh[..., 2:]
+
+        true_mins = y_true_xy - (y_true_wh / 2.)
+        true_maxes = y_true_xy + (y_true_wh / 2.)
+
+        pred_mins = y_pred_xy - (y_pred_wh / 2.)
+        pred_maxes = y_pred_xy + (y_pred_wh / 2.)
+
+        intersect_mins = tf.maximum(pred_mins, true_mins)
+        intersect_maxes = tf.minimum(pred_maxes, true_maxes)
+        intersect_wh = tf.maximum(intersect_maxes - intersect_mins, 0.)
         intersect_areas = intersect_wh[..., 0] * intersect_wh[..., 1]
 
-        # Same logic as above, but for each box individually
-        iou_pred_wh = pred_br - pred_tl
-        true_wh = true_br - true_tl
-        pred_areas = iou_pred_wh[..., 0] * iou_pred_wh[..., 1]
-        true_areas = true_wh[..., 0] * true_wh[..., 1]
+        true_areas = y_true_wh[..., 0] * y_true_wh[..., 1]
+        pred_areas = y_pred_wh[..., 0] * y_pred_wh[..., 1]
 
-        # pred area + true area will double count the area that is common to them. Remove that extra area
         union_areas = pred_areas + true_areas - intersect_areas
-        return intersect_areas / union_areas
+        iou_scores = tf.truediv(intersect_areas, union_areas)
+        iou_scores = tf.expand_dims(iou_scores, axis=-1)
+        return iou_scores * y_true_conf
 
-    def xywh_to_absolute_coords(xywhc):
-        # Input is the x, y, w, h, c pair for a single bbox. x,y is in terms of grid size, w,h is % of img
-        conv_row_index = tf.range(start=0, limit=yg.GRID_H)
-        conv_col_index = tf.range(start=0, limit=yg.GRID_W)
-        # Create list [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1, 2, ...] 13 times if grid_w = 13
-        conv_row_index = tf.tile(conv_row_index, [yg.GRID_W])
+    def calc_conf_loss(y_true_xywh, y_pred_xywh, y_true_conf, y_pred_conf):
+        # I didn't do this correctly. I don't have the best ious ignoring assignments. Might not be good.
+        masked_ious = get_masked_iou_scores(y_true_xywh, y_pred_xywh, y_true_conf)
+        conf_mask = tf.cast((masked_ious < 0.6), tf.float32) * (1 - y_true_conf) * yg.LAMBDA_NO_OBJECT
+        conf_mask = conf_mask + masked_ious * yg.LAMBDA_OBJECT
+        num_objs = tf.reduce_sum(tf.cast(conf_mask > 0.0, tf.float32))
+        loss_conf = tf.reduce_sum(tf.square(masked_ious - y_pred_conf) * conf_mask) / (num_objs + 1e-6) / 2.
+        return loss_conf
 
-        # Create list of
-        # [[0 - 13],
-        #  [0 - 13],
-        #  ...] 13 times if grid_w = 13
-        conv_col_index = tf.tile(tf.expand_dims(conv_col_index, 0), [yg.GRID_H, 1])
-        # Transpose and flatten
-        # This generates first
-        # [[0, 0, 0, ...],
-        #  [1, 1, 1, ...],
-        #  [2, 2, 2, ...]
-        #  ...]
-        # then flattens it into [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, ...]
-        conv_col_index = tf.reshape(tf.transpose(conv_col_index), [-1])
+    xywh_loss = calc_xywh_loss(y_true_bboxes, y_pred_bboxes, y_true_confs)
+    class_loss = calc_class_loss(y_true_classes, y_pred_classes, y_true_confs)
+    conf_loss = calc_conf_loss(y_true_bboxes, y_pred_bboxes, y_true_confs, y_pred_confs)
 
-        # [[0, 0], [1, 0], [2, 0], ... [0, 1], [1, 1], [2, 1], ... [13, 13]] if grid_w = 13
-        conv_index = tf.transpose(tf.stack([conv_row_index, conv_col_index]))
-        conv_index = tf.reshape(conv_index, [-1, yg.GRID_H, yg.GRID_W, 1, 2])
-        conv_index = tf.cast(conv_index, dtype=tf.float32)
-        # Add dummy dimensions so we can broadcast
-        conv_dims = tf.reshape(tf.convert_to_tensor([yg.GRID_H, yg.GRID_W], dtype=tf.float32), [1, 1, 1, 1, 2])
-        # Adds xy center loc + grid cell index = absolute loc. in terms of grid cells
-        # -> divide by grid_w to get location as % of image
-        # Multiply by image width to get absolute img coord
-        bbox_xy = (xywhc[..., :2] + conv_index) / conv_dims * yg.IMG_W  # Assumes img_w = img_h
-        # wh is already in terms of image width, get absolute width by multiplying
-        bbox_wh = xywhc[..., 2:4] * yg.IMG_W
-        return bbox_xy, bbox_wh
-
-    # All dims below assume grid is 13x13 and there are 35 classes
-    # The comment specifies the dimensions after slicing
-    # B is batch size
-    label_classes = y_true[..., yg.LABEL_CLASS_INDEX_START:yg.LABEL_CLASS_INDEX_END]  # B x 13 x 13 x 35
-    label_bboxes = y_true[..., yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END]  # B x 13 x 13 x 4
-    label_confidence = y_true[..., yg.LABEL_CONFIDENCE_INDEX]  # B x 13 x 13
-    result_mask = tf.expand_dims(label_confidence, -1)  # B x 13 x 13 x 1
-
-    # Predictions are formatted different. After classes are 4 confidences, then 16 xywh pairs
-    # First 35 is still the class predictions. Dims assume 4 bounding box guesses.
-    pred_classes = y_pred[..., :yg.PRED_CLASS_INDEX_END:yg.PRED_CLASS_INDEX_END]  # B x 13 x 13 x 35
-    pred_confs = y_pred[..., yg.PRED_CONFIDENCE_INDEX_START:yg.PRED_CONFIDENCE_INDEX_END]  # B x 13 x 13 x 4
-    pred_bboxes = y_pred[..., yg.PRED_CONFIDENCE_INDEX_END:]  # B x 13 x 13 x 16
-
-    # Using a -1 means 'make the dimensions 13x13x1x4 and then figure out the -1 to make it work'
-    # Essentially the -1 will just be the batch size
-    reshaped_label_bboxes = tf.reshape(label_bboxes, [-1, yg.GRID_H, yg.GRID_W, 1, 4])
-
-    # We have 4 predictions of a bounding box per grid cell, each with xywh
-    reshaped_pred_bboxes = tf.reshape(pred_bboxes, [-1, yg.GRID_H, yg.GRID_W, yg.NUM_BOUNDING_BOXES, 4])
-
-    label_xy_absolute, label_wh_absolute = xywh_to_absolute_coords(reshaped_label_bboxes)  # each B x 13 x 13 x 1 x 2
-
-    # Insert an empty dimension at position 3 for whatever reason. I think 3 or 4 doesn't matter for the label
-    # Essentially, each 13x13 cell has a single length-2 vector containing x, y
-    label_xy_absolute = tf.expand_dims(label_xy_absolute, 3)  # B x 13 x 13 x 1 x 1 x 2
-    label_wh_absolute = tf.expand_dims(label_wh_absolute, 3)  # B x 13 x 13 x 1 x 1 x 2
-
-    # Convert center xy + wh to top left xy and bottom right xy
-    label_xy_tl, label_xy_br = xy_center_to_xy_min_max(label_xy_absolute, label_wh_absolute)  # B x 13 x 13 x 1 x 1 x 2
-
-    pred_xy_absolute, pred_wh_absolute = xywh_to_absolute_coords(reshaped_pred_bboxes)  # each B x 13 x 13 x 4 x 2
-    pred_xy_absolute = tf.expand_dims(pred_xy_absolute, 4)  # B x 13 x 13 x 4 x 1 x 2
-    pred_wh_absolute = tf.expand_dims(pred_wh_absolute, 4)  # B x 13 x 13 x 4 x 1 x 2
-    pred_xy_tl, predict_xy_br = xy_center_to_xy_min_max(pred_xy_absolute, pred_wh_absolute)
-
-    # Compute IOU scores. 4 scores, 1 per box. Score is a single number
-    iou_scores = iou(pred_xy_tl, predict_xy_br, label_xy_tl, label_xy_br)  # B x 13 x 13 x 4 x 1
-    # I think this just reduces dimensions by 1. Not sure why this is done
-    all_grid_bboxes_ious = tf.math.reduce_max(iou_scores, axis=4)  # B x 13 x 13 x 4
-    # This actually computes maxes. Axis 3 has 4 elements, one IOU per box
-    best_bbox_iou_per_cell = tf.math.reduce_max(all_grid_bboxes_ious, axis=3, keepdims=True)  # B x 13 x 13 x 1
-    # Values are floats. Create a mask of which boxes in each cell have the highest IOU to 0 out the rest.
-    # This is all booleans, so convert it to a float to get 1 or 0
-    bbox_mask = tf.cast(all_grid_bboxes_ious >= best_bbox_iou_per_cell, tf.float32)  # B x 13 x 13 x 4
-    # Compute loss.
-    # If there should be no object, then the error is 0 - predicted.
-    # bbox_mask * result mask should only = 1 if both the label exists there, and the grid properly predicted that
-    # If that is so, then 1 - 1 = 0, and we ignore it. If either the label or the grid cell says no object, then
-    # 1 - 0 = 1. We then add loss = how far away from 0 the prediction is. Predictions close to 0 = low loss.
-    no_object_loss = yg.NO_OBJ_SCALE * (1 - bbox_mask * result_mask) * tf.math.square(0 - pred_confs)
-    # Opposite case. Don't want to penalize the network for trying to find objects.
-    # We add no loss if it predicts no object present. If it does, then just add the squared error off of 1
-    object_loss = bbox_mask * result_mask * tf.math.square(1 - pred_confs)
-    confidence_loss = no_object_loss + object_loss
-    # Reduce to a single number across all grid cells and their boxes
-    confidence_loss = tf.math.reduce_sum(confidence_loss, axis=-1, keepdims=True)
-    # How wrong of a class did it pick? If the label exists here, we should predict a class matching the label.
-    class_loss = result_mask * tf.math.square(label_classes - pred_classes)
-    class_loss = tf.math.reduce_sum(class_loss, axis=-1, keepdims=True)
-
-    # tf.print("Conf. Loss Shape:", tf.shape(confidence_loss))
-    # tf.print("Class loss shape:", tf.shape(class_loss))
-
-    # Re-compute all xy pairs to compute how wrong the box coordinates were
-    label_xy, label_wh = xywh_to_absolute_coords(reshaped_label_bboxes)
-    pred_xy, pred_wh = xywh_to_absolute_coords(reshaped_pred_bboxes)
-
-    bbox_mask = tf.expand_dims(bbox_mask, -1)
-    result_mask = tf.expand_dims(result_mask, -1)
-
-    # Add no loss for cells without an object. If an object is present, we take the square of the difference of the
-    # bounding box center coordinates. yolo_head produces absolute coordinates, convert it to % of image size
-    box_loss = yg.BBOX_XY_LOSS_SCALE * bbox_mask * result_mask * tf.math.square((label_xy - pred_xy) / yg.IMG_W)
-    # The above gets the loss from the location of the box. This calculates the loss from width/height mismatch
-    # From the original paper:
-    """
-    Our error metric should reflect that small deviations in large boxes matter less than in small boxes.
-    To partially address this we predict the square root of the bounding box width and height
-    instead of the width and height directly.
-    """
-    box_loss += yg.BBOX_WH_LOSS_SCALE * bbox_mask * result_mask * \
-        tf.math.square((tf.math.sqrt(label_wh) - tf.math.sqrt(pred_wh)) / yg.IMG_W)
-    # We added an extra dimension to make sizes match. We need to reduce dimensions to align with other losses.
-
-    # tf.print("Box loss pre reduce shape:", tf.shape(box_loss))
-    box_loss = tf.math.reduce_sum(box_loss, axis=-1, keepdims=False)
-    # tf.print("Box loss post reduce shape:", tf.shape(box_loss))
-    # Bx13x13x6 -> reduce again to get the sum across all bboxes
-    box_loss = tf.math.reduce_sum(box_loss, axis=-1, keepdims=True)
-    # tf.print("Box loss post 2nd reduce shape:", tf.shape(box_loss))
-
-    # Total loss is the sum of all loss terms
-    loss = confidence_loss + class_loss + box_loss
-    # Reduce to a single number
-    loss = tf.math.reduce_sum(loss)
-    # tf.print("Loss is " + str(loss))
+    loss = xywh_loss + class_loss + conf_loss
+    # tf.print("Loss is ", loss)
     # tf.print("Loss final shape is: ", tf.shape(loss))
     return loss
 
@@ -233,47 +177,52 @@ def get_learning_schedule():
 
 
 def make_model():
-    # Based on yolov2 tiny with some weird combo of yolov1
+    # Based on yolov2 tiny
     leaky_relu = keras.layers.LeakyReLU(alpha=0.1)
     model = Sequential()
-    model.add(Conv2D(filters=yg.IMG_W//yg.GRID_W, kernel_size=(yg.GRID_H, yg.GRID_W), strides=(1, 1),
+    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1),
                      input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    # model.add(Conv2D(filters=16, kernel_size=(3, 3), padding='same',
-    #                 activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    # model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
-
-    model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    # Modified to 4,4 for memory? Reduce to 2,2 if mem usage isn't improved and uncomment above layer.
-    model.add(MaxPooling2D(pool_size=(4, 4), strides=(4, 4), padding='same'))
-
-    model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same',
+    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1),
+                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=256, kernel_size=(3, 3), padding='same',
+    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=32, kernel_size=(1, 1), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=256, kernel_size=(3, 3), padding='same',
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=512, kernel_size=(3, 3), padding='same',
+    model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=512, kernel_size=(1, 1), padding='same',
+    model.add(Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=((yg.NUM_BOUNDING_BOXES * 5) + yg.NUM_CLASSES),
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+
+    model.add(Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+
+    model.add(Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=512, kernel_size=(1, 1), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
+
+    model.add(Conv2D(filters=((5 + yg.NUM_CLASSES)*yg.NUM_ANCHOR_BOXES),
                      kernel_size=(1, 1), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
 
-    model.add(Flatten())
-    model.add(Dense(256))
-    model.add(Dense(512))
-    model.add(Dropout(0.5))
-    model.add(Dense(yg.YOLO_TOTAL_DIMENSIONS, activation='sigmoid'))
     model.add(YoloReshape(target_shape=yg.YOLO_OUTPUT_SHAPE))
     model.summary()
     return model
