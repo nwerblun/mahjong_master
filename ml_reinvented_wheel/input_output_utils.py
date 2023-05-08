@@ -47,7 +47,7 @@ def check_if_grid_size_and_bbox_num_large_enough():
             grid_row = int(grid_loc[1])
             grid_col = int(grid_loc[0])
             grid_assignments[grid_row, grid_col] += 1
-            if grid_assignments[grid_row, grid_col] > yg.NUM_BOUNDING_BOXES:
+            if grid_assignments[grid_row, grid_col] > 1:
                 return False, grid_assignments[grid_row, grid_col], ann, grid_row, grid_col
     return True, None, None, None, None
 
@@ -81,6 +81,7 @@ def file_to_img_label(example_tuple):
         # Formatted as class, x_center, y_center, box_w, box_h delimited by spaces
         # Class is a number based on yolo_globals.class_map
         # X, Y, W, H is already in units of % of image width/height -> range from 0->1
+        # Need to change it to squished coords
         split_line = [float(el) for el in line.strip().split(" ")]
         cls = split_line[0]
         x_center = split_line[1]
@@ -280,15 +281,14 @@ def img_and_label_plot(img_path, squish=False, highlight_cell=None):
     if highlight_cell is not None:
         grid_anchor_x = highlight_cell[1] * x_spacing
         grid_anchor_y = highlight_cell[0] * y_spacing
-        rect = Rectangle((grid_anchor_x, grid_anchor_y), x_spacing, y_spacing, linewidth=2.5, edgecolor="green", facecolor='none')
+        rect = Rectangle((grid_anchor_x, grid_anchor_y), x_spacing, y_spacing, linewidth=5,
+                         edgecolor="pink", facecolor='none')
         plt.gca().add_patch(rect)
-        #plt.arrow(0, 0, grid_anchor_x, grid_anchor_y, length_includes_head=True, head_width=10, head_length=10, edgecolor="red")
         plt.annotate("Highlighted Cell", (grid_anchor_x, grid_anchor_y), xytext=(0, 0), arrowprops=
             {
                 "headwidth": 10,
                 "headlength": 10
-            }
-        )
+            })
     for an in label_txt:
         info = [float(el) for el in an.strip().split(" ")]
         cls = info[0]
