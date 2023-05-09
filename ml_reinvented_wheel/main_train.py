@@ -11,4 +11,5 @@ if __name__ == "__main__":
     else:
         train_model(test_after=True, output_json=True)
         pred = predict_on_img(".\\img\\mcr_mahjong_trainer_53.png")
-        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", pred, class_thresh=0.65, conf_thresh=0.2, unsquish=False)
+        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", pred,
+                                  class_thresh=0.65, conf_thresh=0.2, unsquish=True)
