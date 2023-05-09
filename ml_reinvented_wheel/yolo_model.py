@@ -102,11 +102,12 @@ def yolo_loss(y_true, y_pred):
         y_true_wh = y_true_xywh[..., 2:]
         y_pred_xy = y_pred_xywh[..., :2]
         y_pred_wh = y_pred_xywh[..., 2:]
-        tf.print("\nnum_objs xywh", num_objs)
+        # tf.print("\nnum_objs xywh", num_objs)
         loss_xy = tf.reduce_sum(tf.square(y_true_xy - y_pred_xy) * mask) / (num_objs + 1e-6) / 2.
-        loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
-        tf.print("loss wh", loss_wh)
-        tf.print("loss wh square term", tf.reduce_sum(tf.square(y_true_wh - y_pred_wh) * mask))
+        # loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
+        loss_wh = tf.reduce_sum(tf.square(y_true_wh - y_pred_wh) * mask) / (num_objs + 1e-6) / 2.
+        # tf.print("loss wh", loss_wh)
+        # tf.print("loss wh square term", tf.reduce_sum(tf.square(y_true_wh - y_pred_wh) * mask))
         return loss_wh + loss_xy
 
     def calc_class_loss(y_true_cls, y_pred_cls, y_true_conf):
@@ -158,8 +159,8 @@ def yolo_loss(y_true, y_pred):
     class_loss = calc_class_loss(y_true_classes, y_pred_classes, y_true_confs)
     conf_loss = calc_conf_loss(y_true_bboxes, y_pred_bboxes, y_true_confs, y_pred_confs)
 
-    tf.print("class loss:", class_loss)
-    tf.print("conf loss:", conf_loss)
+    # tf.print("class loss:", class_loss)
+    # tf.print("conf loss:", conf_loss)
 
     loss = xywh_loss + class_loss + conf_loss
     # tf.print("Loss is ", loss)
@@ -171,6 +172,8 @@ def get_learning_schedule():
     schedule = [
         (0, 0.001),
         (25, 0.0005),
+        (50, 0.00001),
+        (75, 0.000005)
     ]
 
     def update(epoch, lr):

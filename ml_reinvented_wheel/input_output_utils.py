@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from kmeans_for_anchor_boxes import _iou
 # from matplotlib.colors import get_named_colors_mapping
-from random import choice
+from random import choice, randint, uniform
 
 
 # colors = list(get_named_colors_mapping().keys())
@@ -130,9 +130,154 @@ def file_to_img_label(example_tuple):
     return img, label_matrix
 
 
-def augment_ds(ds):
-    # TODO: This
-    return
+def clean_aug_files():
+    root = yg.ROOT_DATASET_PATH
+    all_files = os.listdir(root)
+    all_aug_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
+                   and "_aug_" in os.path.splitext(i)[0]]
+    all_aug_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE
+                      and "_aug_" in os.path.splitext(i)[0]]
+
+    if len(all_aug_img) == 0 and len(all_aug_labels) == 0:
+        print("No files to clean up.")
+        return
+
+    print("These files will be deleted")
+    for f in all_aug_labels:
+        print(yg.ROOT_DATASET_PATH + f)
+    for f in all_aug_img:
+        print(yg.ROOT_DATASET_PATH + f)
+
+    prompt = input("If this is ok, type Y/y. Enter N/n or any other character to cancel.")
+    if prompt.lower() != "y":
+        return
+
+    for f in all_aug_labels:
+        os.remove(yg.ROOT_DATASET_PATH + f)
+    for f in all_aug_img:
+        os.remove(yg.ROOT_DATASET_PATH + f)
+
+
+def augment_ds_zoom(passes=1, zoom_override=None):
+    root = yg.ROOT_DATASET_PATH
+    all_files = os.listdir(root)
+    all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
+               and "_aug_" not in os.path.splitext(i)[0]]
+    all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE
+                  and "_aug_" not in os.path.splitext(i)[0]]
+    assert len(all_img) == len(all_labels)
+    assert not any([("_aug_" in i) for i in all_img])
+    assert not any([("_aug_" in i) for i in all_labels])
+
+    for iter in range(passes):
+        print("Zoom augmentations pass #", str(iter), ". Augmenting", str(len(all_img)), "images...")
+        for img_path, lbl_path in zip(all_img, all_labels):
+            f = open(yg.ROOT_DATASET_PATH + lbl_path, "r")
+            label_txt = f.readlines()
+            f.close()
+
+            img = cv.imread(yg.ROOT_DATASET_PATH + img_path)
+            img_h, img_w = img.shape[0:2]
+
+            if zoom_override is not None:
+                zoom_factor = uniform(zoom_override[0], zoom_override[1])
+            else:
+                zoom_factor = uniform(0.92, 1.08)
+
+            translate = np.eye(3)
+            translate[0:2, 2] = [-img_w/2, -img_h/2]  # Zoom to this pixel by shifting it to 0,0
+
+            zoom = np.diag([zoom_factor, zoom_factor, 1])  # Apply scaling around 0,0
+
+            inverse_translate = np.eye(3)
+            inverse_translate[0:2, 2] = [(img_w-1)/2, (img_h-1)/2]  # shift this point back to its original position
+
+            H = inverse_translate @ zoom @ translate  # Overall transformation matrix
+            M = H[0:2]  # CV2 uses 2x3 matrix of the form M = [T  B] where T is 2x2 and B is 2x1 to compute y = Tx + B
+
+            # Warp img using the same matrix
+            new_img = cv.warpAffine(img, dsize=(img_w, img_h), M=M, flags=cv.INTER_NEAREST)
+
+            new_anns = []
+            for ann in label_txt:
+                split_line = ann.strip().split(" ")
+                old_lbl_x, old_lbl_y = float(split_line[1]), float(split_line[2])
+                old_lbl_w, old_lbl_h = float(split_line[3]), float(split_line[4])
+                # Convert label positions to new coords
+                # Convert to absolute coords instead of % and vectorize. The 1 is so we have matching dims.
+                old_pos_vec = np.array([old_lbl_x * img_w, old_lbl_y * img_h, 1]).reshape((3, 1))
+                # Apply transformation
+                new_pos_vec = M.dot(old_pos_vec).reshape((2,))
+                # W/H is just scaled by the zoom factor
+                new_lbl_w, new_lbl_h = old_lbl_w * zoom_factor, old_lbl_h * zoom_factor
+                # Rescale coords back to % of image before writing to file.
+                new_ann = " ".join([split_line[0],
+                                    str(new_pos_vec[0]/img_w),
+                                    str(new_pos_vec[1]/img_h),
+                                    str(new_lbl_w),
+                                    str(new_lbl_h)])
+                new_anns += [new_ann]
+
+            aug = "_aug_zoom" + "{:.2f}".format(zoom_factor).replace(".", "_")
+            cv.imwrite(yg.ROOT_DATASET_PATH + os.path.splitext(img_path)[0] + aug + yg.IMG_FILETYPE, new_img)
+            f = open(yg.ROOT_DATASET_PATH + os.path.splitext(lbl_path)[0] + aug + yg.LABEL_FILETYPE, "w")
+            for ann in new_anns:
+                f.write(ann + "\n")
+            f.close()
+
+
+def augment_ds_translate(passes=1, override_shift_range=None):
+    root = yg.ROOT_DATASET_PATH
+    all_files = os.listdir(root)
+    all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
+               and "_aug_" not in os.path.splitext(i)[0]]
+    all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE
+                  and "_aug_" not in os.path.splitext(i)[0]]
+    assert len(all_img) == len(all_labels)
+    assert not any([("_aug_" in i) for i in all_img])
+    assert not any([("_aug_" in i) for i in all_labels])
+
+    for iter in range(passes):
+        print("Translation augmentations pass #", str(iter), ". Augmenting", str(len(all_img)), "images...")
+        for img_path, lbl_path in zip(all_img, all_labels):
+            f = open(yg.ROOT_DATASET_PATH + lbl_path, "r")
+            label_txt = f.readlines()
+            f.close()
+
+            img = cv.imread(yg.ROOT_DATASET_PATH + img_path)
+            img_h, img_w = img.shape[0:2]
+
+            if override_shift_range is not None:
+                shift_right_left_min = override_shift_range[0]
+                shift_right_left_max = override_shift_range[1]
+                shift_up_down_min = override_shift_range[2]
+                shift_up_down_max = override_shift_range[3]
+            else:
+                shift_right_left_min = -350
+                shift_right_left_max = 350
+                shift_up_down_min = -120
+                shift_up_down_max = 50
+
+            shift_rl_amt = randint(shift_right_left_min, shift_right_left_max)
+            shift_ud_amt = randint(shift_up_down_min, shift_up_down_max)
+            translation_matrix = np.float32([[1, 0, shift_rl_amt], [0, 1, shift_ud_amt]])
+            new_img = cv.warpAffine(img, translation_matrix, (img_w, img_h))
+            new_anns = []
+            for ann in label_txt:
+                split_line = ann.strip().split(" ")
+                old_x, old_y = float(split_line[1]), float(split_line[2])
+                new_x, new_y = (old_x + shift_rl_amt/img_w), (old_y + shift_ud_amt/img_h)
+                new_line = " ".join([split_line[0], str(new_x), str(new_y), split_line[3], split_line[4]])
+                new_anns += [new_line]
+
+            srl_aug = "sr" + str(shift_rl_amt) if shift_rl_amt >= 0 else "sl" + str(shift_rl_amt)[1:]
+            sud_aug = "sd" + str(shift_ud_amt) if shift_ud_amt >= 0 else "su" + str(shift_ud_amt)[1:]
+            aug = "_aug_" + srl_aug + "_" + sud_aug
+            f = open(yg.ROOT_DATASET_PATH + os.path.splitext(lbl_path)[0] + aug + yg.LABEL_FILETYPE, "w")
+            for ann in new_anns:
+                f.write(ann + "\n")
+            f.close()
+            cv.imwrite(yg.ROOT_DATASET_PATH + os.path.splitext(img_path)[0] + aug + yg.IMG_FILETYPE, new_img)
 
 
 def get_datasets():
