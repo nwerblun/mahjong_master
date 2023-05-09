@@ -239,37 +239,47 @@ def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thres
     for i in range(1, yg.GRID_W):
         plt.axvline(x=i * x_spacing, color="k", linestyle="--", alpha=0.2)
 
+    bboxes = []
+    classes = []
+    confs = []
     for row in range(yg.GRID_H):
         for col in range(yg.GRID_W):
-            pred_classes = output_arr[..., row, col, yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
-            pred_confidences = output_arr[..., row, col, yg.PRED_CONFIDENCE_INDEX_START:yg.PRED_CONFIDENCE_INDEX_END]
-
-            highest_prob_class_name = yg.CLASS_MAP[np.argmax(pred_classes)]
-            highest_prob_class_amt = pred_classes[np.argmax(pred_classes)]
-            if highest_prob_class_amt < class_thresh:
-                continue
-
-            pred_bboxes = output_arr[..., row, col, yg.PRED_CONFIDENCE_INDEX_END:].reshape((yg.NUM_BOUNDING_BOXES, 4))
-            for bbox_ind in range(yg.NUM_BOUNDING_BOXES):
-                if pred_confidences[bbox_ind] < conf_thresh:
+            for bbox in range(yg.NUM_ANCHOR_BOXES):
+                pred_classes = output_arr[..., row, col, bbox, yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
+                pred_classes = tf.nn.softmax(pred_classes).numpy()
+                pred_confidence = output_arr[..., row, col, bbox, yg.PRED_CONFIDENCE_INDEX]
+                print("\nBBox", str(bbox), "in row x col", str(row), "x", str(col), "Confidence:", str(pred_confidence))
+                # print("Classes in row x col", str(row), "x", str(col), "are:", str(pred_classes))
+                highest_prob_class_name = yg.CLASS_MAP[np.argmax(pred_classes)]
+                highest_prob_class_amt = pred_classes[np.argmax(pred_classes)]
+                print("Most likely class is", str(highest_prob_class_name), "with prob.", str(highest_prob_class_amt))
+                if highest_prob_class_amt < class_thresh or pred_confidence < conf_thresh:
                     continue
-                x_rel = (col+pred_bboxes[bbox_ind][0]) / yg.GRID_W
-                y_rel = (row+pred_bboxes[bbox_ind][1]) / yg.GRID_H
-                w_rel = pred_bboxes[bbox_ind][2]
-                h_rel = pred_bboxes[bbox_ind][3]
 
-                color = choice(colors)
-                plt.plot([x_rel * img_w], [y_rel * img_h], marker="x", markersize=4, color=color)
-                anchor_xy = ((x_rel - w_rel / 2) * img_w, (y_rel - h_rel / 2) * img_h)
-                # Anchor point is the bottom left of the rect
-                rect = Rectangle(anchor_xy, w_rel * img_w, h_rel * img_h, linewidth=2.5, edgecolor=color,
-                                 facecolor='none')
-                plt.gca().add_patch(rect)
-                # Anchor point seems to be assuming 0,0 is the top left
-                text_anchor_xy = ((x_rel - w_rel / 2) * img_w, ((y_rel - h_rel / 2) * img_h) + 5)
-                annotation = highest_prob_class_name + ": " + str(highest_prob_class_amt) + \
-                    "\nObj conf: " + str(pred_confidences[bbox_ind])
-                plt.annotate(annotation, text_anchor_xy)
+                pred_bbox = output_arr[..., row, col, bbox, yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
+                bboxes += [pred_bbox]
+                classes += [pred_classes]
+                confs += [pred_confidence]
+    print("Found ", str(len(bboxes)), " bboxes over the confidence threshold")
+    for ind, bbox in enumerate(bboxes):
+        x_rel = bbox[0] / yg.GRID_W
+        y_rel = bbox[1] / yg.GRID_H
+        w_rel = bbox[2] / yg.GRID_W
+        h_rel = bbox[3] / yg.GRID_H
+
+        color = choice(colors)
+        plt.plot([x_rel * img_w], [y_rel * img_h], marker="x", markersize=4, color=color)
+        anchor_xy = ((x_rel - w_rel / 2) * img_w, (y_rel - h_rel / 2) * img_h)
+        # Anchor point is the bottom left of the rect
+        rect = Rectangle(anchor_xy, w_rel * img_w, h_rel * img_h, linewidth=2.5, edgecolor=color,
+                         facecolor='none')
+        plt.gca().add_patch(rect)
+        # Anchor point seems to be assuming 0,0 is the top left
+        text_anchor_xy = ((x_rel - w_rel / 2) * img_w, ((y_rel - h_rel / 2) * img_h) + 5)
+        class_name = yg.CLASS_MAP[np.argmax(classes[ind])]
+        annotation = class_name + ": " + str(classes[ind][np.argmax(classes[ind])]) + \
+            "\nObj conf: " + str(confs[ind])
+        plt.annotate(annotation, text_anchor_xy)
     plt.show()
 
 

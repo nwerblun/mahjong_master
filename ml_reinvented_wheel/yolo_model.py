@@ -25,11 +25,12 @@ class YoloReshape(keras.layers.Layer):
 
     def call(self, inputs):
         # Don't specify batch size, TF takes care of it
+        batch_size = tf.shape(inputs)[0]
         reshaped_inps = tf.reshape(inputs, [-1, yg.GRID_W, yg.GRID_H, yg.NUM_ANCHOR_BOXES, 5+yg.NUM_CLASSES])
 
         # Reshape class probabilities and DON'T softmax. Should be size (B x GridW x GridH x NumBoxes x NumClasses)
         class_probs = reshaped_inps[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
-        # Commented out becaues the cross entr. function in loss assumes non-softmaxed logits
+        # Commented out because the cross entr. function in loss assumes non-softmaxed logits
         # class_probs = keras.activations.softmax(class_probs)
         # tf.print("Class probs shape", tf.shape(class_probs))
 
@@ -52,7 +53,7 @@ class YoloReshape(keras.layers.Layer):
         # Switches axes 2/1 but keeps all other axes the same. AKA, just transpose the grid
         cell_indicies_y = tf.transpose(cell_indicies_x, [0, 2, 1, 3, 4])
         cell_grid = tf.tile(tf.concat([cell_indicies_x, cell_indicies_y], -1),
-                            [yg.BATCH_SIZE, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
+                            [batch_size, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
         # tf.print("Cell grid shape", tf.shape(cell_grid))
         # tf.print("Cell grid 5, 3", cell_grid[..., 5, 3, :, :])
 
@@ -84,7 +85,7 @@ def yolo_loss(y_true, y_pred):
     # y true bbox x,y,w,h are in grid cell units. E.g., ranging from 0->13
     y_true_bboxes = y_true[..., yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END]  # Bx13x13x6x4
     y_true_confs = y_true[..., yg.LABEL_CONFIDENCE_INDEX]  # Bx13x13x6
-    y_true_confs = tf.expand_dims(y_true_confs, axis=-1)
+    y_true_confs = tf.expand_dims(y_true_confs, axis=-1)  # Bx13x13x6x1
     y_true_classes = y_true[..., yg.LABEL_CLASS_INDEX_START:yg.LABEL_CLASS_INDEX_END]  # Bx13x13x6x36
 
     # The model should adjust the output so x,y -> 0 to 13 and the pred/conf is sigmoided. w,h ideally 0->13
@@ -101,16 +102,20 @@ def yolo_loss(y_true, y_pred):
         y_true_wh = y_true_xywh[..., 2:]
         y_pred_xy = y_pred_xywh[..., :2]
         y_pred_wh = y_pred_xywh[..., 2:]
+        tf.print("\nnum_objs xywh", num_objs)
         loss_xy = tf.reduce_sum(tf.square(y_true_xy - y_pred_xy) * mask) / (num_objs + 1e-6) / 2.
         loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
+        tf.print("loss wh", loss_wh)
+        tf.print("loss wh square term", tf.reduce_sum(tf.square(y_true_wh - y_pred_wh) * mask))
         return loss_wh + loss_xy
 
     def calc_class_loss(y_true_cls, y_pred_cls, y_true_conf):
         class_mask = y_true_conf * yg.LAMBDA_CLASS
         num_objs = tf.reduce_sum(tf.cast(class_mask > 0.0, tf.float32))
         # assumes non-softmaxed outputs and assumes true class labels are 0, 1 only
-        cls_loss = tf.nn.softmax_cross_entropy_with_logits(labels=tf.cast(y_true_cls, tf.int32),
-                                                           logits=tf.cast(y_pred_cls, tf.float32))
+        true_box_class = tf.argmax(y_true_cls, -1)
+        cls_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.cast(true_box_class, tf.int32),
+                                                                  logits=y_pred_cls)
         cls_loss = tf.expand_dims(cls_loss, axis=-1)
         cls_loss = tf.reduce_sum(cls_loss * class_mask) / (num_objs + 1e-6)
         return cls_loss
@@ -153,6 +158,9 @@ def yolo_loss(y_true, y_pred):
     class_loss = calc_class_loss(y_true_classes, y_pred_classes, y_true_confs)
     conf_loss = calc_conf_loss(y_true_bboxes, y_pred_bboxes, y_true_confs, y_pred_confs)
 
+    tf.print("class loss:", class_loss)
+    tf.print("conf loss:", conf_loss)
+
     loss = xywh_loss + class_loss + conf_loss
     # tf.print("Loss is ", loss)
     # tf.print("Loss final shape is: ", tf.shape(loss))
@@ -161,9 +169,8 @@ def yolo_loss(y_true, y_pred):
 
 def get_learning_schedule():
     schedule = [
-        (0, 0.01),
-        (25, 0.001),
-        (45, 0.0001)
+        (0, 0.001),
+        (25, 0.0005),
     ]
 
     def update(epoch, lr):

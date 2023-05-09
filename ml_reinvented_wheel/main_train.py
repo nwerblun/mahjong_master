@@ -10,5 +10,5 @@ if __name__ == "__main__":
         img_and_label_plot(os.path.splitext(max_objs_file)[0]+yg.IMG_FILETYPE, highlight_cell=(grid_row, grid_col))
     else:
         train_model(test_after=True, output_json=True)
-        #pred = predict_on_img(".\\img\\mcr_mahjong_trainer_53.png")
-        #draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", pred, class_thresh=0.03, conf_thresh=0)
+        pred = predict_on_img(".\\img\\mcr_mahjong_trainer_53.png")
+        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", pred, class_thresh=0.65, conf_thresh=0.2, unsquish=False)
