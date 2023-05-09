@@ -362,6 +362,7 @@ def img_to_pred_input(img_path):
 
 
 def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thresh=0.6, unsquish=True):
+    # TODO: Implement NMS
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:

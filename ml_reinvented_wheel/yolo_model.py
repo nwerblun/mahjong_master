@@ -170,10 +170,9 @@ def yolo_loss(y_true, y_pred):
 
 def get_learning_schedule():
     schedule = [
-        (0, 0.001),
-        (25, 0.0005),
-        (50, 0.00001),
-        (75, 0.000005)
+        (0, 0.0015),
+        (5, 0.001),
+        (20, 0.0008)
     ]
 
     def update(epoch, lr):
