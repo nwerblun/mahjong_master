@@ -2,7 +2,7 @@ import os.path
 import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Dropout, BatchNormalization
 from keras.layers import Conv2D, MaxPooling2D
 from keras.regularizers import l2
 from input_output_utils import get_datasets
@@ -69,8 +69,12 @@ class YoloReshape(keras.layers.Layer):
         # This effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
         bboxes_wh = reshaped_inps[..., yg.PRED_BBOX_INDEX_START+2:yg.PRED_BBOX_INDEX_END]
         # tf.print("BBox wh size", tf.shape(bboxes_wh))
+        
         bboxes_wh = tf.exp(bboxes_wh) * \
             tf.cast(tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2]), tf.float32)
+
+        # Uncomment to clip bbox w/h to be within 0->13 since it should not expand beyond the image.
+        # bboxes_wh = tf.clip_by_value(bboxes_wh, clip_value_min=0, clip_value_max=yg.GRID_W)
         bboxes = tf.concat([bboxes_xy, bboxes_wh], axis=-1)
 
         # tf.print("BBox shape", tf.shape(bboxes))
@@ -85,18 +89,20 @@ def yolo_loss(y_true, y_pred):
     # y true bbox x,y,w,h are in grid cell units. E.g., ranging from 0->13
     y_true_bboxes = y_true[..., yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END]  # Bx13x13x6x4
     y_true_confs = y_true[..., yg.LABEL_CONFIDENCE_INDEX]  # Bx13x13x6
-    y_true_confs = tf.expand_dims(y_true_confs, axis=-1)  # Bx13x13x6x1
     y_true_classes = y_true[..., yg.LABEL_CLASS_INDEX_START:yg.LABEL_CLASS_INDEX_END]  # Bx13x13x6x36
+
+    # Get a matrix of all objects in the image regardless of which cell they're assigned to.
+    y_all_bboxes = tf.identity(y_true_bboxes)
+    y_all_bboxes_xywh = tf.reshape(y_all_bboxes, [-1, 1, 1, 1, (yg.GRID_W * yg.GRID_H * yg.NUM_ANCHOR_BOXES), 4])
 
     # The model should adjust the output so x,y -> 0 to 13 and the pred/conf is sigmoided. w,h ideally 0->13
     y_pred_bboxes = y_pred[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
     y_pred_confs = y_pred[..., yg.PRED_CONFIDENCE_INDEX]
-    y_pred_confs = tf.expand_dims(y_pred_confs, axis=-1)
     y_pred_classes = y_pred[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
 
     def calc_xywh_loss(y_true_xywh, y_pred_xywh, y_true_conf):
         # Use y_true_confs to make a mask since it's 1 or 0 where it should be
-        mask = y_true_conf * yg.LAMBDA_COORD
+        mask = tf.expand_dims(y_true_conf, axis=-1) * yg.LAMBDA_COORD
         num_objs = tf.reduce_sum(tf.cast(mask > 0.0, tf.float32))
         y_true_xy = y_true_xywh[..., :2]
         y_true_wh = y_true_xywh[..., 2:]
@@ -104,10 +110,13 @@ def yolo_loss(y_true, y_pred):
         y_pred_wh = y_pred_xywh[..., 2:]
         # tf.print("\nnum_objs xywh", num_objs)
         loss_xy = tf.reduce_sum(tf.square(y_true_xy - y_pred_xy) * mask) / (num_objs + 1e-6) / 2.
-        # loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
-        loss_wh = tf.reduce_sum(tf.square(y_true_wh - y_pred_wh) * mask) / (num_objs + 1e-6) / 2.
+        loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
         # tf.print("loss wh", loss_wh)
         # tf.print("loss wh square term", tf.reduce_sum(tf.square(y_true_wh - y_pred_wh) * mask))
+        if yg.DEBUG_PRINT:
+            tf.print("\n")
+            tf.print("XY Loss: ", loss_xy)
+            tf.print("WH Loss: ", loss_wh)
         return loss_wh + loss_xy
 
     def calc_class_loss(y_true_cls, y_pred_cls, y_true_conf):
@@ -115,13 +124,18 @@ def yolo_loss(y_true, y_pred):
         num_objs = tf.reduce_sum(tf.cast(class_mask > 0.0, tf.float32))
         # assumes non-softmaxed outputs and assumes true class labels are 0, 1 only
         true_box_class = tf.argmax(y_true_cls, -1)
+        if yg.DEBUG_PRINT:
+            tf.print("Example true box class on batch 1, 12x7\n", true_box_class[0, 11, 6, :])
+            tf.print("Example masked pred box class on batch 1, 12x7\n", tf.argmax((y_pred_cls * tf.expand_dims(class_mask, axis=-1))[0, 11, 6, :, :], axis=-1))
+            tf.print("Example softmaxed masked pred box class prob. on batch 1, 12x7\n", tf.reduce_max((tf.nn.softmax(y_pred_cls) * tf.expand_dims(class_mask, axis=-1))[0, 11, 6, :, :], axis=-1))
         cls_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=tf.cast(true_box_class, tf.int32),
                                                                   logits=y_pred_cls)
-        cls_loss = tf.expand_dims(cls_loss, axis=-1)
         cls_loss = tf.reduce_sum(cls_loss * class_mask) / (num_objs + 1e-6)
+        if yg.DEBUG_PRINT:
+            tf.print("Example masked class loss on batch 1, 12x7\n", (cls_loss * class_mask)[0, 11, 6, :])
         return cls_loss
 
-    def get_masked_iou_scores(y_true_xywh, y_pred_xywh, y_true_conf):
+    def get_iou_scores(y_true_xywh, y_pred_xywh):
         y_true_xy = y_true_xywh[..., :2]
         y_true_wh = y_true_xywh[..., 2:]
         y_pred_xy = y_pred_xywh[..., :2]
@@ -143,25 +157,37 @@ def yolo_loss(y_true, y_pred):
 
         union_areas = pred_areas + true_areas - intersect_areas
         iou_scores = tf.truediv(intersect_areas, union_areas)
-        iou_scores = tf.expand_dims(iou_scores, axis=-1)
-        return iou_scores * y_true_conf
+        return iou_scores
 
-    def calc_conf_loss(y_true_xywh, y_pred_xywh, y_true_conf, y_pred_conf):
-        # I didn't do this correctly. I don't have the best ious ignoring assignments. Might not be good.
-        masked_ious = get_masked_iou_scores(y_true_xywh, y_pred_xywh, y_true_conf)
-        conf_mask = tf.cast((masked_ious < 0.6), tf.float32) * (1 - y_true_conf) * yg.LAMBDA_NO_OBJECT
-        conf_mask = conf_mask + masked_ious * yg.LAMBDA_OBJECT
+    def calc_conf_loss(y_true_xywh, y_pred_xywh, y_all_bbox_xywh, y_true_conf, y_pred_conf):
+        # Get IOU scores between predicted bboxes and ONLY the object they are assigned to guess. 0 out everything else with y_true_conf
+        pred_vs_assigned_masked_ious = get_iou_scores(y_true_xywh, y_pred_xywh) * y_true_conf
+        # Get IOU scores between predicted bboxes and ALL objects in the image. It's based on xy/wh so if there is a non-0 IOU
+        # It means that there's an object near a prediction that it may not have been assigned to.
+        # y_pred has dims Bx13x13x6x4
+        # ious has dims   Bx1x1x1x1014x4
+        # To broadcast they must have same dims or one of them =1.
+        # Expand y_pred to Bx13x13x6x1   x4
+        # ious matches w/  Bx1 x1 x1x1024x4
+        pred_vs_global_objs_ious = get_iou_scores(y_all_bbox_xywh, tf.expand_dims(y_pred_xywh, axis=4))
+        pred_vs_global_best_ious = tf.reduce_max(pred_vs_global_objs_ious, axis=4)  # Bx13x13x6
+        # Create a mask where it is 1 if the bbox and IOU between any nearby objects are <0.6 AND there's not supposed to be an object there
+        conf_mask = tf.cast((pred_vs_global_best_ious < 0.6), tf.float32) * (1 - y_true_conf) * yg.LAMBDA_NO_OBJECT
+        # Overall mask is >0 if there's an object in the label and >0 if there's no object and no bbox with IOU >0.6 with nearby objects
+        conf_mask = conf_mask + pred_vs_assigned_masked_ious * yg.LAMBDA_OBJECT
         num_objs = tf.reduce_sum(tf.cast(conf_mask > 0.0, tf.float32))
-        loss_conf = tf.reduce_sum(tf.square(masked_ious - y_pred_conf) * conf_mask) / (num_objs + 1e-6) / 2.
+        loss_conf = tf.reduce_sum(tf.square(pred_vs_assigned_masked_ious - y_pred_conf) * conf_mask) / (num_objs + 1e-6) / 2.
         return loss_conf
 
     xywh_loss = calc_xywh_loss(y_true_bboxes, y_pred_bboxes, y_true_confs)
     class_loss = calc_class_loss(y_true_classes, y_pred_classes, y_true_confs)
-    conf_loss = calc_conf_loss(y_true_bboxes, y_pred_bboxes, y_true_confs, y_pred_confs)
+    conf_loss = calc_conf_loss(y_true_bboxes, y_pred_bboxes, y_all_bboxes_xywh, y_true_confs, y_pred_confs)
 
     # tf.print("class loss:", class_loss)
     # tf.print("conf loss:", conf_loss)
-
+    if yg.DEBUG_PRINT:
+        tf.print("Class Loss: ", class_loss)
+        tf.print("Confidence Loss: ", conf_loss)
     loss = xywh_loss + class_loss + conf_loss
     # tf.print("Loss is ", loss)
     # tf.print("Loss final shape is: ", tf.shape(loss))
@@ -170,9 +196,9 @@ def yolo_loss(y_true, y_pred):
 
 def get_learning_schedule():
     schedule = [
-        (0, 0.0015),
-        (5, 0.001),
-        (20, 0.0008)
+        (0, 0.001),
+        (20, 0.001),
+        (40, 0.0001)
     ]
 
     def update(epoch, lr):
@@ -191,46 +217,52 @@ def make_model():
     model = Sequential()
     model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1),
                      input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+                     activation=leaky_relu))
+    model.add(BatchNormalization())
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1),
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1),
                      input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+                     activation=leaky_relu))
+    model.add(BatchNormalization())
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=32, kernel_size=(1, 1), strides=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1),
+                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same',
+                     activation=leaky_relu))
+    model.add(BatchNormalization())
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
-    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    model.add(Dropout(0.05))
 
-    model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), padding='same',
+    model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1),
+                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
     model.add(Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
-    model.add(Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), padding='same',
-                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
 
     model.add(Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+
     model.add(Conv2D(filters=512, kernel_size=(1, 1), strides=(1, 1), padding='same',
                      activation=leaky_relu, kernel_regularizer=l2(5e-4)))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
 
+
+    model.add(Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+
+    model.add(Conv2D(filters=1, kernel_size=(1, 1), strides=(1, 1), padding='same',
+                     activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+
+    model.add(Dropout(0.05))
+
     model.add(Conv2D(filters=((5 + yg.NUM_CLASSES)*yg.NUM_ANCHOR_BOXES),
-                     kernel_size=(1, 1), activation=leaky_relu, kernel_regularizer=l2(5e-4)))
+                     kernel_size=(1, 1), activation=leaky_relu))
 
     model.add(YoloReshape(target_shape=yg.YOLO_OUTPUT_SHAPE))
     model.summary()

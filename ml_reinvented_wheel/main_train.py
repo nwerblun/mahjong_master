@@ -4,22 +4,31 @@ import os
 from random import randint
 
 aug = False
-check = True
+check = False
 train = True
 test_pred = False
 plot_test = False
+view_files = False
 if __name__ == "__main__":
     if aug:
         clean_aug_files()
-        augment_ds_zoom()
-        augment_ds_translate(override_shift_range=(-270, 270, -100, 40))
+        augment_ds_zoom(zoom_override=(0.98, 1.02))
+        augment_ds_translate(override_shift_range=(-150, 150, -80, 25))
 
     if check:
-        good, max_objs, max_objs_file, grid_row, grid_col = check_if_grid_size_and_bbox_num_large_enough()
+        good, fail_files, fail_amts, fail_locs = check_if_grid_size_and_bbox_num_large_enough()
         if not good:
-            print("Not enough bboxes to hold", str(max_objs), "objects in cell", str(grid_row),
-                  "x", str(grid_col), "in file", max_objs_file)
-            img_and_label_plot(os.path.splitext(max_objs_file)[0]+yg.IMG_FILETYPE, highlight_cell=(grid_row, grid_col))
+            for i in range(len(fail_files)):
+                print("File failed with", str(fail_amts[i]), ">= objects in cell", str(fail_locs[i][0]), "x", str(fail_locs[i][1]))
+                print(os.path.splitext(fail_files[i])[0])
+            print(str(len(fail_files)), "failed files.")
+            prompt = input("Delete all?")
+            if prompt.lower() == "y":
+                for f in fail_files:
+                    img_path = os.path.splitext(f)[0] + yg.IMG_FILETYPE
+                    os.remove(f)
+                    os.remove(img_path)
+            # img_and_label_plot(os.path.splitext(max_objs_file)[0]+yg.IMG_FILETYPE, highlight_cell=(grid_row, grid_col))
 
     if train:
         train_model(test_after=True, output_json=True)
@@ -36,3 +45,21 @@ if __name__ == "__main__":
         img_path = all_img[randint(0, len(all_img))]
         print("Displaying", img_path)
         img_and_label_plot(yg.ROOT_DATASET_PATH + img_path)
+
+    if view_files:
+        files_to_view = [
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_113_aug_sl12_su14.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_271.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_296.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_290_aug_sr94_sd2.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_246_aug_sl110_su56.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_224_aug_zoom1_00.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_130_aug_zoom1_01.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_156_aug_sr124_su43.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mahjongtime_lite_23.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_256_aug_sl24_su45.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_122.png",
+             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_230.png",
+         ]
+        for f in files_to_view:
+            img_and_label_plot(f, squish=True)

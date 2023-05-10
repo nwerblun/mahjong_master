@@ -115,10 +115,10 @@ INVERSE_CLASS_MAP = {
     "f1": 0+34,
     "z1": 0+35
 }
-BATCH_SIZE = 8
+BATCH_SIZE = 14
 DS_BUFFER_SIZE = 0
 TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
-GLOBAL_RNG_SEED = 12039
+GLOBAL_RNG_SEED = 2727
 ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \
                     "mahjong_master\\ml_reinvented_wheel\\img\\"
 IMG_FILETYPE = ".png"
@@ -126,9 +126,11 @@ LABEL_FILETYPE = ".txt"
 
 LAMBDA_NO_OBJECT = 1.0
 LAMBDA_OBJECT = 5.0
-LAMBDA_COORD = 1.0
+LAMBDA_COORD = 1.5
 LAMBDA_CLASS = 1.0
 
-NUM_EPOCHS = 100
+NUM_EPOCHS = 50
+
+DEBUG_PRINT = True
 
 

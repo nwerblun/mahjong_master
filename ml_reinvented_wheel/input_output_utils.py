@@ -30,7 +30,9 @@ def check_if_grid_size_and_bbox_num_large_enough():
     # If we run out of bboxes, then raise a warning
     all_files = list(os.listdir(yg.ROOT_DATASET_PATH))
     annotations = [yg.ROOT_DATASET_PATH+f for f in all_files if os.path.splitext(f)[1] == yg.LABEL_FILETYPE]
-
+    fails = []
+    fails_objs = []
+    fails_loc = []
     for ann in annotations:
         f = open(ann, "r")
         lines = f.readlines()
@@ -48,9 +50,11 @@ def check_if_grid_size_and_bbox_num_large_enough():
             grid_row = int(grid_loc[1])
             grid_col = int(grid_loc[0])
             grid_assignments[grid_row, grid_col] += 1
-            if grid_assignments[grid_row, grid_col] > yg.NUM_ANCHOR_BOXES:
-                return False, grid_assignments[grid_row, grid_col], ann, grid_row, grid_col
-    return True, None, None, None, None
+            if grid_assignments[grid_row, grid_col] > yg.NUM_ANCHOR_BOXES and (ann not in fails):
+                fails += [ann]
+                fails_objs += [grid_assignments[grid_row, grid_col]]
+                fails_loc += [(grid_row, grid_col)]
+    return len(fails) == 0, fails, fails_objs, fails_loc
 
 
 def _find_best_unused_anchor_box(box_w, box_h, label_entry):
@@ -71,6 +75,8 @@ def file_to_img_label(example_tuple):
     img_path, lbl_path = example_tuple[0], example_tuple[1]
     img_path = yg.ROOT_DATASET_PATH + img_path.numpy().decode('utf-8')
     lbl_path = yg.ROOT_DATASET_PATH + lbl_path.numpy().decode('utf-8')
+    if yg.DEBUG_PRINT:
+        tf.print("Getting file: ", img_path)
     try:
         f = open(lbl_path)
         label_txt = f.readlines()
