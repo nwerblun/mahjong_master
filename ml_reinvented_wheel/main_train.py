@@ -4,7 +4,7 @@ import os
 from random import randint
 
 aug = False
-check = False
+check = True
 train = True
 test_pred = False
 plot_test = False
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     if aug:
         clean_aug_files()
         augment_ds_zoom(zoom_override=(0.98, 1.02))
-        augment_ds_translate(override_shift_range=(-150, 150, -80, 25))
+        #augment_ds_translate(override_shift_range=(-150, 150, -80, 25))
 
     if check:
         good, fail_files, fail_amts, fail_locs = check_if_grid_size_and_bbox_num_large_enough()
