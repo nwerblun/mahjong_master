@@ -1,9 +1,9 @@
 import os.path
 import tensorflow as tf
 from tensorflow import keras
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, Reshape
+from keras.layers import Conv2D, MaxPooling2D, Reshape, Input, Concatenate
 from input_output_utils import get_datasets
 import yolo_globals as yg
 import cv2 as cv
@@ -123,6 +123,7 @@ def yolo_loss(y_true, y_pred):
 
     # Now grab just the wh and exp it to make it positive, then scale it by the anchor box sizes
     #  effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
+    # It will be in units of grids (0->13)
     y_pred_wh = tf.exp(y_pred_wh) * tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2])
 
     # Set confidence range 0->1
@@ -216,14 +217,11 @@ def yolo_loss(y_true, y_pred):
     return loss
 
 
-# There's no reason for these values. I was just trying to get it to change when it was on epoch 48 because it was too slow.
 def get_learning_schedule():
     schedule = [
-        (0, 0.01),
-        (8, 0.001),
-        (40, 0.001),
-        (48, 0.001),
-        (49, 0.001)
+        (1, 0.1),
+        (33, 0.01),
+        (66, 0.001)
     ]
 
     def update(epoch, lr):
@@ -239,60 +237,88 @@ def get_learning_schedule():
 def make_model():
     # Based on yolov2 tiny
     leaky_relu = keras.layers.LeakyReLU(alpha=0.1)
-    model = Sequential()
-    model.add(Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1),
-                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    inp = Input(shape=(yg.IMG_W, yg.IMG_H, 3))
+    
+    x = Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1), padding="same")(inp)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1),
-                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    x = Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1),
-                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1),
-                     input_shape=(yg.IMG_W, yg.IMG_H, 3), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    model.add(Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    x = Dropout(0.05)(x)
 
-    model.add(Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='same'))
+    x = Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
 
-    model.add(Conv2D(filters=512, kernel_size=(1, 1), strides=(1, 1), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
-    model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1), padding='same'))
+    x = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    
+    x = Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
+    x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
 
-    model.add(Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
+    x = Conv2D(filters=128, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    
+    x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    model.add(Conv2D(filters=1, kernel_size=(1, 1), strides=(1, 1), padding='same'))
-    model.add(BatchNormalization())
-    model.add(leaky_relu)
+    skip_conn = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    skip_conn = BatchNormalization()(skip_conn)
+    skip_conn = leaky_relu(skip_conn)
 
-    model.add(Conv2D(filters=((5 + yg.NUM_CLASSES)*yg.NUM_ANCHOR_BOXES),
-                     kernel_size=(1, 1), activation=leaky_relu))
+    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
 
-    # model.add(YoloReshape(target_shape=yg.YOLO_OUTPUT_SHAPE))
-    model.add(Reshape(target_shape=yg.YOLO_OUTPUT_SHAPE))
+    x = Conv2D(filters=512, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Concatenate()([skip_conn, x])
+
+    x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=(5 + yg.NUM_CLASSES)*yg.NUM_ANCHOR_BOXES, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    out = Reshape(target_shape=yg.YOLO_OUTPUT_SHAPE)(x)
+    model = Model(inp, out)
     model.summary()
     return model
 
@@ -391,4 +417,37 @@ def predict_on_img(img_path):
     img = img.reshape((1,)+img.shape)
     m = load_model()
     out = m(img, training=False)
-    return np.squeeze(out.numpy())
+    
+    cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
+    cell_indicies_x = tf.reshape(cell_indicies_x, [1, yg.GRID_H, yg.GRID_W, 1, 1])
+    cell_indicies_x = tf.cast(cell_indicies_x, tf.float32)
+    
+    # Switches axes 2/1 but keeps all other axes the same. AKA, just transpose the grid
+    cell_indicies_y = tf.transpose(cell_indicies_x, [0, 2, 1, 3, 4])
+    # tf.shape(tensor) gets the shape but tensor.shape doesn't work for some reason. Anyway this just gets the current batch size.
+    # I don't use yg.BATCH_SIZE because during validation it changes to a different number and is not reflected in that variable.
+    cell_grid = tf.tile(tf.concat([cell_indicies_x, cell_indicies_y], -1), [1, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
+    
+    # Start by grabbing just xy to sigmoid, so it ranges 0->1. Add cell grid to adjust units. Assumes order is xywh
+    y_pred_bboxes = out[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
+    y_pred_xy = y_pred_bboxes[..., 0:2]
+    y_pred_wh = y_pred_bboxes[..., 2:]
+
+    # Convert to % img
+    y_pred_xy = (tf.sigmoid(y_pred_xy) + cell_grid) / yg.GRID_W
+
+    # Now grab just the wh and exp it to make it positive, then scale it by the anchor box sizes
+    #  effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
+    y_pred_wh = tf.exp(y_pred_wh) * tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2])
+
+    # Convert back to % img
+    y_pred_wh = y_pred_wh / yg.GRID_W
+    
+    # Set confidence range 0->1
+    y_pred_confs = out[..., yg.PRED_CONFIDENCE_INDEX]
+    y_pred_confs = keras.activations.sigmoid(y_pred_confs)
+    
+    #Softmax class outputs
+    y_pred_classes = tf.nn.softmax(out[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END])
+    
+    return np.squeeze(y_pred_xy.numpy()), np.squeeze(y_pred_wh.numpy()), np.squeeze(y_pred_confs.numpy()), np.squeeze(y_pred_classes.numpy())

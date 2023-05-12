@@ -6,14 +6,14 @@ from random import randint
 aug = False
 check = True
 train = True
-test_pred = False
+test_pred = True
 plot_test = False
 view_files = False
 if __name__ == "__main__":
     if aug:
         clean_aug_files()
-        augment_ds_zoom(zoom_override=(0.98, 1.02))
-        #augment_ds_translate(override_shift_range=(-150, 150, -80, 25))
+        augment_ds_zoom()
+        #augment_ds_translate(override_shift_range=(-30, 30, -25, 25))
 
     if check:
         good, fail_files, fail_amts, fail_locs = check_if_grid_size_and_bbox_num_large_enough()
@@ -34,9 +34,9 @@ if __name__ == "__main__":
         train_model(test_after=True, output_json=True)
 
     if test_pred:
-        pred = predict_on_img(".\\img\\mcr_mahjong_trainer_53.png")
-        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", pred,
-                                  class_thresh=0.65, conf_thresh=0.2, unsquish=True)
+        xy, wh, cnf, cls = predict_on_img(".\\img\\mcr_mahjong_trainer_53.png")
+        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_53.png", xy, wh, cnf, cls,
+                                  class_thresh=0.8, conf_thresh=0.65, unsquish=True)
 
     if plot_test:
         root = yg.ROOT_DATASET_PATH

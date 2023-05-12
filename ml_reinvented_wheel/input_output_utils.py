@@ -184,11 +184,13 @@ def augment_ds_zoom(passes=1, zoom_override=None):
 
             img = cv.imread(yg.ROOT_DATASET_PATH + img_path)
             img_h, img_w = img.shape[0:2]
-
-            if zoom_override is not None:
-                zoom_factor = uniform(zoom_override[0], zoom_override[1])
-            else:
-                zoom_factor = uniform(0.92, 1.08)
+            
+            zoom_factor = 1.0
+            while (zoom_factor == 1.0):
+                if zoom_override is not None:
+                    zoom_factor = uniform(zoom_override[0], zoom_override[1])
+                else:
+                    zoom_factor = uniform(0.92, 1.08)
 
             translate = np.eye(3)
             translate[0:2, 2] = [-img_w/2, -img_h/2]  # Zoom to this pixel by shifting it to 0,0
@@ -367,7 +369,7 @@ def img_to_pred_input(img_path):
     return tf.convert_to_tensor(img / 255., dtype=tf.float32)
 
 
-def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thresh=0.6, unsquish=True):
+def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, unsquish=True):
     # TODO: Implement NMS
     try:
         img = cv.imread(img_path)
@@ -392,32 +394,32 @@ def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thres
         plt.axvline(x=i * x_spacing, color="k", linestyle="--", alpha=0.2)
 
     bboxes = []
-    classes = []
+    class_probs = []
+    class_names = []
     confs = []
     for row in range(yg.GRID_H):
         for col in range(yg.GRID_W):
             for bbox in range(yg.NUM_ANCHOR_BOXES):
-                pred_classes = output_arr[..., row, col, bbox, yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
-                pred_classes = tf.nn.softmax(pred_classes).numpy()
-                pred_confidence = output_arr[..., row, col, bbox, yg.PRED_CONFIDENCE_INDEX]
-                print("\nBBox", str(bbox), "in row x col", str(row), "x", str(col), "Confidence:", str(pred_confidence))
-                # print("Classes in row x col", str(row), "x", str(col), "are:", str(pred_classes))
-                highest_prob_class_name = yg.CLASS_MAP[np.argmax(pred_classes)]
-                highest_prob_class_amt = pred_classes[np.argmax(pred_classes)]
+                curr_conf = y_pred_confs[row, col, bbox]
+                print("\nBBox", str(bbox), "in row x col", str(row), "x", str(col), "Confidence:", str(curr_conf))
+                class_argmax_ind = np.argmax(y_pred_classes[row, col, bbox])
+                highest_prob_class_name = yg.CLASS_MAP[class_argmax_ind]
+                highest_prob_class_amt = y_pred_classes[row, col, bbox, class_argmax_ind]
                 print("Most likely class is", str(highest_prob_class_name), "with prob.", str(highest_prob_class_amt))
-                if highest_prob_class_amt < class_thresh or pred_confidence < conf_thresh:
+                if highest_prob_class_amt < class_thresh or curr_conf < conf_thresh:
                     continue
 
-                pred_bbox = output_arr[..., row, col, bbox, yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
+                pred_bbox = np.hstack((y_pred_xy[row, col, bbox], y_pred_wh[row, col, bbox]))
                 bboxes += [pred_bbox]
-                classes += [pred_classes]
-                confs += [pred_confidence]
+                class_probs += [highest_prob_class_amt]
+                class_names += [highest_prob_class_name]
+                confs += [curr_conf]
     print("Found ", str(len(bboxes)), " bboxes over the confidence threshold")
     for ind, bbox in enumerate(bboxes):
-        x_rel = bbox[0] / yg.GRID_W
-        y_rel = bbox[1] / yg.GRID_H
-        w_rel = bbox[2] / yg.GRID_W
-        h_rel = bbox[3] / yg.GRID_H
+        x_rel = bbox[0]
+        y_rel = bbox[1]
+        w_rel = bbox[2]
+        h_rel = bbox[3]
 
         color = choice(colors)
         plt.plot([x_rel * img_w], [y_rel * img_h], marker="x", markersize=4, color=color)
@@ -428,9 +430,7 @@ def draw_pred_output_and_plot(img_path, output_arr, class_thresh=0.7, conf_thres
         plt.gca().add_patch(rect)
         # Anchor point seems to be assuming 0,0 is the top left
         text_anchor_xy = ((x_rel - w_rel / 2) * img_w, ((y_rel - h_rel / 2) * img_h) + 5)
-        class_name = yg.CLASS_MAP[np.argmax(classes[ind])]
-        annotation = class_name + ": " + str(classes[ind][np.argmax(classes[ind])]) + \
-            "\nObj conf: " + str(confs[ind])
+        annotation = class_names[ind] + ": " + str(class_probs[ind]) + "\nObj conf: " + str(confs[ind])
         plt.annotate(annotation, text_anchor_xy)
     plt.show()
 
