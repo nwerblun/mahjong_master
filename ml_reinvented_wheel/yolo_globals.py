@@ -12,12 +12,12 @@ NUM_ANCHOR_BOXES = 6
 # Shape is (NBOXES, 2)
 # Format is Width, Height in % of total image size
 ANCHOR_BOXES = np.array([
- [0.03242392, 0.04467245],
- [0.02949143, 0.07183909],
  [0.02436721, 0.06027983],
- [0.03933732, 0.05368105],
- [0.02738487, 0.03401295],
- [0.03639444, 0.09813662]
+ [0.02436721, 0.06027983],
+ [0.02436721, 0.06027983],
+ [0.03241598, 0.04497226],
+ [0.03241598, 0.04497226],
+ [0.03241598, 0.04497226]
 ])
 ANCHOR_BOXES_GRID_UNITS = np.array([[x*GRID_W, y*GRID_H] for x, y in ANCHOR_BOXES], dtype=np.float32)
 
@@ -126,11 +126,15 @@ LABEL_FILETYPE = ".txt"
 
 LAMBDA_NO_OBJECT = 1.0
 LAMBDA_OBJECT = 5.0
-LAMBDA_COORD = 1.0
+LAMBDA_COORD = 1.2
 LAMBDA_CLASS = 1.5
 
 NUM_EPOCHS = 100
 
-DEBUG_PRINT = True
+# 0 = no prints
+# 1 = print loss values
+# 2 = print loss values + examples of guesses + all above
+# 3 = print files being tested + all above
+DEBUG_PRINT = 1
 
 

@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential, Model
 from keras.layers import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, Reshape, Input, Concatenate
+from keras.layers import Conv2D, MaxPooling2D, Reshape, Input, Concatenate, Dropout
 from input_output_utils import get_datasets
 import yolo_globals as yg
 import cv2 as cv
@@ -139,10 +139,11 @@ def yolo_loss(y_true, y_pred):
         num_objs = tf.reduce_sum(tf.cast(mask > 0.0, tf.float32))
         loss_xy = tf.reduce_sum(tf.square(y_true_xy - y_pred_xy) * mask) / (num_objs + 1e-6) / 2.
         loss_wh = tf.reduce_sum(tf.square(tf.sqrt(y_true_wh) - tf.sqrt(y_pred_wh)) * mask) / (num_objs + 1e-6) / 2.
-        if yg.DEBUG_PRINT:
+        if yg.DEBUG_PRINT > 1:
             tf.print("\n")
             tf.print("Predicted xy of batch 1, box 0, 12x7", y_pred_xy[0, 11, 6, 0, :])
             tf.print("Predicted wh of batch 1, box 0, 12x7", y_pred_wh[0, 11, 6, 0, :])
+        if yg.DEBUG_PRINT > 0:
             tf.print("XY Loss: ", loss_xy)
             tf.print("WH Loss: ", loss_wh)
         return loss_wh + loss_xy
@@ -152,14 +153,14 @@ def yolo_loss(y_true, y_pred):
         num_objs = tf.reduce_sum(tf.cast(class_mask > 0.0, tf.float32))
         # assumes non-softmaxed outputs and assumes true class labels are 0, 1 only
         true_box_class = tf.argmax(y_true_cls, -1)
-        if yg.DEBUG_PRINT:
+        if yg.DEBUG_PRINT > 1:
             tf.print("Example true box class on batch 1, 12x7\n", true_box_class[0, 11, 6, :])
             tf.print("Example masked pred box class on batch 1, 12x7\n", tf.argmax((y_pred_cls * tf.expand_dims(class_mask, axis=-1))[0, 11, 6, :, :], axis=-1))
             tf.print("Example softmaxed masked pred box class prob. on batch 1, 12x7\n", tf.reduce_max((tf.nn.softmax(y_pred_cls) * tf.expand_dims(class_mask, axis=-1))[0, 11, 6, :, :], axis=-1))
         cls_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=true_box_class,
                                                                   logits=y_pred_cls)
         cls_loss = tf.reduce_sum(cls_loss * class_mask) / (num_objs + 1e-6)
-        if yg.DEBUG_PRINT:
+        if yg.DEBUG_PRINT > 1:
             tf.print("Example masked class loss on batch 1, 12x7\n", (cls_loss * class_mask)[0, 11, 6, :])
         return cls_loss
 
@@ -208,7 +209,7 @@ def yolo_loss(y_true, y_pred):
 
     # tf.print("class loss:", class_loss)
     # tf.print("conf loss:", conf_loss)
-    if yg.DEBUG_PRINT:
+    if yg.DEBUG_PRINT > 0:
         tf.print("Class Loss: ", class_loss)
         tf.print("Confidence Loss: ", conf_loss)
     loss = xywh_loss + class_loss + conf_loss
@@ -219,7 +220,9 @@ def yolo_loss(y_true, y_pred):
 
 def get_learning_schedule():
     schedule = [
-        (1, 0.1),
+        (1, 0.2),
+        (4, 0.1),
+        (15, 0.05),
         (33, 0.01),
         (66, 0.001)
     ]
@@ -259,7 +262,7 @@ def make_model():
     x = leaky_relu(x)
     x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    x = Dropout(0.05)(x)
+    x = Dropout(0.15)(x)
 
     x = Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
@@ -285,6 +288,18 @@ def make_model():
     x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
+
+    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    
+    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
     x = MaxPooling2D(pool_size=(2, 2))(x)
 
     skip_conn = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
@@ -308,6 +323,8 @@ def make_model():
     x = leaky_relu(x)
 
     x = Concatenate()([skip_conn, x])
+
+    x = Dropout(0.1)(x)
 
     x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)

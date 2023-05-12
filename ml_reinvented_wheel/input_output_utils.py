@@ -75,7 +75,7 @@ def file_to_img_label(example_tuple):
     img_path, lbl_path = example_tuple[0], example_tuple[1]
     img_path = yg.ROOT_DATASET_PATH + img_path.numpy().decode('utf-8')
     lbl_path = yg.ROOT_DATASET_PATH + lbl_path.numpy().decode('utf-8')
-    if yg.DEBUG_PRINT:
+    if yg.DEBUG_PRINT > 2:
         tf.print("Getting file: ", img_path)
     try:
         f = open(lbl_path)
@@ -164,7 +164,7 @@ def clean_aug_files():
         os.remove(yg.ROOT_DATASET_PATH + f)
 
 
-def augment_ds_zoom(passes=1, zoom_override=None):
+def augment_ds_zoom(passes=1, zoom_override=None, deadzone=None):
     root = yg.ROOT_DATASET_PATH
     all_files = os.listdir(root)
     all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
@@ -186,7 +186,10 @@ def augment_ds_zoom(passes=1, zoom_override=None):
             img_h, img_w = img.shape[0:2]
             
             zoom_factor = 1.0
-            while (zoom_factor == 1.0):
+            if deadzone is None:
+                deadzone = (1.0, 1.0)
+                
+            while (deadzone[0] <= zoom_factor <= deadzone[1]):
                 if zoom_override is not None:
                     zoom_factor = uniform(zoom_override[0], zoom_override[1])
                 else:
@@ -234,7 +237,7 @@ def augment_ds_zoom(passes=1, zoom_override=None):
             f.close()
 
 
-def augment_ds_translate(passes=1, override_shift_range=None):
+def augment_ds_translate(passes=1, override_shift_range=None, deadzone=None):
     root = yg.ROOT_DATASET_PATH
     all_files = os.listdir(root)
     all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
@@ -265,9 +268,16 @@ def augment_ds_translate(passes=1, override_shift_range=None):
                 shift_right_left_max = 350
                 shift_up_down_min = -120
                 shift_up_down_max = 50
-
-            shift_rl_amt = randint(shift_right_left_min, shift_right_left_max)
-            shift_ud_amt = randint(shift_up_down_min, shift_up_down_max)
+                
+            if deadzone is None:
+                deadzone = (0, 0, 0, 0)
+                
+            while deadzone[0] <= shift_rl_amt <= deadzone[1]:
+                shift_rl_amt = randint(shift_right_left_min, shift_right_left_max)
+            
+            while deadzone[2] <= shift_ud_amt <= deadzone[3]:
+                shift_ud_amt = randint(shift_up_down_min, shift_up_down_max)
+                
             translation_matrix = np.float32([[1, 0, shift_rl_amt], [0, 1, shift_ud_amt]])
             new_img = cv.warpAffine(img, translation_matrix, (img_w, img_h))
             new_anns = []
@@ -397,6 +407,8 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
     class_probs = []
     class_names = []
     confs = []
+    num_over_conf_but_not_class = 0
+    num_over_class_but_not_conf = 0
     for row in range(yg.GRID_H):
         for col in range(yg.GRID_W):
             for bbox in range(yg.NUM_ANCHOR_BOXES):
@@ -406,6 +418,10 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
                 highest_prob_class_name = yg.CLASS_MAP[class_argmax_ind]
                 highest_prob_class_amt = y_pred_classes[row, col, bbox, class_argmax_ind]
                 print("Most likely class is", str(highest_prob_class_name), "with prob.", str(highest_prob_class_amt))
+                if highest_prob_class_amt < class_thresh and curr_conf >= conf_thresh:
+                    num_over_conf_but_not_class += 1
+                elif highest_prob_class_amt >= class_thresh and curr_conf < conf_thresh:
+                    num_over_class_but_not_conf += 1
                 if highest_prob_class_amt < class_thresh or curr_conf < conf_thresh:
                     continue
 
@@ -414,7 +430,10 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
                 class_probs += [highest_prob_class_amt]
                 class_names += [highest_prob_class_name]
                 confs += [curr_conf]
-    print("Found ", str(len(bboxes)), " bboxes over the confidence threshold")
+    print("Found ", str(len(bboxes)), " bboxes over both thresholds")
+    print("Found ", str(num_over_class_but_not_conf), " bboxes over class threshold but not confidence threshold")
+    print("Found ", str(num_over_conf_but_not_class), " bboxes over confidence threshold but not class threshold")
+
     for ind, bbox in enumerate(bboxes):
         x_rel = bbox[0]
         y_rel = bbox[1]
