@@ -2,6 +2,7 @@ import pyautogui as pa
 import time
 import win32gui
 import os
+import yolo_globals as yg
 
 scs = 0
 try:
@@ -15,9 +16,11 @@ try:
                 # Firefox is displayed as 'web name — Mozilla Firefox'. — is a double hyphen character.
                 website_name = win_name.replace(" ", "_").replace(".", "_").split("—")[0].lower()
                 files = os.listdir(".\\img\\")
+                files = [f for f in files if "_aug_" not in f]
+                files = [f for f in files if os.path.splitext(f)[1] == yg.IMG_FILETYPE]
+                files = [f for f in files if website_name in f]
                 if len(files) > 0:
-                    prev_scs = [int(s.replace(".png", "").replace(website_name, ""))
-                                for s in files if website_name in s]
+                    prev_scs = [int(s.replace(yg.IMG_FILETYPE, "").replace(website_name, "")) for s in files]
                     if len(prev_scs) > 0:
                         prev_scs = sorted(prev_scs)
                         prev_max = prev_scs[-1]
