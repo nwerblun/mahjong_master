@@ -1,28 +1,26 @@
 import numpy as np
 
-IMG_W = 416*2
-IMG_H = 416*2
-GRID_W = 13
-GRID_H = 13
+IMG_W = 608
+IMG_H = 608
+GRID_W = 19
+GRID_H = 19
 # Class 36 is Z1. It is not currently used. Maybe remove?
 NUM_CLASSES = 36
 # I chose 6 because that's how many objects can appear in one 13x13 grid cell
-NUM_ANCHOR_BOXES = 6
+NUM_ANCHOR_BOXES = 4
 # Obtained from kmeans in kmeans_for_anchor_boxes.py
 # Shape is (NBOXES, 2)
 # Format is Width, Height in % of total image size
 ANCHOR_BOXES = np.array([
  [0.02436721, 0.06027983],
  [0.02436721, 0.06027983],
- [0.02436721, 0.06027983],
- [0.03241598, 0.04497226],
  [0.03241598, 0.04497226],
  [0.03241598, 0.04497226]
 ])
 ANCHOR_BOXES_GRID_UNITS = np.array([[x*GRID_W, y*GRID_H] for x, y in ANCHOR_BOXES], dtype=np.float32)
 
 # Each bounding box has [x,y,w,h,confidence]
-YOLO_OUTPUT_SHAPE = (13, 13, NUM_ANCHOR_BOXES, 5 + NUM_CLASSES)
+YOLO_OUTPUT_SHAPE = (GRID_W, GRID_H, NUM_ANCHOR_BOXES, 5 + NUM_CLASSES)
 YOLO_TOTAL_DIMENSIONS = YOLO_OUTPUT_SHAPE[0] * YOLO_OUTPUT_SHAPE[1] * YOLO_OUTPUT_SHAPE[2] * YOLO_OUTPUT_SHAPE[3]
 
 LABEL_BBOX_INDEX_START = 0
@@ -115,10 +113,10 @@ INVERSE_CLASS_MAP = {
     "f1": 0+34,
     "z1": 0+35
 }
-BATCH_SIZE = 14
+BATCH_SIZE = 10
 DS_BUFFER_SIZE = 0
 TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
-GLOBAL_RNG_SEED = 2727
+GLOBAL_RNG_SEED = 23842
 ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \
                     "mahjong_master\\ml_reinvented_wheel\\img\\"
 IMG_FILETYPE = ".png"
@@ -129,12 +127,12 @@ LAMBDA_OBJECT = 5.0
 LAMBDA_COORD = 1.2
 LAMBDA_CLASS = 1.5
 
-NUM_EPOCHS = 100
+NUM_EPOCHS = 35
 
 # 0 = no prints
 # 1 = print loss values
 # 2 = print loss values + examples of guesses + all above
 # 3 = print files being tested + all above
-DEBUG_PRINT = 1
+DEBUG_PRINT = 0
 
 

@@ -271,7 +271,8 @@ def augment_ds_translate(passes=1, override_shift_range=None, deadzone=None):
                 
             if deadzone is None:
                 deadzone = (0, 0, 0, 0)
-                
+
+            shift_rl_amt = shift_ud_amt = 0
             while deadzone[0] <= shift_rl_amt <= deadzone[1]:
                 shift_rl_amt = randint(shift_right_left_min, shift_right_left_max)
             
@@ -332,14 +333,6 @@ def get_datasets():
     test_ds = tf.data.Dataset.from_tensor_slices(test_examples)
     test_ds = test_ds.map(lambda x: tf.py_function(file_to_img_label, inp=[x], Tout=[tf.float32, tf.float32]))
 
-    # Batching takes too much memory I think. files are already shuffled, so I guess we are just going in.
-    # Mem of params = # trainable params * 4 bytes / param (assuming float32)
-    #   for 31 million params, this is ~124MB
-    # Training mem = mem of params * 3 (once for forward/back prop + other stuff)
-    #   Total ~370MB
-    # For each layer, 4 bytes * (shape[0]*shape[1]*...)
-    #   For a conv layer of 416x416x64 this is 1.2MB
-    # Take the total of all layer output sizes and * batch size to get memory of a forward pass
     if yg.DS_BUFFER_SIZE > 0:
         train_ds = train_ds.shuffle(buffer_size=yg.DS_BUFFER_SIZE,
                                     seed=yg.GLOBAL_RNG_SEED,
@@ -380,7 +373,6 @@ def img_to_pred_input(img_path):
 
 
 def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, unsquish=True):
-    # TODO: Implement NMS
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:
@@ -413,11 +405,11 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
         for col in range(yg.GRID_W):
             for bbox in range(yg.NUM_ANCHOR_BOXES):
                 curr_conf = y_pred_confs[row, col, bbox]
-                print("\nBBox", str(bbox), "in row x col", str(row), "x", str(col), "Confidence:", str(curr_conf))
+                # print("\nBBox", str(bbox), "in row x col", str(row), "x", str(col), "Confidence:", str(curr_conf))
                 class_argmax_ind = np.argmax(y_pred_classes[row, col, bbox])
                 highest_prob_class_name = yg.CLASS_MAP[class_argmax_ind]
                 highest_prob_class_amt = y_pred_classes[row, col, bbox, class_argmax_ind]
-                print("Most likely class is", str(highest_prob_class_name), "with prob.", str(highest_prob_class_amt))
+                # print("Most likely class is", str(highest_prob_class_name), "with prob.", str(highest_prob_class_amt))
                 if highest_prob_class_amt < class_thresh and curr_conf >= conf_thresh:
                     num_over_conf_but_not_class += 1
                 elif highest_prob_class_amt >= class_thresh and curr_conf < conf_thresh:
@@ -433,8 +425,46 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
     print("Found ", str(len(bboxes)), " bboxes over both thresholds")
     print("Found ", str(num_over_class_but_not_conf), " bboxes over class threshold but not confidence threshold")
     print("Found ", str(num_over_conf_but_not_class), " bboxes over confidence threshold but not class threshold")
+    print("Non-max suppressing...")
 
-    for ind, bbox in enumerate(bboxes):
+
+    def iou(box1, box2):
+        # x, y, w, h
+        box1, box2 = np.array(box1), np.array(box2)
+        box1_xy_mins = box1[:2] - (box1[2:]/2.)
+        box1_xy_maxes = box1[:2] + (box1[2:]/2.)
+
+        box2_xy_mins = box2[:2] - (box2[2:]/2.)
+        box2_xy_maxes = box2[:2] + (box2[2:]/2.)
+
+        intersect_mins = np.maximum(box1_xy_mins, box2_xy_mins)
+        intersect_maxes = np.minimum(box1_xy_maxes, box2_xy_maxes)
+        intersect_wh = np.maximum(intersect_maxes - intersect_mins, 0.)
+        intersect_area = intersect_wh[0] * intersect_wh[1]
+
+        box1_area = box1[2] * box1[3]
+        box2_area = box2[2] * box2[3]
+
+        union_area = box2_area + box1_area - intersect_area
+        return intersect_area / union_area
+        
+    remaining = []
+    mega_list = [(bboxes[i], class_probs[i], class_names[i], confs[i]) for i in range(len(bboxes))]
+    # Sort by class probability, reverse so highest is first
+    mega_list = sorted(mega_list, key=lambda x: x[1])[::-1]
+    for i in range(len(mega_list)):
+        include = True
+        for j in range(len(remaining)):              
+            if iou(mega_list[i][0], remaining[j][0]) > 0 and mega_list[i][2] == remaining[j][2]:
+                include = False
+                break
+            
+        if include:
+            remaining += [mega_list[i]]
+            
+    print("Suppressed", str(len(mega_list) - len(remaining)), "boxes")
+    print(str(len(remaining)), "boxes left")
+    for bbox, class_prob, class_name, confs in remaining:
         x_rel = bbox[0]
         y_rel = bbox[1]
         w_rel = bbox[2]
@@ -449,7 +479,7 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
         plt.gca().add_patch(rect)
         # Anchor point seems to be assuming 0,0 is the top left
         text_anchor_xy = ((x_rel - w_rel / 2) * img_w, ((y_rel - h_rel / 2) * img_h) + 5)
-        annotation = class_names[ind] + ": " + str(class_probs[ind]) + "\nObj conf: " + str(confs[ind])
+        annotation = class_name + ": " + str(class_prob) + "\nObj conf: " + str(confs)
         plt.annotate(annotation, text_anchor_xy)
     plt.show()
 

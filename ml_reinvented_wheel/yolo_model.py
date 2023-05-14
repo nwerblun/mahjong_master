@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential, Model
 from keras.layers import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, Reshape, Input, Concatenate, Dropout
+from keras.layers import Conv2D, MaxPooling2D, Reshape, Input, Concatenate, Dropout, Lambda
 from input_output_utils import get_datasets
 import yolo_globals as yg
 import cv2 as cv
@@ -144,6 +144,7 @@ def yolo_loss(y_true, y_pred):
             tf.print("Predicted xy of batch 1, box 0, 12x7", y_pred_xy[0, 11, 6, 0, :])
             tf.print("Predicted wh of batch 1, box 0, 12x7", y_pred_wh[0, 11, 6, 0, :])
         if yg.DEBUG_PRINT > 0:
+            tf.print("\n")
             tf.print("XY Loss: ", loss_xy)
             tf.print("WH Loss: ", loss_wh)
         return loss_wh + loss_xy
@@ -220,11 +221,8 @@ def yolo_loss(y_true, y_pred):
 
 def get_learning_schedule():
     schedule = [
-        (1, 0.2),
-        (4, 0.1),
-        (15, 0.05),
-        (33, 0.01),
-        (66, 0.001)
+        (0, 0.001),
+        (20, 0.0001)
     ]
 
     def update(epoch, lr):
@@ -238,25 +236,18 @@ def get_learning_schedule():
 
 
 def make_model():
-    # Based on yolov2 tiny
+    # Based on yolov2
     leaky_relu = keras.layers.LeakyReLU(alpha=0.1)
+    # 3 for RGB channels
     inp = Input(shape=(yg.IMG_W, yg.IMG_H, 3))
-    
-    x = Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1), padding="same")(inp)
+
+    # Input conv
+    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding="same")(inp)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
     x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    x = Conv2D(filters=16, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
-    x = BatchNormalization()(x)
-    x = leaky_relu(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
-
-    x = Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
-    x = BatchNormalization()(x)
-    x = leaky_relu(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
-
+    # Second input conv
     x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
@@ -264,6 +255,7 @@ def make_model():
 
     x = Dropout(0.15)(x)
 
+    # First conv stack
     x = Conv2D(filters=128, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
@@ -277,6 +269,7 @@ def make_model():
     x = leaky_relu(x)
     x = MaxPooling2D(pool_size=(2, 2))(x)
 
+    # Second conv stack
     x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
@@ -288,7 +281,9 @@ def make_model():
     x = Conv2D(filters=256, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
 
+    # Third conv stack
     x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
@@ -300,13 +295,27 @@ def make_model():
     x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    
+    x = Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+    
+    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
 
+    # Feed forward reorg connection
     skip_conn = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
     skip_conn = BatchNormalization()(skip_conn)
     skip_conn = leaky_relu(skip_conn)
+    def space_to_depthx2(x):
+        return tf.nn.space_to_depth(x, block_size=2)
+    skip_conn = Lambda(space_to_depthx2)(skip_conn)
 
-    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+
+    # Final conv stack
+    x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
 
@@ -314,7 +323,19 @@ def make_model():
     x = BatchNormalization()(x)
     x = leaky_relu(x)
 
-    x = Conv2D(filters=512, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=512, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    x = BatchNormalization()(x)
+    x = leaky_relu(x)
+
+    x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
 
@@ -326,6 +347,7 @@ def make_model():
 
     x = Dropout(0.1)(x)
 
+    # Last layer + reshape
     x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)

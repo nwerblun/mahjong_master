@@ -4,12 +4,12 @@ import os
 from random import randint
 from kmeans_for_anchor_boxes import *
 
-analyze_data = True
-clean = True
+analyze_data = False
+clean = False
 aug = False
 check = False
 train = False
-test_pred = False
+test_pred = True
 plot_test = False
 view_files = False
 if __name__ == "__main__":
@@ -22,14 +22,14 @@ if __name__ == "__main__":
         clean_aug_files()
         
     if aug:
-        augment_ds_zoom(deadzone=(0.98, 1.02))
+        augment_ds_zoom(zoom_override=(0.96, 1.04))
         augment_ds_translate(override_shift_range=(-200, 200, -75, 30), deadzone=(-50, 50, -15, 8))
 
     if check:
         good, fail_files, fail_amts, fail_locs = check_if_grid_size_and_bbox_num_large_enough()
         if not good:
             for i in range(len(fail_files)):
-                print("File failed with", str(fail_amts[i]), ">= objects in cell", str(fail_locs[i][0]), "x", str(fail_locs[i][1]))
+                print("File failed with", ">=", str(fail_amts[i]), "objects in cell", str(fail_locs[i][0]), "x", str(fail_locs[i][1]))
                 print(os.path.splitext(fail_files[i])[0])
             print(str(len(fail_files)), "failed files.")
             prompt = input("Delete all?")
@@ -44,9 +44,9 @@ if __name__ == "__main__":
         train_model(test_after=True, output_json=True)
 
     if test_pred:
-        xy, wh, cnf, cls = predict_on_img(".\\img\\mahjongtime_lite_2_aug_sl47_sd48.png")
-        draw_pred_output_and_plot(".\\img\\mahjongtime_lite_2_aug_sl47_sd48.png", xy, wh, cnf, cls,
-                                  class_thresh=0.8, conf_thresh=0.25, unsquish=True)
+        xy, wh, cnf, cls = predict_on_img(".\\img\\mcr_mahjong_trainer_115.png")
+        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_115.png", xy, wh, cnf, cls,
+                                  class_thresh=0.95, conf_thresh=0.65, unsquish=True)
 
     if plot_test:
         root = yg.ROOT_DATASET_PATH
