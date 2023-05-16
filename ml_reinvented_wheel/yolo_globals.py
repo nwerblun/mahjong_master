@@ -7,16 +7,18 @@ GRID_H = 19
 # Class 36 is Z1. It is not currently used. Maybe remove?
 NUM_CLASSES = 36
 # I chose 6 because that's how many objects can appear in one 13x13 grid cell
-NUM_ANCHOR_BOXES = 4
+NUM_ANCHOR_BOXES = 6
 # Obtained from kmeans in kmeans_for_anchor_boxes.py
 # Shape is (NBOXES, 2)
 # Format is Width, Height in % of total image size
 ANCHOR_BOXES = np.array([
- [0.02436721, 0.06027983],
- [0.02436721, 0.06027983],
- [0.03241598, 0.04497226],
- [0.03241598, 0.04497226]
-])
+    [0.02632965, 0.06452057],
+    [0.02632965, 0.06452057],
+    [0.03488724, 0.04753794],
+    [0.03488724, 0.04753794],
+    [0.03629786, 0.0973151],
+    [0.03629786, 0.0973151],
+    ])
 ANCHOR_BOXES_GRID_UNITS = np.array([[x*GRID_W, y*GRID_H] for x, y in ANCHOR_BOXES], dtype=np.float32)
 
 # Each bounding box has [x,y,w,h,confidence]
@@ -113,10 +115,10 @@ INVERSE_CLASS_MAP = {
     "f1": 0+34,
     "z1": 0+35
 }
-BATCH_SIZE = 10
+BATCH_SIZE = 8
 DS_BUFFER_SIZE = 0
 TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
-GLOBAL_RNG_SEED = 23842
+GLOBAL_RNG_SEED = 70786
 ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \
                     "mahjong_master\\ml_reinvented_wheel\\img\\"
 IMG_FILETYPE = ".png"
@@ -124,10 +126,10 @@ LABEL_FILETYPE = ".txt"
 
 LAMBDA_NO_OBJECT = 1.0
 LAMBDA_OBJECT = 5.0
-LAMBDA_COORD = 1.2
+LAMBDA_COORD = 1.8
 LAMBDA_CLASS = 1.5
 
-NUM_EPOCHS = 35
+NUM_EPOCHS = 40
 
 # 0 = no prints
 # 1 = print loss values

@@ -222,7 +222,7 @@ def yolo_loss(y_true, y_pred):
 def get_learning_schedule():
     schedule = [
         (0, 0.001),
-        (20, 0.0001)
+        (28, 0.0001)
     ]
 
     def update(epoch, lr):
@@ -308,8 +308,9 @@ def make_model():
     skip_conn = Conv2D(filters=64, kernel_size=(1, 1), strides=(1, 1), padding="same")(x)
     skip_conn = BatchNormalization()(skip_conn)
     skip_conn = leaky_relu(skip_conn)
-    def space_to_depthx2(x):
-        return tf.nn.space_to_depth(x, block_size=2)
+
+    def space_to_depthx2(lyr):
+        return tf.nn.space_to_depth(lyr, block_size=2)
     skip_conn = Lambda(space_to_depthx2)(skip_conn)
 
     x = MaxPooling2D(pool_size=(2, 2))(x)
@@ -331,6 +332,8 @@ def make_model():
     x = BatchNormalization()(x)
     x = leaky_relu(x)
 
+    x = Dropout(0.05)(x)
+
     x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
     x = BatchNormalization()(x)
     x = leaky_relu(x)
@@ -345,7 +348,7 @@ def make_model():
 
     x = Concatenate()([skip_conn, x])
 
-    x = Dropout(0.1)(x)
+    x = Dropout(0.15)(x)
 
     # Last layer + reshape
     x = Conv2D(filters=1024, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)

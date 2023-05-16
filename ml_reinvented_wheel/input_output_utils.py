@@ -8,6 +8,7 @@ from matplotlib.patches import Rectangle
 from kmeans_for_anchor_boxes import _iou
 # from matplotlib.colors import get_named_colors_mapping
 from random import choice, randint, uniform
+from shutil import copyfile
 
 
 # colors = list(get_named_colors_mapping().keys())
@@ -153,6 +154,7 @@ def clean_aug_files():
         print(yg.ROOT_DATASET_PATH + f)
     for f in all_aug_img:
         print(yg.ROOT_DATASET_PATH + f)
+    print("A total of", str(len(all_aug_labels)), "labels and", str(len(all_aug_img)), "images will be removed.")
 
     prompt = input("If this is ok, type Y/y. Enter N/n or any other character to cancel.")
     if prompt.lower() != "y":
@@ -164,19 +166,63 @@ def clean_aug_files():
         os.remove(yg.ROOT_DATASET_PATH + f)
 
 
-def augment_ds_zoom(passes=1, zoom_override=None, deadzone=None):
+def augment_brightness(passes=1, brightness_override=None, contrast_override=None, skip_aug=False):
     root = yg.ROOT_DATASET_PATH
     all_files = os.listdir(root)
-    all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
-               and "_aug_" not in os.path.splitext(i)[0]]
-    all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE
-                  and "_aug_" not in os.path.splitext(i)[0]]
-    assert len(all_img) == len(all_labels)
-    assert not any([("_aug_" in i) for i in all_img])
-    assert not any([("_aug_" in i) for i in all_labels])
+    if skip_aug:
+        all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
+                   and "_aug_" not in os.path.splitext(i)[0]]
+        all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE
+                      and "_aug_" not in os.path.splitext(i)[0]]
+        assert len(all_img) == len(all_labels)
+        assert not any([("_aug_" in i) for i in all_img])
+        assert not any([("_aug_" in i) for i in all_labels])
+    else:
+        all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE]
+        all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE]
 
-    for iter in range(passes):
-        print("Zoom augmentations pass #", str(iter), ". Augmenting", str(len(all_img)), "images...")
+    for it in range(passes):
+        print("Brightness augmentations pass #", str(it), ". Augmenting", str(len(all_img)), "images...")
+        for img_path, lbl_path in zip(all_img, all_labels):
+            brightness_change = 1
+            contrast_change = 1.0
+            while brightness_change == 1 or contrast_change == 1.0:
+                if brightness_override is not None:
+                    brightness_change = randint(brightness_override[0], brightness_override[1])
+                else:
+                    brightness_change = randint(-80, 80)
+
+                if contrast_override is not None:
+                    contrast_change = uniform(contrast_override[0], contrast_override[1])
+                else:
+                    contrast_change = uniform(0.95, 1.05)
+
+            img = cv.imread(yg.ROOT_DATASET_PATH + img_path)
+            new_img = cv.convertScaleAbs(img, alpha=contrast_change, beta=brightness_change)
+            aug = "_aug_alpha" + "{:.2f}".format(contrast_change).replace(".", "_")
+            aug += "_beta" + str(brightness_change).replace("-", "neg")
+            cv.imwrite(yg.ROOT_DATASET_PATH + os.path.splitext(img_path)[0] + aug + yg.IMG_FILETYPE, new_img)
+            new_lbl_file_path = yg.ROOT_DATASET_PATH + os.path.splitext(lbl_path)[0] + aug + yg.LABEL_FILETYPE
+            copyfile(yg.ROOT_DATASET_PATH + lbl_path, new_lbl_file_path)
+
+
+def augment_ds_zoom(passes=1, zoom_override=None, deadzone=None, ignore_aug=True):
+    root = yg.ROOT_DATASET_PATH
+    all_files = os.listdir(root)
+    if ignore_aug:
+        all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE
+                   and "_aug_" not in os.path.splitext(i)[0]]
+        all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE
+                      and "_aug_" not in os.path.splitext(i)[0]]
+        assert len(all_img) == len(all_labels)
+        assert not any([("_aug_" in i) for i in all_img])
+        assert not any([("_aug_" in i) for i in all_labels])
+    else:
+        all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE]
+        all_labels = [i for i in all_files if os.path.splitext(i)[1] == yg.LABEL_FILETYPE]
+
+    for it in range(passes):
+        print("Zoom augmentations pass #", str(it), ". Augmenting", str(len(all_img)), "images...")
         for img_path, lbl_path in zip(all_img, all_labels):
             f = open(yg.ROOT_DATASET_PATH + lbl_path, "r")
             label_txt = f.readlines()
@@ -189,7 +235,7 @@ def augment_ds_zoom(passes=1, zoom_override=None, deadzone=None):
             if deadzone is None:
                 deadzone = (1.0, 1.0)
                 
-            while (deadzone[0] <= zoom_factor <= deadzone[1]):
+            while deadzone[0] <= zoom_factor <= deadzone[1]:
                 if zoom_override is not None:
                     zoom_factor = uniform(zoom_override[0], zoom_override[1])
                 else:
@@ -248,8 +294,8 @@ def augment_ds_translate(passes=1, override_shift_range=None, deadzone=None):
     assert not any([("_aug_" in i) for i in all_img])
     assert not any([("_aug_" in i) for i in all_labels])
 
-    for iter in range(passes):
-        print("Translation augmentations pass #", str(iter), ". Augmenting", str(len(all_img)), "images...")
+    for it in range(passes):
+        print("Translation augmentations pass #", str(it), ". Augmenting", str(len(all_img)), "images...")
         for img_path, lbl_path in zip(all_img, all_labels):
             f = open(yg.ROOT_DATASET_PATH + lbl_path, "r")
             label_txt = f.readlines()
@@ -426,7 +472,6 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
     print("Found ", str(num_over_class_but_not_conf), " bboxes over class threshold but not confidence threshold")
     print("Found ", str(num_over_conf_but_not_class), " bboxes over confidence threshold but not class threshold")
     print("Non-max suppressing...")
-
 
     def iou(box1, box2):
         # x, y, w, h

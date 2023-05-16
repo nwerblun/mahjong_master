@@ -10,8 +10,9 @@ aug = False
 check = False
 train = False
 test_pred = True
-plot_test = False
-view_files = False
+plot_random_img_with_labels = False
+show_specific_img = False
+specific_img = "mcr_mahjong_trainer_567_aug_sl52_su45_aug_zoom0_95_aug_alpha1_04_beta58" + yg.IMG_FILETYPE
 if __name__ == "__main__":
 
     if analyze_data:
@@ -22,8 +23,10 @@ if __name__ == "__main__":
         clean_aug_files()
         
     if aug:
-        augment_ds_zoom(zoom_override=(0.96, 1.04))
-        augment_ds_translate(override_shift_range=(-200, 200, -75, 30), deadzone=(-50, 50, -15, 8))
+        augment_ds_translate(1, override_shift_range=(-215, 215, -75, 30), deadzone=(-50, 50, -15, 8))
+        augment_ds_zoom(zoom_override=(0.95, 1.05), ignore_aug=False)
+        augment_ds_translate(1, override_shift_range=(-215, 215, -75, 30), deadzone=(-50, 50, -15, 8))
+        augment_brightness()
 
     if check:
         good, fail_files, fail_amts, fail_locs = check_if_grid_size_and_bbox_num_large_enough()
@@ -38,17 +41,16 @@ if __name__ == "__main__":
                     img_path = os.path.splitext(f)[0] + yg.IMG_FILETYPE
                     os.remove(f)
                     os.remove(img_path)
-            # img_and_label_plot(os.path.splitext(max_objs_file)[0]+yg.IMG_FILETYPE, highlight_cell=(grid_row, grid_col))
 
     if train:
         train_model(test_after=True, output_json=True)
 
     if test_pred:
-        xy, wh, cnf, cls = predict_on_img(".\\img\\mcr_mahjong_trainer_115.png")
-        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_115.png", xy, wh, cnf, cls,
-                                  class_thresh=0.95, conf_thresh=0.65, unsquish=True)
+        xy, wh, cnf, cls = predict_on_img(".\\img\\mcr_mahjong_trainer_125.png")
+        draw_pred_output_and_plot(".\\img\\mcr_mahjong_trainer_125.png", xy, wh, cnf, cls,
+                                  class_thresh=0.95, conf_thresh=0.75, unsquish=True)
 
-    if plot_test:
+    if plot_random_img_with_labels:
         root = yg.ROOT_DATASET_PATH
         all_files = os.listdir(root)
         all_img = [i for i in all_files if os.path.splitext(i)[1] == yg.IMG_FILETYPE]
@@ -56,20 +58,8 @@ if __name__ == "__main__":
         print("Displaying", img_path)
         img_and_label_plot(yg.ROOT_DATASET_PATH + img_path)
 
-    if view_files:
-        files_to_view = [
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_113_aug_sl12_su14.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_271.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_296.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_290_aug_sr94_sd2.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_246_aug_sl110_su56.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_224_aug_zoom1_00.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_130_aug_zoom1_01.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_156_aug_sr124_su43.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mahjongtime_lite_23.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_256_aug_sl24_su45.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_122.png",
-             r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_230.png",
-         ]
-        for f in files_to_view:
-            img_and_label_plot(f, squish=True)
+    if show_specific_img:
+        img_and_label_plot(yg.ROOT_DATASET_PATH + specific_img, squish=True)
+        img_and_label_plot(yg.ROOT_DATASET_PATH + specific_img, squish=False)
+
+
