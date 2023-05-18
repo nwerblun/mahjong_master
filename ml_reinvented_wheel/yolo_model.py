@@ -10,80 +10,6 @@ import cv2 as cv
 import numpy as np
 
 
-class YoloReshape(keras.layers.Layer):
-    def __init__(self, target_shape, **kwargs):
-        super().__init__()
-        self.target_shape = tuple(target_shape)
-
-    def get_config(self):
-        config = super().get_config().copy()
-        config.update({
-            'target_shape': self.target_shape
-        })
-        return config
-
-    def call(self, inputs):
-        # Don't specify batch size, TF takes care of it
-        batch_size = tf.shape(inputs)[0]
-        reshaped_inps = tf.reshape(inputs, [-1, yg.GRID_W, yg.GRID_H, yg.NUM_ANCHOR_BOXES, 5+yg.NUM_CLASSES])
-
-        # Reshape class probabilities and DON'T softmax. Should be size (B x GridW x GridH x NumBoxes x NumClasses)
-        class_probs = reshaped_inps[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END]
-        # Commented out because the cross entr. function in loss assumes non-softmaxed logits
-        # class_probs = keras.activations.softmax(class_probs)
-        # tf.print("Class probs shape", tf.shape(class_probs))
-
-        # Each grid cell's confidence. A single value. Size (B x GridW x GridH x NumBBoxes x 1)
-        cell_conf = reshaped_inps[..., yg.PRED_CONFIDENCE_INDEX]
-        # Confidence should range 0->1 so sigmoid it
-        cell_conf = keras.activations.sigmoid(cell_conf)
-        # B x 13 x 13 x 6 -> B x 13 x 13 x 6 x 1
-        cell_conf = tf.expand_dims(cell_conf, axis=-1)
-        # tf.print("Obj confs shape", tf.shape(cell_conf))
-
-        # Create a matrix where each element is just its grid cell location to shift x,y into grid cell units
-        # Note that x,y are swapped because x -> col. instead of row in the image grid
-        # Should contain 0,1,2,3,4...13 repeated 13 times, then reshaped
-        # After reshape it should be a single value in each cell corresponding to its column location
-        cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
-        cell_indicies_x = tf.reshape(cell_indicies_x, [-1, yg.GRID_H, yg.GRID_W, 1, 1])
-        cell_indicies_x = tf.cast(cell_indicies_x, tf.float32)
-
-        # Switches axes 2/1 but keeps all other axes the same. AKA, just transpose the grid
-        cell_indicies_y = tf.transpose(cell_indicies_x, [0, 2, 1, 3, 4])
-        cell_grid = tf.tile(tf.concat([cell_indicies_x, cell_indicies_y], -1),
-                            [batch_size, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
-        # tf.print("Cell grid shape", tf.shape(cell_grid))
-        # tf.print("Cell grid 5, 3", cell_grid[..., 5, 3, :, :])
-
-        # Bounding box lists
-        # Size should be (B x GridW x GridH x NumBBoxes x 4)
-        # * 4 since there's x,y,w,h for each BBox
-        # Start by grabbing just xy to sigmoid, so it ranges 0->1. Add cell grid to adjust units. Assumes order is xywh
-        bboxes_xy = reshaped_inps[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_START+2]
-        bboxes_xy = tf.sigmoid(bboxes_xy) + cell_grid
-        # tf.print("BBox xy size", tf.shape(bboxes_xy))
-
-        # Now grab just the wh and exp it to make it positive, then scale it by the anchor box sizes
-        # This effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
-        bboxes_wh = reshaped_inps[..., yg.PRED_BBOX_INDEX_START+2:yg.PRED_BBOX_INDEX_END]
-        # tf.print("BBox wh size", tf.shape(bboxes_wh))
-        
-        bboxes_wh = tf.exp(bboxes_wh) * \
-            tf.cast(tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2]), tf.float32)
-
-        # Uncomment to clip bbox w/h to be within 0->13 since it should not expand beyond the image.
-        # bboxes_wh = tf.clip_by_value(bboxes_wh, clip_value_min=0, clip_value_max=yg.GRID_W)
-        bboxes = tf.concat([bboxes_xy, bboxes_wh], axis=-1)
-
-        # tf.print("BBox shape", tf.shape(bboxes))
-        bboxes = tf.reshape(bboxes, [-1, yg.GRID_W, yg.GRID_H, yg.NUM_ANCHOR_BOXES, 4])
-        # The axes should be B x GridW x GridH x NumBBoxes, ?, so concatenation will happen on the last axis
-        outputs = keras.layers.concatenate([bboxes, cell_conf, class_probs])
-        # tf.print("Output shape", tf.shape(outputs))
-        return outputs
-
-
 def yolo_loss(y_true, y_pred):
     # y true bbox x,y,w,h are in grid cell units. E.g., ranging from 0->13
     y_true_bboxes = y_true[..., yg.LABEL_BBOX_INDEX_START:yg.LABEL_BBOX_INDEX_END]  # Bx13x13x6x4
@@ -247,11 +173,11 @@ def make_model():
     x = leaky_relu(x)
     x = MaxPooling2D(pool_size=(2, 2))(x)
 
-    # Second input conv
-    x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
-    x = BatchNormalization()(x)
-    x = leaky_relu(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
+    # Second input conv, only needed when img size gets large and it needs to be cut down more
+    # x = Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1), padding="same")(x)
+    # x = BatchNormalization()(x)
+    # x = leaky_relu(x)
+    # x = MaxPooling2D(pool_size=(2, 2))(x)
 
     x = Dropout(0.15)(x)
 
@@ -403,8 +329,7 @@ def load_model(from_json=False):
             if not os.path.exists("model.json") or not os.path.exists("model_weights.h5"):
                 yolo_model = keras.models.load_model("model.h5",
                                                      custom_objects={
-                                                         "yolo_loss": yolo_loss,
-                                                         "YoloReshape": YoloReshape
+                                                         "yolo_loss": yolo_loss
                                                      },
                                                      compile=True)
                 model_h5_to_json_weights(yolo_model)
@@ -418,8 +343,7 @@ def load_model(from_json=False):
         else:
             yolo_model = keras.models.load_model("model.h5",
                                                  custom_objects={
-                                                     "yolo_loss": yolo_loss,
-                                                     "YoloReshape": YoloReshape
+                                                     "yolo_loss": yolo_loss
                                                  },
                                                  compile=True)
     except FileNotFoundError:

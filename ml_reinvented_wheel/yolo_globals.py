@@ -1,24 +1,28 @@
 import numpy as np
 
-IMG_W = 608
-IMG_H = 608
-GRID_W = 19
-GRID_H = 19
-# Class 36 is Z1. It is not currently used. Maybe remove?
-NUM_CLASSES = 36
-# I chose 6 because that's how many objects can appear in one 13x13 grid cell
+# Choose a grid such that max of 2 objects appears in any grid cell (33 for this version)
+# Keep doubling that until it reaches an acceptable image size (33 * 16 = 528)
+IMG_W = 528
+IMG_H = 528
+GRID_W = 33
+GRID_H = 33
+NUM_CLASSES = 35
+# Max of two objects per cell, need to check every aspect ratio twice
 NUM_ANCHOR_BOXES = 6
 # Obtained from kmeans in kmeans_for_anchor_boxes.py
 # Shape is (NBOXES, 2)
 # Format is Width, Height in % of total image size
 ANCHOR_BOXES = np.array([
+    # Vertical discarded tiles and vertical revealed tiles have roughly this shape, aspect ratio 0.725
     [0.02632965, 0.06452057],
     [0.02632965, 0.06452057],
+    # Horizontal discarded tiles and horizontal revealed tiles have about this shape, aspect ratio 1.3
     [0.03488724, 0.04753794],
     [0.03488724, 0.04753794],
+    # Vertical tiles in your hand have this shape, aspect ratio 0.66
     [0.03629786, 0.0973151],
     [0.03629786, 0.0973151],
-    ])
+])
 ANCHOR_BOXES_GRID_UNITS = np.array([[x*GRID_W, y*GRID_H] for x, y in ANCHOR_BOXES], dtype=np.float32)
 
 # Each bounding box has [x,y,w,h,confidence]
@@ -74,8 +78,7 @@ CLASS_MAP = {
     1+30: "wn",
     2+30: "ws",
     3+30: "ww",
-    0+34: "f1",
-    0+35: "z1"
+    0+34: "f1"
 }
 INVERSE_CLASS_MAP = {
     "b1": 0,
@@ -112,13 +115,12 @@ INVERSE_CLASS_MAP = {
     "wn": 1+30,
     "ws": 2+30,
     "ww": 3+30,
-    "f1": 0+34,
-    "z1": 0+35
+    "f1": 0+34
 }
-BATCH_SIZE = 8
+BATCH_SIZE = 2
 DS_BUFFER_SIZE = 0
 TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
-GLOBAL_RNG_SEED = 70786
+GLOBAL_RNG_SEED = 4245
 ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \
                     "mahjong_master\\ml_reinvented_wheel\\img\\"
 IMG_FILETYPE = ".png"

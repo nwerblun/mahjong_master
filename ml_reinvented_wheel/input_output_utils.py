@@ -34,12 +34,15 @@ def check_if_grid_size_and_bbox_num_large_enough():
     fails = []
     fails_objs = []
     fails_loc = []
+    max_assignments = 0
+    max_assignments_file = ""
+    max_assignments_cell_loc = (0, 0)
     for ann in annotations:
         f = open(ann, "r")
         lines = f.readlines()
         lines = [e.strip().split(" ") for e in lines]
         f.close()
-        grid_assignments = np.zeros((yg.GRID_H, yg.GRID_W))
+        grid_assignments = np.zeros((yg.GRID_H, yg.GRID_W)).astype(np.int32)
         for line in lines:
             # X, Y, W, H is already in units of % of image width/height -> range from 0->1
             split_line = [float(el) for el in line]
@@ -51,10 +54,18 @@ def check_if_grid_size_and_bbox_num_large_enough():
             grid_row = int(grid_loc[1])
             grid_col = int(grid_loc[0])
             grid_assignments[grid_row, grid_col] += 1
+
+            if grid_assignments[grid_row, grid_col] > max_assignments:
+                max_assignments = grid_assignments[grid_row, grid_col]
+                max_assignments_file = ann
+                max_assignments_cell_loc = (grid_row, grid_col)
+
             if grid_assignments[grid_row, grid_col] > yg.NUM_ANCHOR_BOXES and (ann not in fails):
                 fails += [ann]
                 fails_objs += [grid_assignments[grid_row, grid_col]]
                 fails_loc += [(grid_row, grid_col)]
+    print("Most objects in cell", str(max_assignments_cell_loc),
+          "is", str(max_assignments), "in file", max_assignments_file)
     return len(fails) == 0, fails, fails_objs, fails_loc
 
 
