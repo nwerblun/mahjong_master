@@ -369,7 +369,7 @@ def _test_model(ds, n_examples, from_h5=True):
                               ))
 
 
-def predict_on_img(img_path):
+def predict_on_img(img_path, from_json=False):
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:
@@ -381,7 +381,7 @@ def predict_on_img(img_path):
     img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
     img = img / 255.0
     img = img.reshape((1,)+img.shape)
-    m = load_model()
+    m = load_model(from_json)
     out = m(img, training=False)
     
     cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
