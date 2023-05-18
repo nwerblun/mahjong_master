@@ -369,7 +369,8 @@ def _test_model(ds, n_examples, from_h5=True):
                               ))
 
 
-def predict_on_img(img_path, from_json=False):
+# TODO: Implement a function that shifts the image left, right, up, down, zoom and average over those results
+def predict_on_img(img_path, from_json=False, specific_model=None):
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:
@@ -381,7 +382,10 @@ def predict_on_img(img_path, from_json=False):
     img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
     img = img / 255.0
     img = img.reshape((1,)+img.shape)
-    m = load_model(from_json)
+    if specific_model is None:
+        m = load_model(from_json)
+    else:
+        m = specific_model
     out = m(img, training=False)
     
     cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
