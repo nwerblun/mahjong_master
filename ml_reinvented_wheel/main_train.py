@@ -40,9 +40,9 @@ def train():
 
 
 def test_pred(pred_img, from_json):
-    xy, wh, cnf, cls = predict_on_img(pred_img, from_json)
+    xy, wh, cnf, cls = predict_on_img_file(pred_img, from_json)
     draw_pred_output_and_plot(pred_img, xy, wh, cnf, cls,
-                              class_thresh=0.95, conf_thresh=0.75, unsquish=True)
+                              class_thresh=0.95, conf_thresh=0.75, nms_iou_thresh=0.2, unsquish=True)
 
 
 def plot_specific_img_with_labels(path, squish, highlight_cell):
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # train()
 
     # Plot network output prediction on an image
-    test_pred(".\\img\\mcr_mahjong_trainer_146.png", True)
+    test_pred(".\\img\\mcr_mahjong_trainer_278.png", True)
 
     # Take an image and plot its labels (true labels, not predicted)
     specific_img = r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_54.png"

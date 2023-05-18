@@ -369,8 +369,41 @@ def _test_model(ds, n_examples, from_h5=True):
                               ))
 
 
-# TODO: Implement a function that shifts the image left, right, up, down, zoom and average over those results
-def predict_on_img(img_path, from_json=False, specific_model=None):
+def _prediction_steps(model_out):
+    # Assumes batch size of 1, e.g. only for prediction on a single image
+    cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
+    cell_indicies_x = tf.reshape(cell_indicies_x, [1, yg.GRID_H, yg.GRID_W, 1, 1])
+    cell_indicies_x = tf.cast(cell_indicies_x, tf.float32)
+
+    # Switches axes 2/1 but keeps all other axes the same. AKA, just transpose the grid
+    cell_indicies_y = tf.transpose(cell_indicies_x, [0, 2, 1, 3, 4])
+    cell_grid = tf.tile(tf.concat([cell_indicies_x, cell_indicies_y], -1), [1, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
+
+    # Start by grabbing just xy to sigmoid, so it ranges 0->1. Add cell grid to adjust units. Assumes order is xywh
+    y_pred_bboxes = model_out[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
+    y_pred_xy = y_pred_bboxes[..., 0:2]
+    y_pred_wh = y_pred_bboxes[..., 2:]
+
+    # Convert to % img
+    y_pred_xy = (tf.sigmoid(y_pred_xy) + cell_grid) / yg.GRID_W
+
+    # Now grab just the wh and exp it to make it positive, then scale it by the anchor box sizes
+    #  effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
+    y_pred_wh = tf.exp(y_pred_wh) * tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2])
+
+    # Convert back to % img
+    y_pred_wh = y_pred_wh / yg.GRID_W
+
+    # Set confidence range 0->1
+    y_pred_confs = model_out[..., yg.PRED_CONFIDENCE_INDEX]
+    y_pred_confs = keras.activations.sigmoid(y_pred_confs)
+
+    # Softmax class outputs
+    y_pred_classes = tf.nn.softmax(model_out[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END])
+    return np.squeeze(y_pred_xy.numpy()), np.squeeze(y_pred_wh.numpy()), np.squeeze(y_pred_confs.numpy()), np.squeeze(y_pred_classes.numpy())
+
+
+def predict_on_img_file(img_path, from_json=False, specific_model=None):
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:
@@ -388,36 +421,136 @@ def predict_on_img(img_path, from_json=False, specific_model=None):
         m = specific_model
     out = m(img, training=False)
     
-    cell_indicies_x = tf.tile(tf.range(yg.GRID_W), [yg.GRID_H])
-    cell_indicies_x = tf.reshape(cell_indicies_x, [1, yg.GRID_H, yg.GRID_W, 1, 1])
-    cell_indicies_x = tf.cast(cell_indicies_x, tf.float32)
-    
-    # Switches axes 2/1 but keeps all other axes the same. AKA, just transpose the grid
-    cell_indicies_y = tf.transpose(cell_indicies_x, [0, 2, 1, 3, 4])
-    # tf.shape(tensor) gets the shape but tensor.shape doesn't work for some reason. Anyway this just gets the current batch size.
-    # I don't use yg.BATCH_SIZE because during validation it changes to a different number and is not reflected in that variable.
-    cell_grid = tf.tile(tf.concat([cell_indicies_x, cell_indicies_y], -1), [1, 1, 1, yg.NUM_ANCHOR_BOXES, 1])
-    
-    # Start by grabbing just xy to sigmoid, so it ranges 0->1. Add cell grid to adjust units. Assumes order is xywh
-    y_pred_bboxes = out[..., yg.PRED_BBOX_INDEX_START:yg.PRED_BBOX_INDEX_END]
-    y_pred_xy = y_pred_bboxes[..., 0:2]
-    y_pred_wh = y_pred_bboxes[..., 2:]
+    return _prediction_steps(out)
 
-    # Convert to % img
-    y_pred_xy = (tf.sigmoid(y_pred_xy) + cell_grid) / yg.GRID_W
 
-    # Now grab just the wh and exp it to make it positive, then scale it by the anchor box sizes
-    #  effectively gets a 'scaled' bbox of the same aspect ratio where the network is predicting the 'scale'
-    y_pred_wh = tf.exp(y_pred_wh) * tf.reshape(yg.ANCHOR_BOXES_GRID_UNITS, [1, 1, 1, yg.NUM_ANCHOR_BOXES, 2])
+def predict_on_img_obj(img, from_json=False, specific_model=None):
+    # Assumes the image comes from something like pyautogui where it's in RGB order
+    img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
+    img = img / 255.0
+    img = img.reshape((1,) + img.shape)
+    if specific_model is None:
+        m = load_model(from_json)
+    else:
+        m = specific_model
+    out = m(img, training=False)
 
-    # Convert back to % img
-    y_pred_wh = y_pred_wh / yg.GRID_W
-    
-    # Set confidence range 0->1
-    y_pred_confs = out[..., yg.PRED_CONFIDENCE_INDEX]
-    y_pred_confs = keras.activations.sigmoid(y_pred_confs)
-    
-    #Softmax class outputs
-    y_pred_classes = tf.nn.softmax(out[..., yg.PRED_CLASS_INDEX_START:yg.PRED_CLASS_INDEX_END])
-    
-    return np.squeeze(y_pred_xy.numpy()), np.squeeze(y_pred_wh.numpy()), np.squeeze(y_pred_confs.numpy()), np.squeeze(y_pred_classes.numpy())
+    return _prediction_steps(out)
+
+
+def average_predict_on_img_obj(img, from_json=False, specific_model=None):
+    # Assumes the image comes from something like pyautogui where it's in RGB order
+    img = cv.resize(img, (yg.IMG_H, yg.IMG_W))
+    img = img / 255.0
+    if specific_model is None:
+        m = load_model(from_json)
+    else:
+        m = specific_model
+
+    shift_mtx_ru = np.float32([
+        [1, 0, 25],
+        [0, 1, -8]
+    ])
+
+    shift_mtx_ld = np.float32([
+        [1, 0, -25],
+        [0, 1, 8]
+    ])
+
+    translate = np.eye(3)
+    translate[0:2, 2] = [-yg.IMG_W / 2, -yg.IMG_H / 2]
+    zoom_in = np.diag([1.05, 1.05, 1])
+    zoom_out = np.diag([0.95, 0.95, 1])
+    inverse_translate = np.eye(3)
+    inverse_translate[0:2, 2] = [(yg.IMG_W - 1) / 2, (yg.IMG_H - 1) / 2]
+    H = inverse_translate @ zoom_in @ translate
+    M_in = H[0:2]
+    H = inverse_translate @ zoom_out @ translate
+    M_out = H[0:2]
+
+    desired_shape = (1, yg.IMG_W, yg.IMG_H, 3)
+    img_ru = cv.warpAffine(img, shift_mtx_ru, (yg.IMG_W, yg.IMG_H)).reshape(desired_shape)
+    img_ld = cv.warpAffine(img, shift_mtx_ld, (yg.IMG_W, yg.IMG_H)).reshape(desired_shape)
+    img_in = cv.warpAffine(img, dsize=(yg.IMG_W, yg.IMG_H), M=M_in, flags=cv.INTER_NEAREST).reshape(desired_shape)
+    img_out = cv.warpAffine(img, dsize=(yg.IMG_W, yg.IMG_H), M=M_out, flags=cv.INTER_NEAREST).reshape(desired_shape)
+    img = img.reshape(desired_shape)
+
+
+    # xy, wh, conf, cls
+    img_pred = _prediction_steps(m(img))
+    img_ru_pred = _prediction_steps(m(img_ru))
+    img_ld_pred = _prediction_steps(m(img_ld))
+    img_in_pred = _prediction_steps(m(img_in))
+    img_out_pred = _prediction_steps(m(img_out))
+
+    img_pred_xy, img_pred_wh, img_pred_conf, img_pred_cls = img_pred
+    img_ru_pred_xy, img_ru_pred_wh, img_ru_pred_conf, img_ru_pred_cls = img_ru_pred
+    img_ld_pred_xy, img_ld_pred_wh, img_ld_pred_conf, img_ld_pred_cls = img_ld_pred
+    # Undo translation of bboxes
+    for row in range(yg.GRID_H):
+        for col in range(yg.GRID_W):
+            for b in range(yg.NUM_ANCHOR_BOXES):
+                img_ru_pred_xy[row, col, b] -= shift_mtx_ru[:, 2] / yg.IMG_W
+                img_ld_pred_xy[row, col, b] -= shift_mtx_ld[:, 2] / yg.IMG_W
+
+    img_ru_pred_xy = np.clip(img_ru_pred_xy, 0., 1.0)
+    img_ld_pred_xy = np.clip(img_ld_pred_xy, 0., 1.0)
+
+    img_in_pred_xy, img_in_pred_wh, img_in_pred_conf, img_in_pred_cls = img_in_pred
+    img_out_pred_xy, img_out_pred_wh, img_out_pred_conf, img_out_pred_cls = img_out_pred
+
+    # Undo zoom/shifting of bboxes. Output is in % img, so we need a new mtx in % img
+    translate = np.eye(3)
+    translate[0:2, 2] = [-0.5, -0.5]
+    zoom_in = np.diag([1.05, 1.05, 1])
+    zoom_out = np.diag([0.95, 0.95, 1])
+    inverse_translate = np.eye(3)
+    inverse_translate[0:2, 2] = [(0.5 - 0.5/yg.IMG_W), (0.5 - 0.5/yg.IMG_W)]
+    H = inverse_translate @ zoom_in @ translate
+    M_in = H[0:2]
+    H = inverse_translate @ zoom_out @ translate
+    M_out = H[0:2]
+    for row in range(yg.GRID_H):
+        for col in range(yg.GRID_W):
+            for b in range(yg.NUM_ANCHOR_BOXES):
+                img_in_pred_xy[row, col, b] = (M_out[:, :2] @ img_in_pred_xy[row, col, b]) + (M_out[:, 2])
+                img_in_pred_wh[row, col, b] *= 0.95
+                img_out_pred_xy[row, col, b] = (M_in[:, :2] @ img_out_pred_xy[row, col, b]) + (M_in[:, 2])
+                img_out_pred_wh[row, col, b] *= 1.05
+
+    overall_xy, overall_wh = np.zeros_like(img_pred_xy), np.zeros_like(img_pred_wh)
+    overall_conf, overall_cls = np.zeros_like(img_pred_conf), np.zeros_like(img_pred_cls)
+    for row in range(yg.GRID_H):
+        for col in range(yg.GRID_W):
+            for b in range(yg.NUM_ANCHOR_BOXES):
+                confs = [img_pred_conf[row, col, b],
+                         img_ru_pred_conf[row, col, b],
+                         img_ld_pred_conf[row, col, b],
+                         img_in_pred_conf[row, col, b],
+                         img_out_pred_conf[row, col, b]]
+                xys = [img_pred_xy[row, col, b],
+                       img_ru_pred_xy[row, col, b],
+                       img_ld_pred_xy[row, col, b],
+                       img_in_pred_xy[row, col, b],
+                       img_out_pred_xy[row, col, b]]
+                whs = [img_pred_wh[row, col, b],
+                       img_ru_pred_wh[row, col, b],
+                       img_ld_pred_wh[row, col, b],
+                       img_in_pred_wh[row, col, b],
+                       img_out_pred_wh[row, col, b]]
+                clss = [img_pred_cls[row, col, b],
+                        img_ru_pred_cls[row, col, b],
+                        img_ld_pred_cls[row, col, b],
+                        img_in_pred_cls[row, col, b],
+                        img_out_pred_cls[row, col, b]]
+                max_conf_ind = np.argmax(confs)
+                overall_xy[row, col, b] = xys[max_conf_ind]
+                overall_wh[row, col, b] = whs[max_conf_ind]
+                overall_conf[row, col, b] = confs[max_conf_ind]
+                overall_cls[row, col, b] = clss[max_conf_ind]
+
+    return overall_xy, overall_wh, overall_conf, overall_cls
+
+
+
+

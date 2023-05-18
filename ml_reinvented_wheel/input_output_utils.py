@@ -429,7 +429,7 @@ def img_to_pred_input(img_path):
     return tf.convert_to_tensor(img / 255., dtype=tf.float32)
 
 
-def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, unsquish=True):
+def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, nms_iou_thresh=0.2, unsquish=True):
     try:
         img = cv.imread(img_path)
     except FileNotFoundError:
@@ -511,7 +511,7 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
     for i in range(len(mega_list)):
         include = True
         for j in range(len(remaining)):              
-            if iou(mega_list[i][0], remaining[j][0]) > 0 and mega_list[i][2] == remaining[j][2]:
+            if iou(mega_list[i][0], remaining[j][0]) > nms_iou_thresh and mega_list[i][2] == remaining[j][2]:
                 include = False
                 break
             
