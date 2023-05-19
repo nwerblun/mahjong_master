@@ -315,7 +315,7 @@ def train_model(test_after=True, output_json=False):
     print("Evaluation", yolo_model.evaluate(valid_ds,
                                             steps=int(n_valid //
                                                       max(yg.BATCH_SIZE * yg.TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE[1], 1))))
-    yolo_model.save("model.h5", save_format="h5")
+    yolo_model.save(yg.ROOT_ML_PATH + "model.h5", save_format="h5")
     if output_json:
         model_h5_to_json_weights(yolo_model)
 
@@ -326,22 +326,22 @@ def train_model(test_after=True, output_json=False):
 def load_model(from_json=False):
     try:
         if from_json:
-            if not os.path.exists("model.json") or not os.path.exists("model_weights.h5"):
-                yolo_model = keras.models.load_model("model.h5",
+            if not os.path.exists(yg.ROOT_ML_PATH + "model.json") or not os.path.exists(yg.ROOT_ML_PATH + "model_weights.h5"):
+                yolo_model = keras.models.load_model(yg.ROOT_ML_PATH + "model.h5",
                                                      custom_objects={
                                                          "yolo_loss": yolo_loss
                                                      },
                                                      compile=True)
                 model_h5_to_json_weights(yolo_model)
 
-            f = open("model.json", "r")
+            f = open(yg.ROOT_ML_PATH + "model.json", "r")
             model_text = f.read()
             f.close()
             yolo_model = keras.models.model_from_json(model_text)
-            yolo_model.load_weights("model_weights.h5")
+            yolo_model.load_weights(yg.ROOT_ML_PATH + "model_weights.h5")
             yolo_model.compile(loss=yolo_loss, optimizer="adam")
         else:
-            yolo_model = keras.models.load_model("model.h5",
+            yolo_model = keras.models.load_model(yg.ROOT_ML_PATH + "model.h5",
                                                  custom_objects={
                                                      "yolo_loss": yolo_loss
                                                  },
@@ -353,11 +353,11 @@ def load_model(from_json=False):
 
 
 def model_h5_to_json_weights(model):
-    with open("model.json", "w") as outfile:
+    with open(yg.ROOT_ML_PATH + "model.json", "w") as outfile:
         arch = model.to_json()
         outfile.write(arch)
         outfile.close()
-    model.save_weights("model_weights.h5")
+    model.save_weights(yg.ROOT_ML_PATH + "model_weights.h5")
 
 
 def _test_model(ds, n_examples, from_h5=True):

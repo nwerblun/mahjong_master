@@ -123,6 +123,8 @@ TRAIN_VAL_TEST_SPLIT_RATIO_TUPLE = 0.8, 0.1, 0.1
 GLOBAL_RNG_SEED = 4245
 ROOT_DATASET_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \
                     "mahjong_master\\ml_reinvented_wheel\\img\\"
+ROOT_ML_PATH = "C:\\Users\\NWerblun\\Desktop\\Projects and old school stuff\\" \
+                    "mahjong_master\\ml_reinvented_wheel\\"
 IMG_FILETYPE = ".png"
 LABEL_FILETYPE = ".txt"
 
