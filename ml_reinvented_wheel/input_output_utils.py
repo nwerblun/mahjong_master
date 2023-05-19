@@ -521,7 +521,7 @@ def get_pred_output_img(img, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes,
     image_flat = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
     image = image_flat.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     plt.close()
-    return image
+    return image, remaining
 
 
 def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, nms_iou_thresh=0.2, unsquish=True):
