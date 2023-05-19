@@ -429,6 +429,101 @@ def img_to_pred_input(img_path):
     return tf.convert_to_tensor(img / 255., dtype=tf.float32)
 
 
+def _pred_iou(box1, box2):
+    # x, y, w, h
+    box1, box2 = np.array(box1), np.array(box2)
+    box1_xy_mins = box1[:2] - (box1[2:]/2.)
+    box1_xy_maxes = box1[:2] + (box1[2:]/2.)
+
+    box2_xy_mins = box2[:2] - (box2[2:]/2.)
+    box2_xy_maxes = box2[:2] + (box2[2:]/2.)
+
+    intersect_mins = np.maximum(box1_xy_mins, box2_xy_mins)
+    intersect_maxes = np.minimum(box1_xy_maxes, box2_xy_maxes)
+    intersect_wh = np.maximum(intersect_maxes - intersect_mins, 0.)
+    intersect_area = intersect_wh[0] * intersect_wh[1]
+
+    box1_area = box1[2] * box1[3]
+    box2_area = box2[2] * box2[3]
+
+    union_area = box2_area + box1_area - intersect_area
+    return intersect_area / union_area
+
+
+def get_pred_output_img(img, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, nms_iou_thresh=0.2):
+    img_h, img_w = img.shape[0:2]
+    bboxes = []
+    class_probs = []
+    class_names = []
+    confs = []
+    num_over_conf_but_not_class = 0
+    num_over_class_but_not_conf = 0
+    for row in range(yg.GRID_H):
+        for col in range(yg.GRID_W):
+            for bbox in range(yg.NUM_ANCHOR_BOXES):
+                curr_conf = y_pred_confs[row, col, bbox]
+                # print("\nBBox", str(bbox), "in row x col", str(row), "x", str(col), "Confidence:", str(curr_conf))
+                class_argmax_ind = np.argmax(y_pred_classes[row, col, bbox])
+                highest_prob_class_name = yg.CLASS_MAP[class_argmax_ind]
+                highest_prob_class_amt = y_pred_classes[row, col, bbox, class_argmax_ind]
+                # print("Most likely class is", str(highest_prob_class_name), "with prob.", str(highest_prob_class_amt))
+                if highest_prob_class_amt < class_thresh and curr_conf >= conf_thresh:
+                    num_over_conf_but_not_class += 1
+                elif highest_prob_class_amt >= class_thresh and curr_conf < conf_thresh:
+                    num_over_class_but_not_conf += 1
+                if highest_prob_class_amt < class_thresh or curr_conf < conf_thresh:
+                    continue
+
+                pred_bbox = np.hstack((y_pred_xy[row, col, bbox], y_pred_wh[row, col, bbox]))
+                bboxes += [pred_bbox]
+                class_probs += [highest_prob_class_amt]
+                class_names += [highest_prob_class_name]
+                confs += [curr_conf]
+    remaining = []
+    mega_list = [(bboxes[i], class_probs[i], class_names[i], confs[i]) for i in range(len(bboxes))]
+    # Sort by class probability, reverse so highest is first
+    mega_list = sorted(mega_list, key=lambda x: x[1])[::-1]
+    for i in range(len(mega_list)):
+        include = True
+        for j in range(len(remaining)):
+            if _pred_iou(mega_list[i][0], remaining[j][0]) > nms_iou_thresh and mega_list[i][2] == remaining[j][2]:
+                include = False
+                break
+
+        if include:
+            remaining += [mega_list[i]]
+
+    fig = plt.figure()
+    plt.subplots_adjust(0, 0, 1, 1, 0, 0)
+    plt.imshow(img)
+    ax = plt.gca()
+    ax.axis("off")
+    ax.axis("tight")  # gets rid of white border
+    ax.axis("image")  # square up the image instead of filling the "figure" space
+    for bbox, class_prob, class_name, confs in remaining:
+        x_rel = bbox[0]
+        y_rel = bbox[1]
+        w_rel = bbox[2]
+        h_rel = bbox[3]
+
+        color = choice(colors)
+        plt.plot([x_rel * img_w], [y_rel * img_h], marker="x", markersize=4, color=color)
+        anchor_xy = ((x_rel - w_rel / 2) * img_w, (y_rel - h_rel / 2) * img_h)
+        # Anchor point is the bottom left of the rect
+        rect = Rectangle(anchor_xy, w_rel * img_w, h_rel * img_h, linewidth=2.5, edgecolor=color,
+                         facecolor='none')
+        ax.add_patch(rect)
+        # Anchor point seems to be assuming 0,0 is the top left
+        # text_anchor_xy = ((x_rel - w_rel / 2) * img_w, ((y_rel - h_rel / 2) * img_h) + 5)
+        # annotation = class_name + ": " + str(class_prob) + "\nObj conf: " + str(confs)
+        # plt.annotate(annotation, text_anchor_xy)
+    fig.canvas.draw()
+    image_flat = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
+    image = image_flat.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    plt.close()
+    return image
+
+
 def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pred_classes, class_thresh=0.7, conf_thresh=0.6, nms_iou_thresh=0.2, unsquish=True):
     try:
         img = cv.imread(img_path)
@@ -483,26 +578,6 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
     print("Found ", str(num_over_class_but_not_conf), " bboxes over class threshold but not confidence threshold")
     print("Found ", str(num_over_conf_but_not_class), " bboxes over confidence threshold but not class threshold")
     print("Non-max suppressing...")
-
-    def iou(box1, box2):
-        # x, y, w, h
-        box1, box2 = np.array(box1), np.array(box2)
-        box1_xy_mins = box1[:2] - (box1[2:]/2.)
-        box1_xy_maxes = box1[:2] + (box1[2:]/2.)
-
-        box2_xy_mins = box2[:2] - (box2[2:]/2.)
-        box2_xy_maxes = box2[:2] + (box2[2:]/2.)
-
-        intersect_mins = np.maximum(box1_xy_mins, box2_xy_mins)
-        intersect_maxes = np.minimum(box1_xy_maxes, box2_xy_maxes)
-        intersect_wh = np.maximum(intersect_maxes - intersect_mins, 0.)
-        intersect_area = intersect_wh[0] * intersect_wh[1]
-
-        box1_area = box1[2] * box1[3]
-        box2_area = box2[2] * box2[3]
-
-        union_area = box2_area + box1_area - intersect_area
-        return intersect_area / union_area
         
     remaining = []
     mega_list = [(bboxes[i], class_probs[i], class_names[i], confs[i]) for i in range(len(bboxes))]
@@ -511,7 +586,7 @@ def draw_pred_output_and_plot(img_path, y_pred_xy, y_pred_wh, y_pred_confs, y_pr
     for i in range(len(mega_list)):
         include = True
         for j in range(len(remaining)):              
-            if iou(mega_list[i][0], remaining[j][0]) > nms_iou_thresh and mega_list[i][2] == remaining[j][2]:
+            if _pred_iou(mega_list[i][0], remaining[j][0]) > nms_iou_thresh and mega_list[i][2] == remaining[j][2]:
                 include = False
                 break
             
