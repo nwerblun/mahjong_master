@@ -7,10 +7,12 @@ from score_calculator import Calculator
 from pathfinding import *
 import pyautogui as pa
 import win32gui
+# Ignore these errors. The top level application adds the correct path to sys.path for imports
 from cv2 import resize as img_resize
 import numpy as np
 from yolo_model import predict_on_img_obj, load_model
 from input_output_utils import get_pred_output_img
+import yolo_globals as yg
 
 
 class HandAnalyzer(Frame):
@@ -29,7 +31,7 @@ class HandAnalyzer(Frame):
         self.preview_callback_id = None
         self.preview_img_lbl = Label(self.app_preview_frame)
         self.xy, self.wh, self.conf, self.cls = None, None, None, None
-        self.nms_prediction = None
+        self.nms_prediction_last = None
 
         self.app_select_combobox = None
         self.app_select_combobox_cv = None
@@ -68,10 +70,11 @@ class HandAnalyzer(Frame):
             sc = pa.screenshot()
             img = np.array(sc)
             self.xy, self.wh, self.conf, self.cls = predict_on_img_obj(img, True, self.yolo)
-            img_with_boxes, self.nms_prediction = get_pred_output_img(img, self.xy, self.wh,
-                                                                      self.conf, self.cls,
-                                                                      class_thresh=0.95, conf_thresh=0.75,
-                                                                      nms_iou_thresh=0.2)
+            img_with_boxes, nms_pred = get_pred_output_img(img, self.xy, self.wh,
+                                                           self.conf, self.cls,
+                                                           class_thresh=0.95, conf_thresh=0.75,
+                                                           nms_iou_thresh=0.2)
+            self._prediction_to_calc_and_pf(nms_pred)
             new_h = int(self.winfo_toplevel().winfo_height()*0.5)
             new_w = int(new_h * 16 / 9)
             img = img_resize(img_with_boxes, (new_w, new_h))
@@ -79,6 +82,43 @@ class HandAnalyzer(Frame):
             self.preview_img_lbl.configure(image=ph, anchor="center")
             self.preview_img_lbl.ph = ph  # Avoid garbage collection
         self.preview_callback_id = self.after(100, self._active_app_preview_loop)
+
+    def _prediction_to_calc_and_pf(self, nms_pred):
+        # All xywh in % of img size
+        # box_xywh, predicted class prob, predicted class, name predicted conf
+        player_hand_xy_min = [0.21, 0.967]
+        player_hand_xy_max = [0.756, 0.84]
+        concealed, revealed, discarded = [], [], []
+        concealed_kongs, revealed_kongs = [], []
+        not_concealed = []
+        final = None
+        self_drawn_final = False
+        if self.nms_prediction_last is None:
+            # TODO: Verify that the tiles are in order and this won't be some random revealed tile
+            final = nms_pred[-1][2]
+        else:
+            # TODO: calculate the difference in tiles and set it as last
+            pass
+
+        # TODO: Add an if statement that checks if the box of the last tile is big enough to be concealed/revealed
+
+        # Split into definitely concealed and revealed, but not sure what type of revealed
+        for box, _, tile_name, _ in nms_pred:
+            box_xy = box[:2]
+            box_wh = box[2:]
+            if player_hand_xy_min[0] <= box_xy[0] <= player_hand_xy_max[0]:
+                if player_hand_xy_min[1] <= box_xy[1] <= player_hand_xy_max[1]:
+                    box_area = box_wh[0] * box_wh[1]
+                    if box_area > 0.003:
+                        concealed += [tile_name]
+                    else:
+                        not_concealed += [tile_name]
+
+        # TODO: Add wind dropdowns
+        self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
+                                 "East", "East")
+        self.pathfinder = Pathfinder(self.calculator)
+        self.nms_prediction_last = nms_pred
 
     def create_application_selector(self):
         e = Label(self.app_select_frame, text="Select an Application to Monitor:")
