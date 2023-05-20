@@ -93,14 +93,6 @@ class HandAnalyzer(Frame):
         not_concealed = []
         final = None
         self_drawn_final = False
-        if self.nms_prediction_last is None:
-            # TODO: Verify that the tiles are in order and this won't be some random revealed tile
-            final = nms_pred[-1][2]
-        else:
-            # TODO: calculate the difference in tiles and set it as last
-            pass
-
-        # TODO: Add an if statement that checks if the box of the last tile is big enough to be concealed/revealed
 
         # Split into definitely concealed and revealed, but not sure what type of revealed
         for box, _, tile_name, _ in nms_pred:
@@ -112,7 +104,54 @@ class HandAnalyzer(Frame):
                     if box_area > 0.003:
                         concealed += [tile_name]
                     else:
-                        not_concealed += [tile_name]
+                        not_concealed += [[box, tile_name]]
+
+        if self.nms_prediction_last is None:
+            # Temporary measure until we get a second scan
+            final = concealed[-1]
+        else:
+            # TODO: calculate the difference in tiles and set it as last
+            pass
+
+        # TODO: Add an if statement that checks if the box of the last tile is big enough to be concealed/revealed
+
+        # Sort by x value of the box center
+        not_concealed = sorted(not_concealed, key=lambda x: x[0][0])
+        while len(not_concealed) > 0:
+            if len(not_concealed) == 1:
+                concealed_kongs += [not_concealed[0][1]]
+                # Shortcut to end the while loop. I didn't use break because whatever
+                not_concealed = []
+            # After concealed kongs, must always be 3's or 4's. If not then there's a mistake.
+            elif len(not_concealed) < 3:
+                print("Something is probably wrong with detection/splitting to not concealed")
+                print(not_concealed)
+                raise ValueError("Cannot have fewer than 3 tiles in revealed section")
+            # Only one set, just put it in revealed
+            elif len(not_concealed) == 3:
+                for _, tile_name in not_concealed:
+                    revealed += [tile_name]
+                not_concealed = []
+            elif len(not_concealed) >= 4:
+                # Kong is about 0.06 apart, horz. tiles are about 0.04 apart, vert. about 0.03 apart
+                # 1==2==3 and 1 is close to 2 (chow)
+                if False:
+                    pass
+                # 1 is far from 2, 2/3/4 are sequential (concealed kong + chow)
+                elif False:
+                    pass
+                # 1 far from 2==3==4 (concealed kong + pung)
+                elif False:
+                    pass
+                # 1 close to 2, 1==2==3!=4 (pung)
+                elif False:
+                    pass
+                # First and second are close, 1==2==3==4 (revealed kong)
+                elif False:
+                    pass
+                else:
+                    print("Something is probably wrong with these tiles")
+                    print(not_concealed)
 
         # TODO: Add wind dropdowns
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
