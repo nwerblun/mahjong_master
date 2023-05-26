@@ -47,6 +47,10 @@ class HandAnalyzer(Frame):
         self.visualizer_concealed_set_tile_pictures = []
         self.visualizer_final_tile_picture = None
         self.void_tile = VoidTile()
+        self.round_wind_combobox_cv = None
+        self.seat_wind_combobox_cv = None
+        self.round_wind_combobox = None
+        self.seat_wind_combobox = None
 
         self.app_select_combobox = None
         self.app_select_combobox_cv = None
@@ -97,9 +101,34 @@ class HandAnalyzer(Frame):
 
     def _prediction_to_calc_and_pf(self, nms_pred):
         # All xywh in % of img size
-        # box_xywh, predicted class prob, predicted class, name predicted conf
+        # Each entry contains: box_xywh, predicted class prob, predicted class name, predicted conf
         player_hand_xy_min = [0.21, 0.84]
         player_hand_xy_max = [0.756, 0.967]
+        all_in_player_hand = [t for t in nms_pred if (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
+                                                      player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
+        self.discarded_tiles = [t[2] for t in nms_pred if (player_hand_xy_min[0] > t[0][0] or
+                                                           t[0][0] > player_hand_xy_max[0] and
+                                                           player_hand_xy_min[1] > t[0][1] or
+                                                           t[0][1] < player_hand_xy_max[1])]
+        all_in_player_hand_last_pred = [t for t in self.nms_prediction_last if
+                                        (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
+                                         player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
+
+        all_in_hand_names = [t[2] for t in all_in_player_hand]
+        all_in_hand_last_names = [t[2] for t in all_in_player_hand_last_pred]
+        difference = []
+        difference_amts = []
+        for _, _, tile_name, _ in all_in_player_hand:
+            if all_in_hand_names.count(tile_name) != all_in_hand_last_names.count(tile_name) and\
+                    tile_name not in difference:
+                difference += [tile_name]
+                difference_amts += [all_in_hand_names.count(tile_name) - all_in_hand_last_names.count(tile_name)]
+
+        if len(difference) == 0:
+            self.nms_prediction_last = nms_pred
+            self.discarded_tiles = []
+            return
+
         concealed, revealed = [], []
         concealed_kongs, revealed_kongs = [], []
         not_concealed = []
@@ -107,24 +136,19 @@ class HandAnalyzer(Frame):
         self_drawn_final = False
 
         # Split into definitely concealed and revealed, but not sure what type of revealed
-        for box, _, tile_name, _ in nms_pred:
-            box_xy = box[:2]
+        for box, _, tile_name, _ in all_in_player_hand:
             box_wh = box[2:]
-            if player_hand_xy_min[0] <= box_xy[0] <= player_hand_xy_max[0]:
-                if player_hand_xy_min[1] <= box_xy[1] <= player_hand_xy_max[1]:
-                    box_area = box_wh[0] * box_wh[1]
-                    if box_area > 0.003:
-                        concealed += [tile_name]
-                    else:
-                        not_concealed += [[box, tile_name]]
-                else:
-                    self.discarded_tiles += [tile_name]
+            box_area = box_wh[0] * box_wh[1]
+            # Concealed tiles have an area of about 0.0035, revealed are around 0.002
+            if box_area > 0.003:
+                concealed += [tile_name]
             else:
-                self.discarded_tiles += [tile_name]
+                not_concealed += [[box, tile_name]]
 
         if len(concealed) == 0:
-            print("Something went wrong with concealed tiles scanning")
+            print("Found no concealed tiles. Something went wrong with scanning, maybe?")
             self.nms_prediction_last = None
+            self.discarded_tiles = []
             return
 
         index_of_final_tile = -1
@@ -136,19 +160,17 @@ class HandAnalyzer(Frame):
         # TODO: Remove the last drawn tile from concealed/revealed since it gets added in automatically in hand class
         # TODO: Handle removing the last tile if it was a kong
         else:
-            all_in_player_hand = [t for t in nms_pred if (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
-                                                          player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
-            all_in_player_hand_last_pred = [t for t in self.nms_prediction_last if
-                                            (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
-                                             player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
-            temp_pred_sorted = sorted(all_in_player_hand, key=lambda x: x[2])
-            temp_last_pred_sorted = sorted(all_in_player_hand_last_pred, key=lambda x: x[2])
-            for i in range(min(len(all_in_player_hand), len(all_in_player_hand_last_pred))):
-                if temp_pred_sorted[i][2] != temp_last_pred_sorted[i][2]:
-                    index_of_final_tile = i
-                    break
-            final = temp_pred_sorted[index_of_final_tile][2]
-            final_box_area = temp_pred_sorted[index_of_final_tile][0][2] * temp_pred_sorted[index_of_final_tile][0][3]
+            # Drew/stole a tile, haven't discarded one yet
+            if len(difference) == 1:
+                pass
+            # Drew a tile, discarded a different tile you have >1 of or kong + replacement tile
+            elif len(difference) == 2:
+                pass
+            else:
+                print("More than 3 differences between current and last hand, bailing out")
+                self.nms_prediction_last = nms_pred
+                self.discarded_tiles = []
+                return
 
         # Check if tile size indicates concealed/not concealed
         self_drawn_final = final_box_area > 0.003
@@ -177,13 +199,18 @@ class HandAnalyzer(Frame):
                 four_far_from_three = not_concealed[3][0][0] - not_concealed[2][0][0] > 0.05
                 t0, t1, t2 = Tile(not_concealed[0][1]), Tile(not_concealed[1][1]), Tile(not_concealed[2][1])
                 t3 = Tile(not_concealed[3][1])
-                first_three_sequential = t1.is_sequential_to(t0) and t2.is_sequential_to(t1)
+                # Chows can sometimes be out of order when stolen
+                first_three_in_order = sorted([t0, t1, t2])
+                first_three_sequential = first_three_in_order[1].is_sequential_to(first_three_in_order[0]) and\
+                    first_three_in_order[2].is_sequential_to(first_three_in_order[1])
                 first_three_equal_not_fourth = t0 == t1 and t1 == t2 and t3 != t2
 
                 if len(not_concealed) > 4:
                     t4 = Tile(not_concealed[4][1])
                     first_four_equal_fifth_not_sequential = (t0 == t1 and t1 == t2 and t2 == t3)\
                         and not t4.is_sequential_to(t3)
+                    first_four_equal_fifth_sequential = (t0 == t1 and t1 == t2 and t2 == t3)\
+                        and t4.is_sequential_to(t3)
 
                 # 1 is far from 2 (concealed kong), pop off first tile only
                 if one_far_from_two:
@@ -202,19 +229,24 @@ class HandAnalyzer(Frame):
                     revealed_kongs += [not_concealed.pop(0)[1]]
                     for _ in range(3):
                         not_concealed.pop(0)
-                # 1==2==3==4 and 4->5, inconclusive, need more checks
-                # TODO: Figure this out
-                elif False:
-                    pass
+                # 1==2==3==4 and 4->5, maybe kong maybe pung
+                # Kong case, 3/4 are close together
+                elif len(not_concealed) > 4 and first_four_equal_fifth_sequential and not four_far_from_three:
+                    revealed_kongs += [not_concealed.pop(0)[1]]
+                    for _ in range(3):
+                        not_concealed.pop(0)
+                # pung + chow
+                elif len(not_concealed) > 4 and first_four_equal_fifth_sequential and four_far_from_three:
+                    for _ in range(3):
+                        revealed += [not_concealed.pop(0)[1]]
                 else:
                     print("Something is probably wrong with these tiles")
                     print(not_concealed)
         if counter == 10:
-            print("Reached max iterations in trying to read hand")
+            print("Reached max iterations in trying to decode detected hand")
 
-        # TODO: Add wind dropdowns
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
-                                 "East", "East")
+                                 self.round_wind_combobox_cv.get(), self.seat_wind_combobox_cv.get())
         self.pathfinder = Pathfinder(self.calculator)
         self.nms_prediction_last = nms_pred
         self._update_detected_hand()
@@ -296,6 +328,8 @@ class HandAnalyzer(Frame):
         e.grid(row=0, column=0, columnspan=3)
         uniques = list(set(self.discarded_tiles))
         discard_counts = [(t, self.discarded_tiles.count(t)) for t in uniques]
+        # Sort by tile name
+        discard_counts = sorted(discard_counts, key=lambda x: x[0])
         for i in range(len(discard_counts)):
             tile_name, count = discard_counts[i]
             e = Label(frm, text=tile_name)
@@ -337,7 +371,8 @@ class HandAnalyzer(Frame):
         self.auto_hand_declared_tiles_frame = Frame(self.auto_hand_visualizer_frame)
         self.auto_hand_declared_tiles_frame.grid(row=3, column=0, sticky=W+E)
 
-        e = Label(self.auto_hand_visualizer_frame, text="Last Drawn Tile (May be initially incorrect):")
+        e = Label(self.auto_hand_visualizer_frame,
+                  text="Last Drawn Tile (May be initially incorrect, may not detect every discarded tile):")
         e.grid(row=4, column=0, sticky=W)
         self.auto_hand_final_tile_frame = Frame(self.auto_hand_visualizer_frame)
         self.auto_hand_final_tile_frame.grid(row=5, column=0, sticky=W+E)
@@ -356,6 +391,27 @@ class HandAnalyzer(Frame):
         self.discard_popup_label_cv.set("Click for a list of recognized discarded tiles")
         self.discard_popup_label.grid(row=6, column=0, sticky=W)
         self.discard_popup_label.bind("<ButtonRelease>", self._create_discarded_tiles_popup)
+
+        e = Label(self.auto_hand_visualizer_frame, text="Round Wind:")
+        e.grid(row=1, column=1, sticky=W)
+
+        self.round_wind_combobox_cv = StringVar()
+        self.round_wind_combobox = Combobox(self.auto_hand_visualizer_frame, textvariable=self.round_wind_combobox_cv,
+                                            exportselection=False, justify=LEFT,
+                                            values=("North", "East", "South", "West"))
+        self.round_wind_combobox.grid(row=2, column=1, sticky=W)
+        self.round_wind_combobox.state(['!disabled', 'readonly'])
+        self.round_wind_combobox_cv.set("East")
+
+        e = Label(self.auto_hand_visualizer_frame, text="Seat Wind:")
+        e.grid(row=3, column=1, sticky=W)
+        self.seat_wind_combobox_cv = StringVar()
+        self.seat_wind_combobox = Combobox(self.auto_hand_visualizer_frame, textvariable=self.seat_wind_combobox_cv,
+                                           exportselection=False, justify=LEFT,
+                                           values=("North", "East", "South", "West"))
+        self.seat_wind_combobox.grid(row=4, column=1, sticky=W)
+        self.seat_wind_combobox.state(['!disabled', 'readonly'])
+        self.seat_wind_combobox_cv.set("East")
 
         self.auto_hand_visualizer_frame.rowconfigure("all", weight=1)
         self.auto_hand_visualizer_frame.columnconfigure("all", weight=1)
