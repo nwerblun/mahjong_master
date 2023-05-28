@@ -147,14 +147,34 @@ class Node:
 
 
 class Pathfinder:
-    def __init__(self, calc):
+    def __init__(self, calc, discards=None):
         self.starting_calc = calc
-        remaining_deck = list(zip(Tile.valid_tile_names[:], [4]*len(Tile.valid_tile_names)))
-        # tiles in hand cannot be drawn again
+        if discards is None:
+            remaining_deck = list(zip(Tile.valid_tile_names[:], [4]*len(Tile.valid_tile_names)))
+            # tiles in hand cannot be drawn again
+            for t in self.starting_calc.hand.concealed_tiles:
+                ind = Tile.valid_tile_names.index(t.name)
+                remaining_deck[ind] = (remaining_deck[ind][0], max(0, remaining_deck[ind][1]-1))
+            self.start_node = Node(calc, remaining_deck)
+        else:
+            self._set_remaining_deck_from_discards(discards)
+
+    def _set_remaining_deck_from_discards(self, discards):
+        remaining_deck = list(zip(Tile.valid_tile_names[:], [4] * len(Tile.valid_tile_names)))
+        for t in discards:
+            ind = Tile.valid_tile_names.index(t)
+            remaining_deck[ind] = (remaining_deck[ind][0], max(0, remaining_deck[ind][1] - 1))
         for t in self.starting_calc.hand.concealed_tiles:
             ind = Tile.valid_tile_names.index(t.name)
-            remaining_deck[ind] = (remaining_deck[ind][0], max(0, remaining_deck[ind][1]-1))
-        self.start_node = Node(calc, remaining_deck)
+            remaining_deck[ind] = (remaining_deck[ind][0], max(0, remaining_deck[ind][1] - 1))
+        for t in self.starting_calc.hand.revealed_tiles:
+            ind = Tile.valid_tile_names.index(t.name)
+            remaining_deck[ind] = (remaining_deck[ind][0], max(0, remaining_deck[ind][1] - 1))
+        for t in self.starting_calc.hand.declared_concealed_kongs:
+            ind = Tile.valid_tile_names.index(t[0].name)
+            remaining_deck[ind] = (remaining_deck[ind][0], max(0, remaining_deck[ind][1] - 4))
+
+        self.start_node = Node(self.starting_calc, remaining_deck)
 
     def ready_to_check(self):
         return self.starting_calc.hand.get_num_tiles_in_hand() >= 14

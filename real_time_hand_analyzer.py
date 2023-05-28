@@ -8,6 +8,7 @@ from game import *
 from pathfinding import *
 import pyautogui as pa
 import win32gui
+from functools import partial
 # Ignore these errors. The top level application adds the correct path to sys.path for imports
 from cv2 import resize as img_resize
 import numpy as np
@@ -56,6 +57,19 @@ class HandAnalyzer(Frame):
         self.app_select_combobox_cv = None
         self.selected_window = -1
 
+        self.solutions_style = Style()
+        self.solutions_style.configure("Solutions.TLabel",
+                                       font=('Segoe UI', 12, "bold", "underline"), foreground="blue")
+        self.solver_frame = Frame(self.master, borderwidth=3, relief=GROOVE)
+        self.solver_frame.pack(expand=NO, side=TOP, fill=X)
+        self.activate_button = None
+        self.num_sols_to_find = 6
+        self.pathfinder_process = None
+        self.pathfinder_pipe = None
+        self.pathfinder_poll_callback_id = None
+        self.solutions_label = None
+        self.solution_entries = []
+
     def _update_active_apps_combobox_selection(self, event):
         all_windows = pa.getAllWindows()
         all_windows_titles = [e.title for e in all_windows
@@ -102,14 +116,18 @@ class HandAnalyzer(Frame):
     def _prediction_to_calc_and_pf(self, nms_pred):
         # All xywh in % of img size
         # Each entry contains: box_xywh, predicted class prob, predicted class name, predicted conf
+        if self.nms_prediction_last is None:
+            self.nms_prediction_last = nms_pred
+            return
+
         player_hand_xy_min = [0.21, 0.84]
         player_hand_xy_max = [0.756, 0.967]
         all_in_player_hand = [t for t in nms_pred if (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
                                                       player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
         self.discarded_tiles = [t[2] for t in nms_pred if (player_hand_xy_min[0] > t[0][0] or
-                                                           t[0][0] > player_hand_xy_max[0] and
+                                                           t[0][0] > player_hand_xy_max[0] or
                                                            player_hand_xy_min[1] > t[0][1] or
-                                                           t[0][1] < player_hand_xy_max[1])]
+                                                           t[0][1] > player_hand_xy_max[1])]
         all_in_player_hand_last_pred = [t for t in self.nms_prediction_last if
                                         (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
                                          player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
@@ -118,6 +136,7 @@ class HandAnalyzer(Frame):
         all_in_hand_last_names = [t[2] for t in all_in_player_hand_last_pred]
         difference = []
         difference_amts = []
+
         for _, _, tile_name, _ in all_in_player_hand:
             if all_in_hand_names.count(tile_name) != all_in_hand_last_names.count(tile_name) and\
                     tile_name not in difference:
@@ -125,8 +144,26 @@ class HandAnalyzer(Frame):
                 difference_amts += [all_in_hand_names.count(tile_name) - all_in_hand_last_names.count(tile_name)]
 
         if len(difference) == 0:
+            print("There was no difference from last scan, skipping")
             self.nms_prediction_last = nms_pred
-            self.discarded_tiles = []
+            return
+
+        # Can lose 3 (concealed kong), gain 1 or lose 1 only
+        if not all([x in [-3, -2, -1, 1] for x in difference_amts]):
+            print("Detected unacceptable difference in tiles from last hand, skipping")
+            self.nms_prediction_last = nms_pred
+            return
+
+        # Can only gain one tile in a turn
+        if not len([x == 1 for x in difference_amts]) == 1:
+            print("Detected non-zero amount of new tiles in hand, skipping")
+            self.nms_prediction_last = nms_pred
+            return
+
+        # or lose 3 (concealed kong) and gain 0.
+        if len([x == 1 for x in difference_amts]) == 0 and not len([x == -3 or x == -2 for x in difference_amts]) == 1:
+            print("Detected no tile gain, but did not find a concealed kong, skipping")
+            self.nms_prediction_last = nms_pred
             return
 
         concealed, revealed = [], []
@@ -134,7 +171,7 @@ class HandAnalyzer(Frame):
         not_concealed = []
         final = None
         self_drawn_final = False
-
+        concealed_last, not_concealed_last = [], []
         # Split into definitely concealed and revealed, but not sure what type of revealed
         for box, _, tile_name, _ in all_in_player_hand:
             box_wh = box[2:]
@@ -145,35 +182,47 @@ class HandAnalyzer(Frame):
             else:
                 not_concealed += [[box, tile_name]]
 
+        for box, _, tile_name, _ in all_in_player_hand_last_pred:
+            box_wh = box[2:]
+            box_area = box_wh[0] * box_wh[1]
+            # Concealed tiles have an area of about 0.0035, revealed are around 0.002
+            if box_area > 0.003:
+                concealed_last += [tile_name]
+            else:
+                not_concealed_last += [[box, tile_name]]
+
         if len(concealed) == 0:
             print("Found no concealed tiles. Something went wrong with scanning, maybe?")
             self.nms_prediction_last = None
             self.discarded_tiles = []
             return
 
-        index_of_final_tile = -1
-        if self.nms_prediction_last is None:
-            # Temporary measure until we get a second scan
-            final = concealed[index_of_final_tile]
-            final_box_area = 0
+        not_concealed_names_only = [x[1] for x in not_concealed]
+        not_concealed_last_names_only = [x[1] for x in not_concealed_last]
+        last_was_concealed_kong = False
+        for i in range(len(difference)):
+            if concealed_last.count(difference[i]) != concealed.count(difference[i]) and difference_amts[i] > 0:
+                final = difference[i]
+                self_drawn_final = True
+                break
+            elif not_concealed_names_only.count(difference[i]) != not_concealed_last_names_only.count(difference[i]) \
+                    and difference_amts[i] > 0:
+                final = difference[i]
+                self_drawn_final = False
+            elif difference_amts[i] == -3 or difference_amts[i] == -2 \
+                    and not_concealed_names_only.count(difference[i]) == 1:
+                final = difference[i]
+                self_drawn_final = True
+                last_was_concealed_kong = True
 
-        # TODO: Remove the last drawn tile from concealed/revealed since it gets added in automatically in hand class
-        # TODO: Handle removing the last tile if it was a kong
-        else:
-            # Drew/stole a tile, haven't discarded one yet
-            if len(difference) == 1:
-                pass
-            # Drew a tile, discarded a different tile you have >1 of or kong + replacement tile
-            elif len(difference) == 2:
-                pass
-            else:
-                print("More than 3 differences between current and last hand, bailing out")
-                self.nms_prediction_last = nms_pred
-                self.discarded_tiles = []
-                return
-
-        # Check if tile size indicates concealed/not concealed
-        self_drawn_final = final_box_area > 0.003
+        if self_drawn_final and not last_was_concealed_kong:
+            concealed.pop(concealed.index(final))
+        elif self_drawn_final and last_was_concealed_kong:
+            not_concealed.pop(not_concealed_names_only.index(final))
+            concealed_kongs += [final]
+            final = None
+        elif final is not None:
+            not_concealed.pop(not_concealed_names_only.index(final))
 
         # Sort by x value of the box center
         not_concealed = sorted(not_concealed, key=lambda x: x[0][0])
@@ -247,7 +296,7 @@ class HandAnalyzer(Frame):
 
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
                                  self.round_wind_combobox_cv.get(), self.seat_wind_combobox_cv.get())
-        self.pathfinder = Pathfinder(self.calculator)
+        self.pathfinder = Pathfinder(self.calculator, self.discarded_tiles)
         self.nms_prediction_last = nms_pred
         self._update_detected_hand()
 
@@ -339,6 +388,185 @@ class HandAnalyzer(Frame):
             e = Label(frm, text="x"+str(count))
             e.grid(row=i+1, column=2)
 
+    def _gen_solution_callback(self, breakdown):
+        def f(str_to_print, event):
+            if self.popup:
+                self.popup.destroy()
+                self.popup = None
+            self.popup = Toplevel()
+            self.popup.title("Score Breakdown")
+            self.popup.geometry("600x400")
+            self.popup.resizable(height=False, width=False)
+            frm = Frame(self.popup)
+            frm.pack()
+            lbl = Label(frm, text="Score Breakdown", justify=CENTER)
+            lbl.grid(row=0, column=0, columnspan=4, sticky=N)
+            if str_to_print == "":
+                lbl = Label(frm, text="I don't know why, but there's no breakdown here.")
+                lbl.grid(row=1, column=0, columnspan=4, sticky=N+E+W)
+            else:
+                for row, line in enumerate(str_to_print.split("\n")):
+                    split_line = line.split(",")
+                    lbl = Label(frm, text=split_line[0])
+                    lbl.grid(row=row + 1, column=0)
+                    lbl = Label(frm, text=split_line[1])
+                    lbl.grid(row=row + 1, column=1)
+                    lbl = Label(frm, text=split_line[2])
+                    lbl.grid(row=row + 1, column=2)
+                    lbl = Label(frm, text=split_line[3])
+                    lbl.grid(row=row + 1, column=3)
+        func = partial(f, breakdown)
+        return func
+
+    def _create_solution_entry(self, hand, val, breakdown, sol_num):
+        frm = Frame(self.solver_frame)
+        rvld = hand.revealed_tiles
+        cld = hand.concealed_tiles
+        ck = flatten_list(hand.declared_concealed_kongs)
+        entry_lbl = Label(frm, style="Solutions.TLabel", cursor="hand2",
+                          text=str(sol_num) + ". Est. " + str(val) + " Points. Click for Breakdown")
+        entry_lbl.grid(row=0, sticky=E+W+N)
+        entry_lbl.bind("<ButtonRelease>", self._gen_solution_callback(breakdown))
+
+        declared_frm = Frame(frm)
+        declared_frm.grid(row=1, sticky=E+W)
+
+        concealed_frm = Frame(frm)
+        concealed_frm.grid(row=2, sticky=E+W)
+
+        all_tiles = cld + rvld + ck
+        all_old_tiles = self.calculator.hand.concealed_tiles + self.calculator.hand.revealed_tiles +\
+            flatten_list(self.calculator.hand.declared_concealed_kongs)
+        uniques_new = list(set(all_tiles))
+        new_tiles = [i for i in uniques_new if all_tiles.count(i) > all_old_tiles.count(i)]
+        special_style = Style()
+        special_style.configure("NewTile.TFrame", background="red")
+
+        for t in cld:
+            ph = t.gen_img()
+            if t in new_tiles:
+                x = Frame(concealed_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
+                x.pack(side=LEFT, fill=Y)
+                x = Label(x, image=ph)
+                new_tiles.pop(new_tiles.index(t))
+            else:
+                x = Label(concealed_frm, image=ph)
+            x.ph = ph  # Avoid garbage collection
+            x.pack(side=LEFT, fill=Y)
+
+        for t in rvld:
+            ph = t.gen_img()
+            if t in new_tiles:
+                x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
+                x.pack(side=LEFT, fill=Y)
+                x = Label(x, image=ph)
+                new_tiles.pop(new_tiles.index(t))
+            else:
+                x = Label(declared_frm, image=ph)
+            x.ph = ph  # Avoid garbage collection
+            x.pack(side=LEFT, fill=Y)
+
+        if len(ck) >= 4:
+            for i in range(0, len(ck), 4):
+                ph = self.void_tile.gen_img()
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+                ph = ck[i].gen_img()
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+
+                ph = self.void_tile.gen_img()
+                if ck[i] in new_tiles:
+                    x = Frame(declared_frm, style="NewTile.TFrame", borderwidth=5, relief=GROOVE)
+                    x.pack(side=LEFT, fill=Y)
+                    x = Label(x, image=ph)
+                    new_tiles.pop(new_tiles.index(t))
+                else:
+                    x = Label(concealed_frm, image=ph)
+                x.ph = ph  # Avoid garbage collection
+                x.pack(side=LEFT, fill=Y)
+        return frm
+
+    def _update_solutions_area(self, final):
+        for entr in self.solution_entries:
+            entr.grid_remove()
+            recursive_destroy(entr)
+        self.solution_entries = []
+
+        if final is None or len(final) == 0:
+            return
+
+        self.solutions_label.configure(text="Closest Solution(s) Found!\n", anchor="center")
+        for i in range(len(final)):
+            final_calc = final[i]
+            if not final_calc.pwh:
+                final_calc.pwh = PossibleWinningHand(final_calc.hand)
+            val, breakdown = final_calc.get_score_summary()
+            entr_frm = self._create_solution_entry(final_calc.hand, val, breakdown, i + 1)
+            col_to_use = i // 3
+            entr_frm.grid(row=2+(i % 3), column=col_to_use, sticky=W)
+            self.solution_entries += [entr_frm]
+        self.solver_frame.rowconfigure("all", weight=1)
+        self.solver_frame.columnconfigure("all", weight=1)
+
+    def _poll_status(self):
+        if self.pathfinder_process is None or self.pathfinder_pipe is None:
+            return
+        if not self.pathfinder_pipe.poll():
+            self.pathfinder_poll_callback_id = self.after(10, self._poll_status)
+            return
+        final = self.pathfinder_pipe.recv()
+        self.pathfinder_pipe.close()
+        self.pathfinder_process.join()
+        if len(final) == 0 or final is None:
+            self.solutions_label.configure(text="Number of iterations with no solution exceeded.")
+        self._update_solutions_area(final)
+
+    def _launch_solve(self):
+        self.solutions_label.configure(text="Searching...")
+        self.solutions_label.grid(row=1, column=0, columnspan=self.num_sols_to_find // 3, sticky=E+W)
+        if self.pathfinder_process:
+            # Kill it
+            self.pathfinder_pipe.close()
+            self.pathfinder_process.terminate()
+            self.pathfinder_process.join()
+            self.pathfinder_pipe = None
+            self.pathfinder_process = None
+        if self.pathfinder_poll_callback_id is not None:
+            self.after_cancel(self.pathfinder_poll_callback_id)
+
+        if self.pathfinder.ready_to_check():
+            self.pathfinder_pipe, self.pathfinder_process = self.pathfinder.get_n_fastest_wins(n=self.num_sols_to_find)
+            self.pathfinder_poll_callback_id = self.after(10, self._poll_status)
+        else:
+            self.solutions_label.configure(text="Invalid hand for solving detected.")
+            self._update_solutions_area(None)
+
     def create_application_selector(self):
         e = Label(self.app_select_frame, text="Select an Application to Monitor:")
         e.pack(fill=X, pady=4, anchor="w")
@@ -419,6 +647,11 @@ class HandAnalyzer(Frame):
     def create_auto_hand_visualizer(self):
         if self.preview_label is None:
             self.create_application_preview()
+
+    def create_solver_area(self):
+        self.activate_button = Button(self.solver_frame, text="Find Fastest Winning Hands", command=self._launch_solve)
+        self.activate_button.grid(row=0, column=0, columnspan=self.num_sols_to_find // 3, sticky=E+W)
+        self.solutions_label = Label(self.solver_frame)
 
     def create_solver_section(self):
         pass

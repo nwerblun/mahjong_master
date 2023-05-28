@@ -45,6 +45,7 @@ class Application(Frame):
         self.analyzer.create_application_selector()
         self.analyzer.create_application_preview()
         self.analyzer.create_auto_hand_visualizer()
+        self.analyzer.create_solver_area()
 
     def create_hand_helper(self, root):
         self.hand_assister = HandAssister(root)

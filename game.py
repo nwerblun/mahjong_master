@@ -411,7 +411,7 @@ class Hand:
                 flag = False
                 break
         for i in range(len(self.declared_concealed_kongs)):
-            if self.declared_concealed_kongs[i].name != other.declared_concealed_kongs[i].name:
+            if self.declared_concealed_kongs[i][0].name != other.declared_concealed_kongs[i][0].name:
                 flag = False
                 break
 

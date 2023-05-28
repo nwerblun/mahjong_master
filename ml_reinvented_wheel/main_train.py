@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # train()
 
     # Plot network output prediction on an image
-    test_pred(".\\img\\mcr_mahjong_trainer_278.png", True)
+    test_pred(".\\img\\mcr_mahjong_trainer_256.png", True)
 
     # Take an image and plot its labels (true labels, not predicted)
     specific_img = r"C:\Users\NWerblun\Desktop\Projects and old school stuff\mahjong_master\ml_reinvented_wheel\img\mcr_mahjong_trainer_54.png"
