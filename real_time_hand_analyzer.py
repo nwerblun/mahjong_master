@@ -100,6 +100,8 @@ class HandAnalyzer(Frame):
             sc = pa.screenshot()
             img = np.array(sc)
             self.xy, self.wh, self.conf, self.cls = predict_on_img_obj(img, True, self.yolo)
+            # TODO: The following two lines should be processed in another thread/process.
+            # It's a lot of work to restructure, so maybe use Pathos.multiprocessing with Dill to do it?
             img_with_boxes, nms_pred = get_pred_output_img(img, self.xy, self.wh,
                                                            self.conf, self.cls,
                                                            class_thresh=0.95, conf_thresh=0.75,
