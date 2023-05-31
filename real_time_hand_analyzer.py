@@ -12,9 +12,8 @@ from functools import partial
 # Ignore these errors. The top level application adds the correct path to sys.path for imports
 from cv2 import resize as img_resize
 import numpy as np
-from yolo_model import predict_on_img_obj, load_model
-from input_output_utils import get_pred_output_img
-import yolo_globals as yg
+from multiprocessing import Process, Pipe
+from predictor import Predictor, start_predicting
 
 
 class HandAnalyzer(Frame):
@@ -23,7 +22,6 @@ class HandAnalyzer(Frame):
         self.master.rowconfigure("all", weight=1)
         self.calculator = Calculator()
         self.pathfinder = Pathfinder(self.calculator)
-        self.yolo = load_model(True)
         self.app_select_frame = Frame(self.master, borderwidth=3, relief=GROOVE)
         self.app_select_frame.pack(expand=NO, side=TOP, fill=X)
 
@@ -52,6 +50,13 @@ class HandAnalyzer(Frame):
         self.seat_wind_combobox_cv = None
         self.round_wind_combobox = None
         self.seat_wind_combobox = None
+        self.analyzer_pipe, predictor_pipe = Pipe(True)
+        self.predictor_process = Process(target=start_predicting, args=(predictor_pipe,))
+        self.predictor_process.start()
+        self.prediction_state = "None"
+        self.nms_min = 0.1
+        self.nms_max = 0.45
+        self.curr_nms_thresh = self.nms_min
 
         self.app_select_combobox = None
         self.app_select_combobox_cv = None
@@ -90,37 +95,49 @@ class HandAnalyzer(Frame):
         self.selected_window = all_windows_hwnd[ind]
 
     def _active_app_preview_loop(self):
-        if win32gui.GetForegroundWindow() != self.selected_window:
+        if self.prediction_state == "None" and win32gui.GetForegroundWindow() != self.selected_window:
             self.preview_label.configure(text="Waiting for a window to be selected "
                                               "or for chosen application to become active.")
             self.preview_callback_id = self.after(100, self._active_app_preview_loop)
             return
         else:
             self.preview_label.configure(text="Preview of Chosen Application")
-            sc = pa.screenshot()
-            img = np.array(sc)
-            self.xy, self.wh, self.conf, self.cls = predict_on_img_obj(img, True, self.yolo)
-            # TODO: The following two lines should be processed in another thread/process.
-            # It's a lot of work to restructure, so maybe use Pathos.multiprocessing with Dill to do it?
-            img_with_boxes, nms_pred = get_pred_output_img(img, self.xy, self.wh,
-                                                           self.conf, self.cls,
-                                                           class_thresh=0.95, conf_thresh=0.75,
-                                                           nms_iou_thresh=0.2)
-            self._prediction_to_calc_and_pf(nms_pred)
-            new_h = int(self.winfo_toplevel().winfo_height()*0.5)
-            new_w = int(new_h * 16 / 9)
-            img = img_resize(img_with_boxes, (new_w, new_h))
-            ph = ImageTk.PhotoImage(Image.fromarray(img))
-            self.preview_img_lbl.configure(image=ph, anchor="center")
-            self.preview_img_lbl.ph = ph  # Avoid garbage collection
-        self.preview_callback_id = self.after(100, self._active_app_preview_loop)
+            if self.prediction_state == "None":
+                sc = pa.screenshot()
+                self.analyzer_pipe.send(["predict", np.array(sc)])
+                self.prediction_state = "predicting"
+            elif self.prediction_state == "predicting" and self.analyzer_pipe.poll():
+                pred_res = self.analyzer_pipe.recv()
+                img_with_boxes, nms_pred = pred_res
+                successful = self._prediction_to_calc_and_pf(nms_pred)
+                if not successful and (self.nms_min <= self.curr_nms_thresh < self.nms_max):
+                    # Make less strict
+                    self.curr_nms_thresh += 0.05
+                    print("Failed to scan, increasing nms thresh to", self.curr_nms_thresh)
+                    self.preview_callback_id = self.after(50, self._active_app_preview_loop)
+                    return
+                else:
+                    print("Successful scan. nms thresh = ", self.nms_min)
+                    self.curr_nms_thresh = self.nms_min
+
+                # Comes with white boxes on top and bottom. Try to remove them
+                # Unknown if this will always produce the same amount of rows or not
+                img_with_boxes = img_with_boxes[35:-35]
+                new_h = int(self.winfo_toplevel().winfo_height() * 0.5)
+                new_w = int(new_h * 16 / 9)
+                img = img_resize(img_with_boxes, (new_w, new_h))
+                ph = ImageTk.PhotoImage(Image.fromarray(img))
+                self.preview_img_lbl.configure(image=ph, anchor="center")
+                self.preview_img_lbl.ph = ph  # Avoid garbage collection
+                self.prediction_state = "None"
+        self.preview_callback_id = self.after(50, self._active_app_preview_loop)
 
     def _prediction_to_calc_and_pf(self, nms_pred):
         # All xywh in % of img size
         # Each entry contains: box_xywh, predicted class prob, predicted class name, predicted conf
         if self.nms_prediction_last is None:
             self.nms_prediction_last = nms_pred
-            return
+            return True
 
         player_hand_xy_min = [0.21, 0.84]
         player_hand_xy_max = [0.756, 0.967]
@@ -148,25 +165,25 @@ class HandAnalyzer(Frame):
         if len(difference) == 0:
             print("There was no difference from last scan, skipping")
             self.nms_prediction_last = nms_pred
-            return
+            return True
 
         # Can lose 3 (concealed kong), gain 1 or lose 1 only
         if not all([x in [-3, -2, -1, 1] for x in difference_amts]):
             print("Detected unacceptable difference in tiles from last hand, skipping")
             self.nms_prediction_last = nms_pred
-            return
+            return True
 
         # Can only gain one tile in a turn
         if not len([x == 1 for x in difference_amts]) == 1:
             print("Detected non-zero amount of new tiles in hand, skipping")
             self.nms_prediction_last = nms_pred
-            return
+            return True
 
         # or lose 3 (concealed kong) and gain 0.
         if len([x == 1 for x in difference_amts]) == 0 and not len([x == -3 or x == -2 for x in difference_amts]) == 1:
             print("Detected no tile gain, but did not find a concealed kong, skipping")
             self.nms_prediction_last = nms_pred
-            return
+            return True
 
         concealed, revealed = [], []
         concealed_kongs, revealed_kongs = [], []
@@ -197,7 +214,7 @@ class HandAnalyzer(Frame):
             print("Found no concealed tiles. Something went wrong with scanning, maybe?")
             self.nms_prediction_last = None
             self.discarded_tiles = []
-            return
+            return False
 
         not_concealed_names_only = [x[1] for x in not_concealed]
         not_concealed_last_names_only = [x[1] for x in not_concealed_last]
@@ -235,15 +252,19 @@ class HandAnalyzer(Frame):
                 # Shortcut to end the while loop. I didn't use break because whatever
                 not_concealed = []
             # After concealed kongs, must always be 3's or 4's. If not then there's a mistake.
-            elif len(not_concealed) < 3:
+            elif len(not_concealed) == 2:
                 print("Something is probably wrong with detection/splitting to not concealed")
                 print(not_concealed)
-                raise ValueError("Cannot have fewer than 3 tiles in revealed section")
+                return False
             # Only one set, just put it in revealed
-            elif len(not_concealed) == 3:
+            elif len(not_concealed) == 3 and not (not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05):
                 for _, tile_name in not_concealed:
                     revealed += [tile_name]
                 not_concealed = []
+            elif len(not_concealed) == 3 and (not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05):
+                print("Detected concealed kong and 2 tiles in revealed, not possible")
+                print(not_concealed)
+                return False
             elif len(not_concealed) >= 4:
                 # Kong is about 0.06 apart, horz. tiles are about 0.04 apart, vert. about 0.03 apart
                 one_far_from_two = not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05
@@ -293,14 +314,17 @@ class HandAnalyzer(Frame):
                 else:
                     print("Something is probably wrong with these tiles")
                     print(not_concealed)
+                    return False
         if counter == 10:
             print("Reached max iterations in trying to decode detected hand")
+            return False
 
         self.calculator.set_hand(concealed, revealed, final, self_drawn_final, concealed_kongs, revealed_kongs,
                                  self.round_wind_combobox_cv.get(), self.seat_wind_combobox_cv.get())
         self.pathfinder = Pathfinder(self.calculator, self.discarded_tiles)
         self.nms_prediction_last = nms_pred
         self._update_detected_hand()
+        return True
 
     def _update_detected_hand(self):
         for l in self.visualizer_declared_set_tile_pictures:
@@ -585,7 +609,6 @@ class HandAnalyzer(Frame):
         self.preview_label = Label(self.app_preview_frame, text="Waiting for a window to be selected"
                                                                 " or for chosen application to become active.")
         self.preview_label.pack(side=TOP, expand=NO, fill=X, anchor="center")
-        self.preview_callback_id = self.after(100, self._active_app_preview_loop)
         self.preview_img_lbl.pack(side=LEFT, expand=YES, fill=BOTH, anchor="w")
 
         self.auto_hand_visualizer_frame = Frame(self.app_preview_frame)
@@ -645,6 +668,7 @@ class HandAnalyzer(Frame):
 
         self.auto_hand_visualizer_frame.rowconfigure("all", weight=1)
         self.auto_hand_visualizer_frame.columnconfigure("all", weight=1)
+        self.preview_callback_id = self.after(100, self._active_app_preview_loop)
 
     def create_auto_hand_visualizer(self):
         if self.preview_label is None:
