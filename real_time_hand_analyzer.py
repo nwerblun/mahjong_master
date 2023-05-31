@@ -75,6 +75,8 @@ class HandAnalyzer(Frame):
         self.solutions_label = None
         self.solution_entries = []
 
+        self.reset_button = None
+
     def _update_active_apps_combobox_selection(self, event):
         all_windows = pa.getAllWindows()
         all_windows_titles = [e.title for e in all_windows
@@ -114,6 +116,7 @@ class HandAnalyzer(Frame):
                     # Make less strict
                     self.curr_nms_thresh += 0.05
                     print("Failed to scan, increasing nms thresh to", self.curr_nms_thresh)
+                    self.prediction_state = "None"
                     self.preview_callback_id = self.after(50, self._active_app_preview_loop)
                     return
                 else:
@@ -143,6 +146,9 @@ class HandAnalyzer(Frame):
         player_hand_xy_max = [0.756, 0.967]
         all_in_player_hand = [t for t in nms_pred if (player_hand_xy_min[0] <= t[0][0] <= player_hand_xy_max[0] and
                                                       player_hand_xy_min[1] <= t[0][1] <= player_hand_xy_max[1])]
+        if len(all_in_player_hand) <= 11:
+            return False
+
         self.discarded_tiles = [t[2] for t in nms_pred if (player_hand_xy_min[0] > t[0][0] or
                                                            t[0][0] > player_hand_xy_max[0] or
                                                            player_hand_xy_min[1] > t[0][1] or
@@ -234,87 +240,98 @@ class HandAnalyzer(Frame):
                 self_drawn_final = True
                 last_was_concealed_kong = True
 
-        if self_drawn_final and not last_was_concealed_kong:
-            concealed.pop(concealed.index(final))
-        elif self_drawn_final and last_was_concealed_kong:
-            not_concealed.pop(not_concealed_names_only.index(final))
-            concealed_kongs += [final]
-            final = None
-        elif final is not None:
-            not_concealed.pop(not_concealed_names_only.index(final))
+        try:
+            if self_drawn_final and not last_was_concealed_kong:
+                concealed.pop(concealed.index(final))
+            elif self_drawn_final and last_was_concealed_kong:
+                not_concealed.pop(not_concealed_names_only.index(final))
+                concealed_kongs += [final]
+                final = None
+            elif final is not None:
+                not_concealed.pop(not_concealed_names_only.index(final))
+        except Exception as e:
+            print("Messed up looking for final tile. Starting again")
+            self.nms_prediction_last = None
+            return False
 
         # Sort by x value of the box center
         not_concealed = sorted(not_concealed, key=lambda x: x[0][0])
         counter = 0
-        while counter < 10 and len(not_concealed) > 0:
-            if len(not_concealed) == 1:
-                concealed_kongs += [not_concealed[0][1]]
-                # Shortcut to end the while loop. I didn't use break because whatever
-                not_concealed = []
-            # After concealed kongs, must always be 3's or 4's. If not then there's a mistake.
-            elif len(not_concealed) == 2:
-                print("Something is probably wrong with detection/splitting to not concealed")
-                print(not_concealed)
-                return False
-            # Only one set, just put it in revealed
-            elif len(not_concealed) == 3 and not (not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05):
-                for _, tile_name in not_concealed:
-                    revealed += [tile_name]
-                not_concealed = []
-            elif len(not_concealed) == 3 and (not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05):
-                print("Detected concealed kong and 2 tiles in revealed, not possible")
-                print(not_concealed)
-                return False
-            elif len(not_concealed) >= 4:
-                # Kong is about 0.06 apart, horz. tiles are about 0.04 apart, vert. about 0.03 apart
-                one_far_from_two = not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05
-                four_far_from_three = not_concealed[3][0][0] - not_concealed[2][0][0] > 0.05
-                t0, t1, t2 = Tile(not_concealed[0][1]), Tile(not_concealed[1][1]), Tile(not_concealed[2][1])
-                t3 = Tile(not_concealed[3][1])
-                # Chows can sometimes be out of order when stolen
-                first_three_in_order = sorted([t0, t1, t2])
-                first_three_sequential = first_three_in_order[1].is_sequential_to(first_three_in_order[0]) and\
-                    first_three_in_order[2].is_sequential_to(first_three_in_order[1])
-                first_three_equal_not_fourth = t0 == t1 and t1 == t2 and t3 != t2
-
-                if len(not_concealed) > 4:
-                    t4 = Tile(not_concealed[4][1])
-                    first_four_equal_fifth_not_sequential = (t0 == t1 and t1 == t2 and t2 == t3)\
-                        and not t4.is_sequential_to(t3)
-                    first_four_equal_fifth_sequential = (t0 == t1 and t1 == t2 and t2 == t3)\
-                        and t4.is_sequential_to(t3)
-
-                # 1 is far from 2 (concealed kong), pop off first tile only
-                if one_far_from_two:
-                    concealed_kongs += [not_concealed.pop(0)[1]]
-                # 4 is far from 3 (concealed kong, first 3 must be some kind of set) pop first 4 into respective sets
-                elif four_far_from_three:
-                    for _ in range(3):
-                        revealed += [not_concealed.pop(0)[1]]
-                    concealed_kongs += [not_concealed.pop(0)[1]]
-                # 1 -> 2 -> 3 (chow), pop off first 3 only OR 1==2==3!=4 (pung), pop off first 3 only
-                elif first_three_sequential or first_three_equal_not_fourth:
-                    for _ in range(3):
-                        revealed += [not_concealed.pop(0)[1]]
-                # 1==2==3==4 and 4 !-> 5 (kong), pop off first 4
-                elif len(not_concealed) > 4 and first_four_equal_fifth_not_sequential:
-                    revealed_kongs += [not_concealed.pop(0)[1]]
-                    for _ in range(3):
-                        not_concealed.pop(0)
-                # 1==2==3==4 and 4->5, maybe kong maybe pung
-                # Kong case, 3/4 are close together
-                elif len(not_concealed) > 4 and first_four_equal_fifth_sequential and not four_far_from_three:
-                    revealed_kongs += [not_concealed.pop(0)[1]]
-                    for _ in range(3):
-                        not_concealed.pop(0)
-                # pung + chow
-                elif len(not_concealed) > 4 and first_four_equal_fifth_sequential and four_far_from_three:
-                    for _ in range(3):
-                        revealed += [not_concealed.pop(0)[1]]
-                else:
-                    print("Something is probably wrong with these tiles")
+        try:
+            while counter < 10 and len(not_concealed) > 0:
+                if len(not_concealed) == 1:
+                    concealed_kongs += [not_concealed[0][1]]
+                    # Shortcut to end the while loop. I didn't use break because whatever
+                    not_concealed = []
+                # After concealed kongs, must always be 3's or 4's. If not then there's a mistake.
+                elif len(not_concealed) == 2:
+                    print("Something is probably wrong with detection/splitting to not concealed")
                     print(not_concealed)
                     return False
+                # Only one set, just put it in revealed
+                elif len(not_concealed) == 3 and not (not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05):
+                    for _, tile_name in not_concealed:
+                        revealed += [tile_name]
+                    not_concealed = []
+                elif len(not_concealed) == 3 and (not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05):
+                    print("Detected concealed kong and 2 tiles in revealed, not possible")
+                    print(not_concealed)
+                    return False
+                elif len(not_concealed) >= 4:
+                    # Kong is about 0.06 apart, horz. tiles are about 0.04 apart, vert. about 0.03 apart
+                    one_far_from_two = not_concealed[1][0][0] - not_concealed[0][0][0] > 0.05
+                    four_far_from_three = not_concealed[3][0][0] - not_concealed[2][0][0] > 0.05
+                    t0, t1, t2 = Tile(not_concealed[0][1]), Tile(not_concealed[1][1]), Tile(not_concealed[2][1])
+                    t3 = Tile(not_concealed[3][1])
+                    # Chows can sometimes be out of order when stolen
+                    first_three_in_order = sorted([t0, t1, t2])
+                    first_three_sequential = first_three_in_order[1].is_sequential_to(first_three_in_order[0]) and\
+                        first_three_in_order[2].is_sequential_to(first_three_in_order[1])
+                    first_three_equal_not_fourth = t0 == t1 and t1 == t2 and t3 != t2
+
+                    if len(not_concealed) > 4:
+                        t4 = Tile(not_concealed[4][1])
+                        first_four_equal_fifth_not_sequential = (t0 == t1 and t1 == t2 and t2 == t3)\
+                            and not t4.is_sequential_to(t3)
+                        first_four_equal_fifth_sequential = (t0 == t1 and t1 == t2 and t2 == t3)\
+                            and t4.is_sequential_to(t3)
+
+                    # 1 is far from 2 (concealed kong), pop off first tile only
+                    if one_far_from_two:
+                        concealed_kongs += [not_concealed.pop(0)[1]]
+                    # 4 is far from 3 (concealed kong, first 3 must be some kind of set) pop first 4 into respective sets
+                    elif four_far_from_three:
+                        for _ in range(3):
+                            revealed += [not_concealed.pop(0)[1]]
+                        concealed_kongs += [not_concealed.pop(0)[1]]
+                    # 1 -> 2 -> 3 (chow), pop off first 3 only OR 1==2==3!=4 (pung), pop off first 3 only
+                    elif first_three_sequential or first_three_equal_not_fourth:
+                        for _ in range(3):
+                            revealed += [not_concealed.pop(0)[1]]
+                    # 1==2==3==4 and 4 !-> 5 (kong), pop off first 4
+                    elif len(not_concealed) > 4 and first_four_equal_fifth_not_sequential:
+                        revealed_kongs += [not_concealed.pop(0)[1]]
+                        for _ in range(3):
+                            not_concealed.pop(0)
+                    # 1==2==3==4 and 4->5, maybe kong maybe pung
+                    # Kong case, 3/4 are close together
+                    elif len(not_concealed) > 4 and first_four_equal_fifth_sequential and not four_far_from_three:
+                        revealed_kongs += [not_concealed.pop(0)[1]]
+                        for _ in range(3):
+                            not_concealed.pop(0)
+                    # pung + chow
+                    elif len(not_concealed) > 4 and first_four_equal_fifth_sequential and four_far_from_three:
+                        for _ in range(3):
+                            revealed += [not_concealed.pop(0)[1]]
+                    else:
+                        print("Something is probably wrong with these tiles")
+                        print(not_concealed)
+                        return False
+        except Exception as e:
+            print("Something messed up while decoding revealed tiles. Starting over.")
+            self.nms_prediction_last = None
+            return False
+
         if counter == 10:
             print("Reached max iterations in trying to decode detected hand")
             return False
@@ -593,17 +610,29 @@ class HandAnalyzer(Frame):
             self.solutions_label.configure(text="Invalid hand for solving detected.")
             self._update_solutions_area(None)
 
+    def _reset_everything(self):
+        recursive_destroy(self.app_select_frame)
+        recursive_destroy(self.solver_frame)
+        recursive_destroy(self.app_preview_frame)
+        self.__init__(self.master)
+        self.create_application_selector()
+        self.create_application_preview()
+        self.create_solver_area()
+
     def create_application_selector(self):
         e = Label(self.app_select_frame, text="Select an Application to Monitor:")
-        e.pack(fill=X, pady=4, anchor="w")
+        e.pack(side=TOP, fill=X, pady=4, anchor="w")
         self.app_select_combobox_cv = StringVar()
         self.app_select_combobox = Combobox(self.app_select_frame, textvariable=self.app_select_combobox_cv,
                                             exportselection=False, justify=LEFT)
         self.app_select_combobox.bind("<Button>", self._update_active_apps_combobox_selection)
-        self.app_select_combobox.pack(expand=YES, fill=X, pady=4, anchor="center")
+        self.app_select_combobox.pack(side=LEFT, expand=YES, fill=X, pady=4, anchor="center")
         self.app_select_combobox_cv.trace("w", self._active_apps_sel_to_hwnd)
         self.app_select_combobox.state(['!disabled', 'readonly'])
         self.app_select_combobox_cv.set("")
+
+        self.reset_button = Button(self.app_select_frame, text="Reset Everything", command=self._reset_everything)
+        self.reset_button.pack(side=RIGHT, expand=YES, fill=X, padx=5, anchor="center")
 
     def create_application_preview(self):
         self.preview_label = Label(self.app_preview_frame, text="Waiting for a window to be selected"
@@ -679,5 +708,3 @@ class HandAnalyzer(Frame):
         self.activate_button.grid(row=0, column=0, columnspan=self.num_sols_to_find // 3, sticky=E+W)
         self.solutions_label = Label(self.solver_frame)
 
-    def create_solver_section(self):
-        pass

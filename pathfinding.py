@@ -246,6 +246,9 @@ class Pathfinder:
             else:
                 neighbors = curr.get_neighbors(reduced=False)
 
+            if iters % 10 == 0:
+                print("Solver iteration at", str(iters))
+
             for n in neighbors:
                 self._worker_task(curr, nodes_to_ignore, q, n, iters)
 
