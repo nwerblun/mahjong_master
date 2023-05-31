@@ -238,6 +238,39 @@ class Hand:
     def get_num_winds(self):
         return self.num_winds
 
+    def get_num_bamboos(self):
+        if self.uses_bamboo:
+            total = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
+            count = 0
+            for t in total:
+                if t.is_bamboo():
+                    count += 1
+            return count
+        else:
+            return 0
+
+    def get_num_dots(self):
+        if self.uses_dots:
+            total = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
+            count = 0
+            for t in total:
+                if t.is_dot():
+                    count += 1
+            return count
+        else:
+            return 0
+
+    def get_num_chars(self):
+        if self.uses_chars:
+            total = self.concealed_tiles + self.revealed_tiles + flatten_list(self.declared_concealed_kongs)
+            count = 0
+            for t in total:
+                if t.is_char():
+                    count += 1
+            return count
+        else:
+            return 0
+
     def set_final_tile(self, name, self_drawn):
         if Tile.is_valid_name(name):
             self.final_tile = Tile(name)

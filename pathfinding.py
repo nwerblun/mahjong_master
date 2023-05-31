@@ -129,15 +129,31 @@ class Node:
     def is_goal(self):
         return self._get_score() >= 8
 
-    def heuristic(self):
+    def heuristic(self, current_iteration):
         # Estimated distance is some factor of current point value to num tiles needed to win
-        # TODO: Maybe make a smarter heuristic
         self.calc.pwh = PossibleWinningHand(self.calc.hand)
-        if len(self.calc.pwh.four_set_pair_hands) == 0:
-            h = 8
-        else:
-            h = 8 - self._get_score()
-        return h
+        base_score = 8
+        # Kongs are hard, penalize for concealed kong since they are so rare
+        base_score += len(self.calc.pwh.declared_concealed_kongs) * 1
+        # Add points if a lot of revealed sets
+        revealed_sets = self.calc.hand.get_revealed_sets()
+        base_score -= 2 if len(revealed_sets) >= 3 else 0
+        # Subtract points if few revealed sets
+        base_score += 1 if 0 < len(revealed_sets) <= 2 else 0
+        # Add points if no revealed sets
+        base_score -= 1 if len(revealed_sets) == 0 else 0
+        # Add points if > 7 tiles of the same type in hand
+        base_score -= 1 if (self.calc.hand.get_num_dots() > 7 or
+                            self.calc.hand.get_num_bamboos() > 7 or
+                            self.calc.hand.get_num_chars() > 7) else 0
+        # Add points if >=2 dragon tiles in hand
+        base_score -= 1 if self.calc.hand.get_num_dragons() >= 2 else 0
+        # Add points if 4 sets already made, but maybe not enough to win
+        base_score -= 2 if len(self.calc.pwh.four_set_pair_hands) > 0 else 0
+        # If we already have points, include them
+        if len(self.calc.pwh.four_set_pair_hands) != 0:
+            base_score -= self._get_score()
+        return base_score
 
     def __eq__(self, other):
         return self.hand == other.hand
@@ -180,10 +196,10 @@ class Pathfinder:
         return self.starting_calc.hand.get_num_tiles_in_hand() >= 14
 
     @staticmethod
-    def _worker_task(curr, nodes_to_ignore, queue, neighbor):
+    def _worker_task(curr, nodes_to_ignore, queue, neighbor, current_iteration):
         if any([curr == i for i in nodes_to_ignore]):
             return
-        heuristic_result = neighbor.heuristic()
+        heuristic_result = neighbor.heuristic(current_iteration)
         prior_before_update = neighbor.prev_dist + heuristic_result
         prior_after_update = curr.prev_dist + 1 + heuristic_result
         neighbor.priority = prior_before_update
@@ -225,14 +241,13 @@ class Pathfinder:
                 pipe_conn.send(winners)
                 return
 
-            # Disable for now
-            if iters < 3:
+            if iters < 2:
                 neighbors = curr.get_neighbors(reduced=True)
             else:
                 neighbors = curr.get_neighbors(reduced=False)
 
             for n in neighbors:
-                self._worker_task(curr, nodes_to_ignore, q, n)
+                self._worker_task(curr, nodes_to_ignore, q, n, iters)
 
             nodes_to_ignore += [curr]
             iters += 1
