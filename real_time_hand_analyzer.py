@@ -54,9 +54,9 @@ class HandAnalyzer(Frame):
         self.predictor_process = Process(target=start_predicting, args=(predictor_pipe,))
         self.predictor_process.start()
         self.prediction_state = "None"
-        self.nms_min = 0.1
-        self.nms_max = 0.45
-        self.curr_nms_thresh = self.nms_min
+        self.curr_nms_thresh = 0.35
+        self.sensitivity_bar = None
+        self.sensitivity_bar_label = None
 
         self.app_select_combobox = None
         self.app_select_combobox_cv = None
@@ -112,16 +112,8 @@ class HandAnalyzer(Frame):
                 pred_res = self.analyzer_pipe.recv()
                 img_with_boxes, nms_pred = pred_res
                 successful = self._prediction_to_calc_and_pf(nms_pred)
-                if not successful and (self.nms_min <= self.curr_nms_thresh < self.nms_max):
-                    # Make less strict
-                    self.curr_nms_thresh += 0.05
-                    print("Failed to scan, increasing nms thresh to", self.curr_nms_thresh)
-                    self.prediction_state = "None"
-                    self.preview_callback_id = self.after(50, self._active_app_preview_loop)
-                    return
-                else:
-                    print("Successful scan. nms thresh = ", self.nms_min)
-                    self.curr_nms_thresh = self.nms_min
+                if not successful:
+                    print("Failed scan. Suggest changing sensitivity.")
 
                 # Comes with white boxes on top and bottom. Try to remove them
                 # Unknown if this will always produce the same amount of rows or not
@@ -619,6 +611,14 @@ class HandAnalyzer(Frame):
         self.create_application_preview()
         self.create_solver_area()
 
+    def _update_sens(self, new):
+        self.analyzer_pipe.send(["sens", new])
+        # resp = self.analyzer_pipe.recv()
+        # if resp:
+            # print(resp)
+        self.sensitivity_bar_label.configure(text="Recognition Sensitivity: {:1.2f}".format(float(new)))
+        self.curr_nms_thresh = float(new)
+
     def create_application_selector(self):
         e = Label(self.app_select_frame, text="Select an Application to Monitor:")
         e.pack(side=TOP, fill=X, pady=4, anchor="w")
@@ -673,6 +673,13 @@ class HandAnalyzer(Frame):
         self.discard_popup_label_cv.set("Click for a list of recognized discarded tiles")
         self.discard_popup_label.grid(row=6, column=0, sticky=W)
         self.discard_popup_label.bind("<ButtonRelease>", self._create_discarded_tiles_popup)
+
+        self.sensitivity_bar_label = Label(self.auto_hand_visualizer_frame, text="Recognition Sensitivity: 0.35")
+        self.sensitivity_bar_label.grid(row=7, column=0, sticky=W)
+
+        self.sensitivity_bar = Scale(self.auto_hand_visualizer_frame, from_=0.15, to=0.99,
+                                     value=0.35, command=self._update_sens)
+        self.sensitivity_bar.grid(row=8, column=0, sticky=E+W)
 
         e = Label(self.auto_hand_visualizer_frame, text="Round Wind:")
         e.grid(row=1, column=1, sticky=W)

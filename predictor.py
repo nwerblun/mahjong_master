@@ -9,6 +9,7 @@ class Predictor:
     def __init__(self, pipe):
         self.model = load_model(True)
         self.pipe = pipe
+        self.thresh = 0.35
 
     def start(self):
         while True:
@@ -17,6 +18,9 @@ class Predictor:
                 request, args = from_parent
                 if request == "predict":
                     self.img_to_prediction(args)
+                elif request == "sens":
+                    self.thresh = float(args)
+                    # self.pipe.send("updated sens to: " + str(self.thresh))
                 elif request == "kill":
                     self.pipe.close()
                     return
@@ -28,11 +32,11 @@ class Predictor:
         return
 
     def pred_to_processed_img_and_nms_output(self, img, xy, wh, conf, cls,
-                                             cls_thr=0.95, conf_thr=0.85, nms_iou_thr=0.35):
+                                             cls_thr=0.95, conf_thr=0.85):
         res = get_pred_output_img(img, xy, wh, conf, cls,
                                   class_thresh=cls_thr,
                                   conf_thresh=conf_thr,
-                                  nms_iou_thresh=nms_iou_thr)
+                                  nms_iou_thresh=self.thresh)
         self.pipe.send(res)
         return
 
