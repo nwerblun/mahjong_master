@@ -57,6 +57,9 @@ class HandAnalyzer(Frame):
         self.curr_nms_thresh = 0.35
         self.sensitivity_bar = None
         self.sensitivity_bar_label = None
+        self.zoom_bar = None
+        self.zoom_bar_label = None
+        self.img_zoom = 1.0
 
         self.app_select_combobox = None
         self.app_select_combobox_cv = None
@@ -105,8 +108,9 @@ class HandAnalyzer(Frame):
         else:
             self.preview_label.configure(text="Preview of Chosen Application")
             if self.prediction_state == "None":
-                sc = pa.screenshot()
-                self.analyzer_pipe.send(["predict", np.array(sc)])
+                sc = np.array(pa.screenshot())
+                sc = img_resize(sc, None, fx=self.img_zoom, fy=self.img_zoom)
+                self.analyzer_pipe.send(["predict", sc])
                 self.prediction_state = "predicting"
             elif self.prediction_state == "predicting" and self.analyzer_pipe.poll():
                 pred_res = self.analyzer_pipe.recv()
@@ -619,6 +623,10 @@ class HandAnalyzer(Frame):
         self.sensitivity_bar_label.configure(text="Recognition Sensitivity: {:1.2f}".format(float(new)))
         self.curr_nms_thresh = float(new)
 
+    def _update_zoom(self, new):
+        self.img_zoom = float(new)
+        self.zoom_bar_label.configure(text="Image Zoom: {:1.2f}".format(float(new)))
+
     def create_application_selector(self):
         e = Label(self.app_select_frame, text="Select an Application to Monitor:")
         e.pack(side=TOP, fill=X, pady=4, anchor="w")
@@ -680,6 +688,13 @@ class HandAnalyzer(Frame):
         self.sensitivity_bar = Scale(self.auto_hand_visualizer_frame, from_=0.15, to=0.99,
                                      value=0.35, command=self._update_sens)
         self.sensitivity_bar.grid(row=8, column=0, sticky=E+W)
+
+        self.zoom_bar_label = Label(self.auto_hand_visualizer_frame, text="Image Zoom: 1.0")
+        self.zoom_bar_label.grid(row=9, column=0, sticky=W)
+
+        self.zoom_bar = Scale(self.auto_hand_visualizer_frame, from_=0.95, to=1.05,
+                              value=1.0, command=self._update_zoom)
+        self.zoom_bar.grid(row=10, column=0, sticky=E+W)
 
         e = Label(self.auto_hand_visualizer_frame, text="Round Wind:")
         e.grid(row=1, column=1, sticky=W)
